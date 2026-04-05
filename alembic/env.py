@@ -21,8 +21,8 @@ settings = get_settings()
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
 # Import all models so Alembic can detect them for autogenerate
-# (will be populated once models are created in Plan 02)
-target_metadata = None
+from src.models import Base  # noqa: F401 — side-effects import registers all models
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
