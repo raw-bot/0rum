@@ -35,9 +35,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Project scaffold (docker-compose, Dockerfile, pyproject.toml, .env.example, src/config.py, alembic environment)
-- [ ] 01-02-PLAN.md — ORM models (6 tables) + async database engine + initial Alembic migration
-- [ ] 01-03-PLAN.md — FastAPI app, /health endpoint, structlog JSON configuration, human verification checkpoint
+- [x] 01-01-PLAN.md — Project scaffold (docker-compose, Dockerfile, pyproject.toml, .env.example, src/config.py, alembic environment)
+- [x] 01-02-PLAN.md — ORM models (6 tables) + async database engine + initial Alembic migration
+- [x] 01-03-PLAN.md — FastAPI app, /health endpoint, structlog JSON configuration, human verification checkpoint
 
 ### Phase 2: Data Ingestion
 **Goal**: XAUUSD candles for M15, H1, H4, D1 accumulate continuously in PostgreSQL with no gaps
