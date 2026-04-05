@@ -32,7 +32,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. `GET /health` returns a JSON response with `status: healthy` and connected service flags
   3. Alembic migrations run cleanly against a fresh postgres container and create all tables
   4. All structlog output is JSON-formatted — no plain `print()` calls exist anywhere in the codebase
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Project scaffold (docker-compose, Dockerfile, pyproject.toml, .env.example, src/config.py, alembic environment)
+- [ ] 01-02-PLAN.md — ORM models (6 tables) + async database engine + initial Alembic migration
+- [ ] 01-03-PLAN.md — FastAPI app, /health endpoint, structlog JSON configuration, human verification checkpoint
 
 ### Phase 2: Data Ingestion
 **Goal**: XAUUSD candles for M15, H1, H4, D1 accumulate continuously in PostgreSQL with no gaps
@@ -125,7 +130,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/? | Not started | - |
+| 1. Foundation | 0/3 | Planned | - |
 | 2. Data Ingestion | 0/? | Not started | - |
 | 3. Strategy Engine | 0/? | Not started | - |
 | 4. Signal Pipeline | 0/? | Not started | - |
