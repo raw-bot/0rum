@@ -1,0 +1,75 @@
+"""Health check endpoint — reports postgres and redis connectivity."""
+
+import time
+
+import redis.asyncio as aioredis
+import structlog
+from fastapi import APIRouter, Depends
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.config import get_settings
+from src.database import get_db
+
+logger = structlog.get_logger(__name__)
+health_router = APIRouter()
+
+# Track startup time for uptime calculation
+_start_time = time.monotonic()
+
+
+@health_router.get("/health")
+async def health_check(db: AsyncSession = Depends(get_db)) -> dict:
+    """Return service health status with postgres and redis connectivity flags.
+
+    Returns:
+        JSON with status, uptime_hours, execution_mode, circuit_breaker placeholder,
+        open_positions placeholder, daily_pnl_pct placeholder, signals_today placeholder,
+        last_candle_fetch placeholder, strategies_active placeholder,
+        redis_connected, and postgres_connected.
+    """
+    settings = get_settings()
+
+    # Check postgres connectivity
+    postgres_connected = False
+    try:
+        await db.execute(text("SELECT 1"))
+        postgres_connected = True
+    except Exception as exc:
+        logger.error("health.postgres_check_failed", error=str(exc))
+
+    # Check redis connectivity
+    redis_connected = False
+    try:
+        r = aioredis.from_url(settings.redis_url, socket_connect_timeout=2)
+        await r.ping()
+        await r.aclose()
+        redis_connected = True
+    except Exception as exc:
+        logger.error("health.redis_check_failed", error=str(exc))
+
+    uptime_seconds = time.monotonic() - _start_time
+    uptime_hours = round(uptime_seconds / 3600, 2)
+
+    overall_status = "healthy" if (postgres_connected and redis_connected) else "degraded"
+
+    logger.info(
+        "health.checked",
+        status=overall_status,
+        postgres_connected=postgres_connected,
+        redis_connected=redis_connected,
+    )
+
+    return {
+        "status": overall_status,
+        "uptime_hours": uptime_hours,
+        "execution_mode": settings.execution_mode.value,
+        "circuit_breaker": False,
+        "open_positions": 0,
+        "daily_pnl_pct": 0.0,
+        "signals_today": 0,
+        "last_candle_fetch": None,
+        "strategies_active": 4,
+        "redis_connected": redis_connected,
+        "postgres_connected": postgres_connected,
+    }
