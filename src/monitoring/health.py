@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import get_settings
 from src.database import get_db
+from src.scheduler.jobs import get_last_candle_fetch
 
 logger = structlog.get_logger(__name__)
 health_router = APIRouter()
@@ -68,7 +69,7 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> dict:
         "open_positions": 0,
         "daily_pnl_pct": 0.0,
         "signals_today": 0,
-        "last_candle_fetch": None,
+        "last_candle_fetch": get_last_candle_fetch(),
         "strategies_active": 4,
         "redis_connected": redis_connected,
         "postgres_connected": postgres_connected,

@@ -3,6 +3,7 @@
 FastAPI application entry point with structured logging and lifecycle management.
 """
 
+import asyncio
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
@@ -47,8 +48,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         database_url=settings.database_url.split("@")[-1],  # hide credentials
     )
 
+    # Launch 6-month backfill as background task (non-blocking)
+    from src.ingestion.candle_fetcher import CandleFetcher
+    fetcher = CandleFetcher(settings=settings)
+    asyncio.create_task(fetcher.backfill_all())
+    logger.info("app.backfill_launched")
+
+    # Start APScheduler with all 4 timeframe jobs
+    from src.scheduler.jobs import create_scheduler
+    scheduler = create_scheduler()
+    scheduler.start()
+    logger.info("app.scheduler_started", job_count=len(scheduler.get_jobs()))
+
     yield
 
+    scheduler.shutdown(wait=False)
     logger.info("app.shutdown")
 
 
