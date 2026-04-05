@@ -90,46 +90,46 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | — | Pending |
-| INFRA-02 | — | Pending |
-| DATA-01 | — | Pending |
-| DATA-02 | — | Pending |
-| STRAT-01 | — | Pending |
-| STRAT-02 | — | Pending |
-| STRAT-03 | — | Pending |
-| STRAT-04 | — | Pending |
-| STRAT-05 | — | Pending |
-| PIPE-01 | — | Pending |
-| PIPE-02 | — | Pending |
-| PIPE-03 | — | Pending |
-| PIPE-04 | — | Pending |
-| PIPE-05 | — | Pending |
-| OPTIM-01 | — | Pending |
-| OPTIM-02 | — | Pending |
-| OPTIM-03 | — | Pending |
-| OPTIM-04 | — | Pending |
-| OPTIM-05 | — | Pending |
-| RISK-01 | — | Pending |
-| RISK-02 | — | Pending |
-| RISK-03 | — | Pending |
-| RISK-04 | — | Pending |
-| RISK-05 | — | Pending |
-| SIG-01 | — | Pending |
-| SIG-02 | — | Pending |
-| SIG-03 | — | Pending |
-| AUTO-01 | — | Pending |
-| AUTO-02 | — | Pending |
-| AUTO-03 | — | Pending |
-| NOTIF-01 | — | Pending |
-| NOTIF-02 | — | Pending |
-| NOTIF-03 | — | Pending |
-| NOTIF-04 | — | Pending |
+| INFRA-01 | Phase 1 | Pending |
+| INFRA-02 | Phase 1 | Pending |
+| DATA-01 | Phase 2 | Pending |
+| DATA-02 | Phase 2 | Pending |
+| STRAT-01 | Phase 3 | Pending |
+| STRAT-02 | Phase 3 | Pending |
+| STRAT-03 | Phase 3 | Pending |
+| STRAT-04 | Phase 3 | Pending |
+| STRAT-05 | Phase 3 | Pending |
+| PIPE-01 | Phase 4 | Pending |
+| PIPE-02 | Phase 4 | Pending |
+| PIPE-03 | Phase 4 | Pending |
+| PIPE-04 | Phase 4 | Pending |
+| PIPE-05 | Phase 4 | Pending |
+| OPTIM-01 | Phase 5 | Pending |
+| OPTIM-02 | Phase 5 | Pending |
+| OPTIM-03 | Phase 5 | Pending |
+| OPTIM-04 | Phase 5 | Pending |
+| OPTIM-05 | Phase 5 | Pending |
+| RISK-01 | Phase 6 | Pending |
+| RISK-02 | Phase 6 | Pending |
+| RISK-03 | Phase 6 | Pending |
+| RISK-04 | Phase 6 | Pending |
+| RISK-05 | Phase 6 | Pending |
+| SIG-01 | Phase 7 | Pending |
+| SIG-02 | Phase 7 | Pending |
+| SIG-03 | Phase 7 | Pending |
+| NOTIF-01 | Phase 7 | Pending |
+| NOTIF-02 | Phase 7 | Pending |
+| NOTIF-03 | Phase 7 | Pending |
+| NOTIF-04 | Phase 7 | Pending |
+| AUTO-01 | Phase 8 | Pending |
+| AUTO-02 | Phase 8 | Pending |
+| AUTO-03 | Phase 8 | Pending |
 
 **Coverage:**
 - v1 requirements: 34 total
-- Mapped to phases: 0 (roadmapper will fill)
-- Unmapped: 34 ⚠️
+- Mapped to phases: 34
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-05*
-*Last updated: 2026-04-05 after initial definition*
+*Last updated: 2026-04-05 — traceability filled by roadmapper*
