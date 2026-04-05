@@ -48,7 +48,12 @@ Plans:
   2. The scheduler refreshes each timeframe on its correct cadence (M15 every 15 min, H1 every hour, H4 every 4h, D1 daily at 00:05 UTC)
   3. Any detected candle gap triggers an automatic backfill and is logged as a structured event
   4. After 24 hours of operation the `candles` table contains no gaps in any timeframe
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — OANDA v20 async client + candle fetcher with upsert storage and 6-month backfill
+- [ ] 02-02-PLAN.md — Gap detector + APScheduler jobs (4 timeframes) + startup wiring in main.py
+- [ ] 02-03-PLAN.md — Ingestion unit tests (OandaClient, CandleFetcher, GapDetector — all mocked, no live deps)
 
 ### Phase 3: Strategy Engine
 **Goal**: All four technical strategies can generate CandidateSignals with entry, SL, TP1, TP2, and confidence from live candle data
@@ -130,8 +135,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/3 | Planned | - |
-| 2. Data Ingestion | 0/? | Not started | - |
+| 1. Foundation | 3/3 | Complete | 2026-04-05 |
+| 2. Data Ingestion | 0/3 | Planned | - |
 | 3. Strategy Engine | 0/? | Not started | - |
 | 4. Signal Pipeline | 0/? | Not started | - |
 | 5. Backtesting & Validation | 0/? | Not started | - |
