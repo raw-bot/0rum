@@ -74,7 +74,7 @@ def upgrade() -> None:
         "trades",
         sa.Column("id", UUID(as_uuid=True), nullable=False, server_default=sa.text("gen_random_uuid()")),
         sa.Column("approved_signal_id", UUID(as_uuid=True), nullable=False),
-        sa.Column("oanda_trade_id", sa.String(30), nullable=True),
+        sa.Column("broker_trade_id", sa.String(30), nullable=True),
         sa.Column("direction", sa.String(5), nullable=False),
         sa.Column("entry_price", sa.Numeric(12, 5), nullable=False),
         sa.Column("sl_price", sa.Numeric(12, 5), nullable=False),

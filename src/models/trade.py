@@ -29,7 +29,7 @@ class TradeORM(Base):
         ForeignKey("approved_signals.id"),
         nullable=False,
     )
-    oanda_trade_id: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    broker_trade_id: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     direction: Mapped[str] = mapped_column(String(5), nullable=False)
     entry_price: Mapped[Decimal] = mapped_column(Numeric(12, 5), nullable=False)
     sl_price: Mapped[Decimal] = mapped_column(Numeric(12, 5), nullable=False)
