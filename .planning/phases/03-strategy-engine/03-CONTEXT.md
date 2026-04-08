@@ -14,9 +14,9 @@ Deliver 4 independent technical strategy modules (`liquidity_sweep`, `trend_cont
 ## Implementation Decisions
 
 ### Confidence Scoring
-- **D-01:** Each strategy computes confidence as a **weighted sum** of its quality factors (the ones listed in CLAUDE.md §9.2–9.5 per strategy).
-- **D-02:** Weights are **per-strategy** — Claude assigns weights that match each strategy's signal nature (e.g., volume matters more for Breakout Expansion than for EMA Momentum). Weights must be documented in code comments.
-- **D-03:** Result is clamped to [0.0, 1.0].
+- **D-01:** Each strategy computes confidence as a **simple linear weighted sum** of its quality factors (the ones listed in CLAUDE.md §9.2–9.5 per strategy). Output range is [0.0, 1.0]. **No sigmoid, no exponential, no non-linear transform of any kind** — strictly a weighted sum with weights that sum to 1.0.
+- **D-02:** Weights are **per-strategy** — Claude assigns weights that match each strategy's signal nature (e.g., volume matters more for Breakout Expansion than for EMA Momentum). Weights must be documented in code comments with their rationale.
+- **D-03:** Result is clamped to [0.0, 1.0] as a final safety guard (individual factor values are already 0–1, so clamping should rarely trigger).
 
 ### Strategy Runner
 - **D-04:** A `StrategyRunner` class lives at `src/strategies/runner.py`. It loads active params from DB, calls all 4 strategies via `asyncio.gather()`, and returns the combined `list[CandidateSignal]`.
