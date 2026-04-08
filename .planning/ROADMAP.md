@@ -65,7 +65,13 @@ Plans:
   3. Every CandidateSignal contains a valid entry, SL, TP1, and a confidence score between 0 and 1
   4. Unit tests for each strategy pass against frozen historical candle fixtures (no live data dependency)
   5. Running all 4 strategies in parallel against the same candle set completes without errors
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — AbstractStrategy base (ATR, swing detection) + StrategyRunner (DB params, midpoint fallback, 500 candles, asyncio.gather)
+- [ ] 03-02-PLAN.md — LiquiditySweepStrategy (STRAT-01) + TrendContinuationStrategy (STRAT-02) with linear confidence scoring
+- [ ] 03-03-PLAN.md — BreakoutExpansionStrategy (STRAT-03) + EmaMomentumStrategy (STRAT-04) with linear confidence scoring
+- [ ] 03-04-PLAN.md — Unit tests for all 4 strategies + StrategyRunner with frozen candle fixtures (no live DB)
 
 ### Phase 4: Signal Pipeline
 **Goal**: Raw CandidateSignals are filtered, ranked, and gated into a ranked ApprovedSignal set with market regime context
@@ -137,7 +143,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete | 2026-04-05 |
 | 2. Data Ingestion | 0/3 | Planned | - |
-| 3. Strategy Engine | 0/? | Not started | - |
+| 3. Strategy Engine | 0/4 | Planned | - |
 | 4. Signal Pipeline | 0/? | Not started | - |
 | 5. Backtesting & Validation | 0/? | Not started | - |
 | 6. Risk Management | 0/? | Not started | - |
