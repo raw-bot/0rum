@@ -1,4 +1,4 @@
-"""Candle fetcher — fetch from OANDA, store in PostgreSQL, backfill on startup."""
+"""Candle fetcher — fetch from FXCM via MetaAPI, store in PostgreSQL, backfill on startup."""
 
 import asyncio
 from datetime import datetime, timedelta, timezone
@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from src.config import Settings, get_settings
 from src.database import AsyncSessionLocal
-from src.ingestion.oanda_client import OandaClient
+from src.ingestion.market_client import MarketDataClient
 from src.models.candle import Candle
 
 log = structlog.get_logger(__name__)
@@ -21,20 +21,19 @@ MAX_PAGINATION_ITERS = 200  # safety cap: 6 months M15 = ~36 pages of 500
 
 
 class CandleFetcher:
-    """Fetches OANDA candles and stores them via upsert in PostgreSQL."""
+    """Fetches FXCM candles via MetaAPI and stores them via upsert in PostgreSQL."""
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
-        self.client = OandaClient(self.settings)
+        self.client = MarketDataClient(self.settings)
 
     def _parse_candle(self, raw: dict, instrument: str, timeframe: str) -> Candle | None:
-        """Parse a raw OANDA candle dict into a Candle ORM object.
+        """Parse a normalized MetaAPI candle dict into a Candle ORM object.
 
         Returns None if the candle is missing required fields (malformed).
         """
         try:
-            mid = raw.get("mid", {})
-            if not mid or not all(k in mid for k in ("o", "h", "l", "c")):
+            if not all(k in raw for k in ("open", "high", "low", "close")):
                 log.warning("candle_fetcher.malformed_candle", raw_keys=list(raw.keys()))
                 return None
             ts_str = raw.get("time")
@@ -46,12 +45,12 @@ class CandleFetcher:
                 instrument=instrument,
                 timeframe=timeframe,
                 timestamp=ts,
-                open=Decimal(mid["o"]),
-                high=Decimal(mid["h"]),
-                low=Decimal(mid["l"]),
-                close=Decimal(mid["c"]),
-                volume=int(raw.get("volume", 0)),
-                complete=bool(raw.get("complete", True)),
+                open=Decimal(str(raw["open"])),
+                high=Decimal(str(raw["high"])),
+                low=Decimal(str(raw["low"])),
+                close=Decimal(str(raw["close"])),
+                volume=int(raw.get("tickVolume", raw.get("volume", 0))),
+                complete=True,  # MetaAPI historical candles are always complete
             )
         except (KeyError, ValueError, TypeError) as exc:
             log.warning("candle_fetcher.parse_error", error=str(exc))

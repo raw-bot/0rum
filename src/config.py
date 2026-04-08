@@ -15,10 +15,9 @@ class ExecutionMode(str, Enum):
 class Settings(BaseSettings):
     """All application settings loaded from .env."""
 
-    # OANDA
-    oanda_api_key: str
-    oanda_account_id: str
-    oanda_api_url: str = "https://api-fxpractice.oanda.com"
+    # MetaAPI / FXCM MT4
+    metaapi_token: str
+    metaapi_account_id: str
 
     # Database
     database_url: str
