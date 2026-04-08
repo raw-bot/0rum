@@ -51,9 +51,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — OANDA v20 async client + candle fetcher with upsert storage and 6-month backfill
-- [ ] 02-02-PLAN.md — Gap detector + APScheduler jobs (4 timeframes) + startup wiring in main.py
-- [ ] 02-03-PLAN.md — Ingestion unit tests (OandaClient, CandleFetcher, GapDetector — all mocked, no live deps)
+- [x] 02-01-PLAN.md — OANDA v20 async client + candle fetcher with upsert storage and 6-month backfill
+- [x] 02-02-PLAN.md — Gap detector + APScheduler jobs (4 timeframes) + startup wiring in main.py
+- [x] 02-03-PLAN.md — Ingestion unit tests (OandaClient, CandleFetcher, GapDetector — all mocked, no live deps)
 
 ### Phase 3: Strategy Engine
 **Goal**: All four technical strategies can generate CandidateSignals with entry, SL, TP1, TP2, and confidence from live candle data

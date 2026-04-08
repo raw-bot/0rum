@@ -1,4 +1,4 @@
-"""Candle fetcher — fetch from FXCM via MetaAPI, store in PostgreSQL, backfill on startup."""
+"""Candle fetcher — fetch from Binance (PAXG/USDT proxy), store in PostgreSQL, backfill on startup."""
 
 import asyncio
 from datetime import datetime, timedelta, timezone
@@ -17,11 +17,11 @@ log = structlog.get_logger(__name__)
 
 TIMEFRAMES = ["M15", "H1", "H4", "D1"]
 BACKFILL_MONTHS = 6
-MAX_PAGINATION_ITERS = 200  # safety cap: 6 months M15 = ~36 pages of 500
+MAX_PAGINATION_ITERS = 200  # safety cap: 6 months M15 = ~18 pages of 1000
 
 
 class CandleFetcher:
-    """Fetches FXCM candles via MetaAPI and stores them via upsert in PostgreSQL."""
+    """Fetches Binance PAXG/USDT candles (XAU/USD proxy) and stores them via upsert in PostgreSQL."""
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
@@ -182,8 +182,8 @@ class CandleFetcher:
             last_ts = datetime.fromisoformat(last_ts_str.replace("Z", "+00:00"))
             from_time = (last_ts + timedelta(seconds=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-            # Stop if last page returned fewer than 500 — we've reached the present
-            if len(raw_candles) < 500:
+            # Stop if last page returned fewer than 1000 — we've reached the present
+            if len(raw_candles) < 1000:
                 break
 
         log.info(

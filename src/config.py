@@ -15,9 +15,8 @@ class ExecutionMode(str, Enum):
 class Settings(BaseSettings):
     """All application settings loaded from .env."""
 
-    # MetaAPI / FXCM MT4
-    metaapi_token: str
-    metaapi_account_id: str
+    # Broker credentials (Phase 7 — execution engine, not needed for ingestion)
+    # broker_api_key: str = ""  # placeholder for future live trading
 
     # Database
     database_url: str

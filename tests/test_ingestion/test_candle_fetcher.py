@@ -11,8 +11,6 @@ from src.config import Settings
 
 def make_settings() -> Settings:
     return Settings(
-        metaapi_token="test-token",
-        metaapi_account_id="test-account-id",
         database_url="postgresql+asyncpg://test:test@localhost/test",
         telegram_bot_token="test-token",
         telegram_chat_id="test-chat",
@@ -20,14 +18,14 @@ def make_settings() -> Settings:
 
 
 def make_raw_candle(ts: str = "2024-01-02T00:00:00Z") -> dict:
-    """Normalized MetaAPI candle dict (flat format)."""
+    """Normalized Binance candle dict (flat format from MarketDataClient._normalize)."""
     return {
         "time": ts,
         "open": 2000.0,
         "high": 2010.0,
         "low": 1995.0,
         "close": 2005.0,
-        "tickVolume": 150,
+        "volume": 150.0,
     }
 
 
@@ -39,13 +37,13 @@ def test_parse_candle_valid():
     assert candle.instrument == "XAUUSD"
     assert candle.timeframe == "M15"
     assert candle.open == Decimal("2000.0")
-    assert candle.complete is True  # MetaAPI historical candles are always complete
+    assert candle.complete is True  # Binance historical candles are always complete
 
 
 def test_parse_candle_missing_ohlc_returns_none():
     """_parse_candle returns None when OHLC keys are absent."""
     fetcher = CandleFetcher.__new__(CandleFetcher)
-    raw = {"time": "2024-01-02T00:00:00Z", "tickVolume": 100}
+    raw = {"time": "2024-01-02T00:00:00Z", "volume": 100.0}
     result = fetcher._parse_candle(raw, "XAUUSD", "M15")
     assert result is None
 
@@ -53,7 +51,7 @@ def test_parse_candle_missing_ohlc_returns_none():
 def test_parse_candle_missing_timestamp_returns_none():
     """_parse_candle returns None when 'time' key is absent."""
     fetcher = CandleFetcher.__new__(CandleFetcher)
-    raw = {"open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0, "tickVolume": 0}
+    raw = {"open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0, "volume": 0.0}
     result = fetcher._parse_candle(raw, "XAUUSD", "H1")
     assert result is None
 
