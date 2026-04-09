@@ -83,7 +83,12 @@ Plans:
   3. The current market regime (TRENDING_UP, TRENDING_DOWN, RANGING, HIGH_VOL) is classified and stored before ranking runs
   4. ApprovedSignals are ranked by the composite score (confidence 40%, R:R 30%, WFE 20%, regime 10%)
   5. No more than `MAX_SIGNALS_PER_DAY` (5) ApprovedSignals are emitted in a single UTC calendar day
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — RegimeDetector (ADX+ATR classification) + dedup filter (60-min cooldown) + conflict filter (confidence-based resolution)
+- [ ] 04-02-PLAN.md — Ranker (composite score + alignment map) + quota gate + PipelineRunner coordinator (in-memory → atomic DB write)
+- [ ] 04-03-PLAN.md — APScheduler 15-min pipeline job (StrategyRunner → PipelineRunner inline) + unit tests for all pipeline modules
 
 ### Phase 5: Backtesting & Validation
 **Goal**: Every strategy has walk-forward validated parameters with WFE > 50% before any signal can be generated from them
@@ -144,7 +149,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 1. Foundation | 3/3 | Complete | 2026-04-05 |
 | 2. Data Ingestion | 0/3 | Planned | - |
 | 3. Strategy Engine | 0/4 | Planned | - |
-| 4. Signal Pipeline | 0/? | Not started | - |
+| 4. Signal Pipeline | 0/3 | Planned | - |
 | 5. Backtesting & Validation | 0/? | Not started | - |
 | 6. Risk Management | 0/? | Not started | - |
 | 7. Signal Mode & Monitoring | 0/? | Not started | - |
