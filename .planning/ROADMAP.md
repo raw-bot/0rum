@@ -68,10 +68,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — AbstractStrategy base (ATR, swing detection) + StrategyRunner (DB params, midpoint fallback, 500 candles, asyncio.gather)
-- [ ] 03-02-PLAN.md — LiquiditySweepStrategy (STRAT-01) + TrendContinuationStrategy (STRAT-02) with linear confidence scoring
-- [ ] 03-03-PLAN.md — BreakoutExpansionStrategy (STRAT-03) + EmaMomentumStrategy (STRAT-04) with linear confidence scoring
-- [ ] 03-04-PLAN.md — Unit tests for all 4 strategies + StrategyRunner with frozen candle fixtures (no live DB)
+- [x] 03-01-PLAN.md — AbstractStrategy base (ATR, swing detection) + StrategyRunner (DB params, midpoint fallback, 500 candles, asyncio.gather)
+- [x] 03-02-PLAN.md — LiquiditySweepStrategy (STRAT-01) + TrendContinuationStrategy (STRAT-02) with linear confidence scoring
+- [x] 03-03-PLAN.md — BreakoutExpansionStrategy (STRAT-03) + EmaMomentumStrategy (STRAT-04) with linear confidence scoring
+- [x] 03-04-PLAN.md — Unit tests for all 4 strategies + StrategyRunner with frozen candle fixtures (no live DB)
 
 ### Phase 4: Signal Pipeline
 **Goal**: Raw CandidateSignals are filtered, ranked, and gated into a ranked ApprovedSignal set with market regime context
