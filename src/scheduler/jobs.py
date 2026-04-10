@@ -77,6 +77,55 @@ async def refresh_d1() -> None:
     await _refresh_timeframe("D1")
 
 
+async def run_pipeline() -> None:
+    """Run strategies then signal pipeline — called every 15 minutes (per D-01).
+
+    Sequence (inline, no Redis queue per D-01):
+      1. StrategyRunner.run() → list[CandidateSignal]
+      2. Fetch latest 200 H1 candles from DB for regime detection
+      3. PipelineRunner.run(candidates, h1_candles) → list[ApprovedSignalORM]
+    """
+    from src.strategies.runner import StrategyRunner
+    from src.pipeline.runner import PipelineRunner
+    from src.models.candle import Candle
+    from sqlalchemy import select
+    from src.database import AsyncSessionLocal
+
+    try:
+        # Step 1: Run all 4 strategies
+        candidates = await StrategyRunner().run()
+        log.info("jobs.pipeline.strategies_done", candidate_count=len(candidates))
+
+        if not candidates:
+            log.info("jobs.pipeline.no_candidates")
+            return
+
+        # Step 2: Fetch H1 candles for regime detection (200 candles ≈ 8+ days, sufficient for ADX/EMA)
+        async with AsyncSessionLocal() as session:
+            stmt = (
+                select(Candle)
+                .where(
+                    Candle.instrument == "XAUUSD",
+                    Candle.timeframe == "H1",
+                    Candle.complete.is_(True),
+                )
+                .order_by(Candle.timestamp.desc())
+                .limit(200)
+            )
+            result = await session.execute(stmt)
+            h1_rows = result.scalars().all()
+            h1_candles = list(reversed(h1_rows))  # oldest→newest for indicator calculation
+
+        log.info("jobs.pipeline.h1_fetched", count=len(h1_candles))
+
+        # Step 3: Run full pipeline
+        approved = await PipelineRunner().run(candidates, h1_candles)
+        log.info("jobs.pipeline.done", approved_count=len(approved))
+
+    except Exception as exc:
+        log.error("jobs.pipeline.failed", error=str(exc))
+
+
 def create_scheduler() -> AsyncIOScheduler:
     """Create and configure the APScheduler instance with all 4 candle jobs.
 
@@ -122,6 +171,15 @@ def create_scheduler() -> AsyncIOScheduler:
         trigger=CronTrigger(hour=0, minute=5, timezone="UTC"),
         id="refresh_d1",
         name="Refresh D1 candles daily at 00:05 UTC",
+        max_instances=1,
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        run_pipeline,
+        trigger=IntervalTrigger(minutes=15),
+        id="run_pipeline",
+        name="Run strategies and signal pipeline every 15 minutes",
         max_instances=1,
         replace_existing=True,
     )
