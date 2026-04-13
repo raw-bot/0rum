@@ -1,7 +1,7 @@
-# 0rum — CLAUDE.md v2
+# 0rum — AGENTS.md v2
 
 > **Spec technique complète du trading bot autonome XAUUSD.**
-> Ce fichier est la source unique de vérité. Claude Code doit pouvoir construire le système entier à partir de ce document seul.
+> Ce fichier est la source unique de vérité. Codex doit pouvoir construire le système entier à partir de ce document seul.
 
 ## Realignment Override — 2026-04-10
 
@@ -25,7 +25,7 @@ Règles de priorité :
 | Asset unique | XAUUSD (Gold / US Dollar) |
 | Provider cible | IG demo → live pour le vrai XAUUSD |
 | Objectif | Bot de trading 24/7, signal-only puis auto-execution |
-| Auteur | Non-développeur — tout le code est produit par Claude Code |
+| Auteur | Non-développeur — tout le code est produit par Codex |
 
 ---
 
@@ -1160,4 +1160,4 @@ volumes:
 
 ---
 
-*Fin du CLAUDE.md v2 — ce document est auto-suffisant pour construire l'intégralité du bot 0rum.*
+*Fin du AGENTS.md v2 — ce document est auto-suffisant pour construire l'intégralité du bot 0rum.*

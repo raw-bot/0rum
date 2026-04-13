@@ -2,7 +2,7 @@
 
 ## Overview
 
-0rum builds a 24/7 autonomous XAUUSD trading bot in eight natural delivery phases, each one unblocking the next. The critical path runs from infrastructure through data ingestion, strategies, signal pipeline, backtesting validation, and risk gates — all of which must be complete and proven before a single signal leaves the system. Signal mode ships first (Phase 7) so strategy quality can be validated for a minimum of four weeks against real market conditions before auto-execution is ever enabled (Phase 8).
+0rum builds a 24/7 autonomous XAUUSD trading bot in eight natural delivery phases, each one unblocking the next. The critical path runs from infrastructure through data ingestion, strategies, signal pipeline, backtesting validation, and risk gates — all of which must be complete and proven before a single signal leaves the system. Signal mode ships first (Phase 7) so strategy quality can be validated for a minimum of four weeks against real market conditions before auto-execution is ever enabled (Phase 8). Current provider strategy: Phase 4 may continue on the existing candle contract, but Phase 5 and beyond must use a real XAUUSD-aligned provider feed; IG demo → live is the current target.
 
 ## Phases
 
@@ -13,13 +13,13 @@
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Foundation** - Docker Compose stack, database, ORM models, health endpoint
-- [ ] **Phase 2: Data Ingestion** - OANDA candle fetching for 4 timeframes with backfill and gap detection
+- [ ] **Phase 2: Data Ingestion** - XAUUSD-aligned candle fetching for 4 timeframes with backfill and gap detection
 - [ ] **Phase 3: Strategy Engine** - 4 parallel technical strategies generating CandidateSignals
 - [ ] **Phase 4: Signal Pipeline** - Dedup, conflict filter, regime detection, ranker, quota producing ApprovedSignals
 - [ ] **Phase 5: Backtesting & Validation** - Walk-forward optimizer, Monte Carlo validation, LHS sampling
 - [ ] **Phase 6: Risk Management** - 3 risk gates, ATR position sizing, circuit breaker
 - [ ] **Phase 7: Signal Mode & Monitoring** - Telegram signal sending, theoretical trade tracking, full notifications
-- [ ] **Phase 8: Auto Mode** - OANDA order execution, partial close at TP1, ATR trailing stop
+- [ ] **Phase 8: Auto Mode** - Broker-native order execution, partial close at TP1, ATR trailing stop
 
 ## Phase Details
 
@@ -40,7 +40,7 @@ Plans:
 - [x] 01-03-PLAN.md — FastAPI app, /health endpoint, structlog JSON configuration, human verification checkpoint
 
 ### Phase 2: Data Ingestion
-**Goal**: XAUUSD candles for M15, H1, H4, D1 accumulate continuously in PostgreSQL with no gaps
+**Goal**: XAUUSD-aligned candles for M15, H1, H4, D1 accumulate continuously in PostgreSQL with no gaps
 **Depends on**: Phase 1
 **Requirements**: DATA-01, DATA-02
 **Success Criteria** (what must be TRUE):
@@ -51,9 +51,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [x] 02-01-PLAN.md — OANDA v20 async client + candle fetcher with upsert storage and 6-month backfill
+- [x] 02-01-PLAN.md — Market-data client + candle fetcher with upsert storage and 6-month backfill
 - [x] 02-02-PLAN.md — Gap detector + APScheduler jobs (4 timeframes) + startup wiring in main.py
-- [x] 02-03-PLAN.md — Ingestion unit tests (OandaClient, CandleFetcher, GapDetector — all mocked, no live deps)
+- [x] 02-03-PLAN.md — Ingestion unit tests (provider client, CandleFetcher, GapDetector — all mocked, no live deps)
 
 ### Phase 3: Strategy Engine
 **Goal**: All four technical strategies can generate CandidateSignals with entry, SL, TP1, TP2, and confidence from live candle data
@@ -86,12 +86,13 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — RegimeDetector (ADX+ATR classification) + dedup filter (60-min cooldown) + conflict filter (confidence-based resolution)
-- [ ] 04-02-PLAN.md — Ranker (composite score + alignment map) + quota gate + PipelineRunner coordinator (in-memory → atomic DB write)
-- [ ] 04-03-PLAN.md — APScheduler 15-min pipeline job (StrategyRunner → PipelineRunner inline) + unit tests for all pipeline modules
+- [x] 04-01-PLAN.md — RegimeDetector (ADX+ATR classification) + dedup filter (60-min cooldown) + conflict filter (confidence-based resolution)
+- [x] 04-02-PLAN.md — Ranker (composite score + alignment map) + quota gate + PipelineRunner coordinator (in-memory → atomic DB write)
+- [x] 04-03-PLAN.md — APScheduler 15-min pipeline job (StrategyRunner → PipelineRunner inline) + unit tests for all pipeline modules
 
 ### Phase 5: Backtesting & Validation
 **Goal**: Every strategy has walk-forward validated parameters with WFE > 50% before any signal can be generated from them
+**Provider Gate**: Do not validate this phase on the Binance/PAXG proxy. Integrate and verify a real XAUUSD provider first; IG demo is the current target.
 **Depends on**: Phase 2, Phase 3
 **Requirements**: OPTIM-01, OPTIM-02, OPTIM-03, OPTIM-04, OPTIM-05
 **Success Criteria** (what must be TRUE):
@@ -129,12 +130,12 @@ Plans:
 **UI hint**: yes
 
 ### Phase 8: Auto Mode
-**Goal**: The bot can execute real OANDA orders, manage partial closes at TP1, and trail stops — and is ready to be activated after the 4-week signal-mode validation period
+**Goal**: The bot can execute real broker-native orders, manage partial closes at TP1, and trail stops — and is ready to be activated after the 4-week signal-mode validation period
 **Depends on**: Phase 7
 **Requirements**: AUTO-01, AUTO-02, AUTO-03
 **Success Criteria** (what must be TRUE):
-  1. In `EXECUTION_MODE=auto` the bot places a market or limit order on OANDA for each ApprovedSignal that passes all risk gates
-  2. When price hits TP1 the system closes exactly 50% of the position via the OANDA partial-close endpoint
+  1. In `EXECUTION_MODE=auto` the bot places a market or limit order on the selected execution broker for each ApprovedSignal that passes all risk gates
+  2. When price hits TP1 the system closes exactly 50% of the position via the broker partial-close mechanism
   3. After TP1 hit a trailing stop is activated on the remainder, trailing at 1.0× ATR(H1) and ratcheting only upward
   4. Switching from `signal` to `auto` in `.env` triggers a Telegram notification confirming the mode change
 **Plans**: TBD
@@ -147,8 +148,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete | 2026-04-05 |
-| 2. Data Ingestion | 0/3 | Planned | - |
-| 3. Strategy Engine | 0/4 | Planned | - |
+| 2. Data Ingestion | 3/3 | Complete | 2026-04-08 |
+| 3. Strategy Engine | 4/4 | Complete | 2026-04-09 |
 | 4. Signal Pipeline | 0/3 | Planned | - |
 | 5. Backtesting & Validation | 0/? | Not started | - |
 | 6. Risk Management | 0/? | Not started | - |

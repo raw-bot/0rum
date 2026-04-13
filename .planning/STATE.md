@@ -3,32 +3,33 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed phase 03-strategy-engine (verified)
-last_updated: "2026-04-09T16:00:00.000Z"
-last_activity: 2026-04-09
+stopped_at: Phase 03 verification complete — ready to start Phase 04
+last_updated: "2026-04-10T14:18:41.854Z"
+last_activity: 2026-04-10 -- Phase 04 execution started
 progress:
   total_phases: 8
   completed_phases: 3
-  total_plans: 10
+  total_plans: 13
   completed_plans: 10
-  percent: 100
+  percent: 77
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-05)
+See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** The bot must reliably generate validated XAUUSD signals in mode signal, with every trade candidate passing all risk gates — signal quality and capital protection are non-negotiable before any auto-execution is considered.
-**Current focus:** Phase 04 — signal-pipeline (next)
+**Current focus:** Phase 04 — signal-pipeline
 
 ## Current Position
 
-Phase: 03 (strategy-engine) — COMPLETE (verified 2026-04-09)
+Phase: 04 (signal-pipeline) — EXECUTING
+Plan: 1 of 3
 Next Phase: 04 — signal-pipeline
-Status: Phase 3 verified, ready to start Phase 4
-Last activity: 2026-04-09
+Status: Executing Phase 04
+Last activity: 2026-04-10 -- Phase 04 execution started
 
 Progress: [###░░░░░░░] 37.5% (3/8 phases complete)
 
@@ -76,11 +77,11 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None yet.
+- Before Phase 5, integrate and validate a real XAUUSD provider feed. IG demo → live is the current target.
 
 ### Blockers/Concerns
 
-None yet.
+- Binance/PAXG proxy is acceptable only for plumbing and provider-agnostic Phase 4 work. It must not be treated as validation-grade XAUUSD data for optimizer/backtest phases.
 
 ## Session Continuity
 

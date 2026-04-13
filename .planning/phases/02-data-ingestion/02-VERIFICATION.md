@@ -26,7 +26,7 @@ gaps:
       - path: "src/ingestion/market_client.py"
         issue: "Fetches PAXG/USDT from Binance and maps it to instrument='XAUUSD' internally. The docstring explicitly warns this is a proxy with crypto microstructure differences. Phase spec requires real XAU/USD data."
     missing:
-      - "Either: connect a real XAU/USD data source before Phase 3 builds strategy signals on this data, OR document this as an accepted interim deviation with a Phase 7 remediation plan"
+      - "Accepted interim deviation only through Phase 4: connect and validate a real XAU/USD source before Phase 5 optimizer/backtest work begins"
 ---
 
 # Phase 02: Data Ingestion Verification Report
@@ -147,7 +147,7 @@ The migration from OANDA to Binance updated `src/ingestion/oanda_client.py` (now
 
 **Gap 2 — Data source is a proxy, not XAUUSD (Warning)**
 
-The phase goal is "XAUUSD candles accumulate continuously in PostgreSQL." The actual data stored comes from Binance PAXG/USDT, which trades 24/7 with crypto-market microstructure. The `market_client.py` docstring explicitly documents this as a temporary proxy requiring replacement before Phase 7. The implication: Phase 3 strategy logic and Phase 5 backtesting will run on PAXG/USDT price history labeled as XAUUSD. This is an acknowledged in-progress substitution, not an implementation bug, but it means the phase goal as stated in the ROADMAP is not fully achieved.
+The phase goal is "XAUUSD candles accumulate continuously in PostgreSQL." The actual data stored comes from Binance PAXG/USDT, which trades 24/7 with crypto-market microstructure. The `market_client.py` docstring explicitly documents this as a temporary proxy. This is an acknowledged in-progress substitution, not an implementation bug, but it means the phase goal as stated in the ROADMAP is not fully achieved. Project direction has since been realigned: the proxy may remain in place for provider-agnostic Phase 4 plumbing, but it must be replaced before Phase 5 validation work. IG demo → live is the current target path.
 
 ---
 

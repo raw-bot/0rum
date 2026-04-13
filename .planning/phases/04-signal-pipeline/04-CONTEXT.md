@@ -39,6 +39,9 @@ No risk gate logic, no Telegram sending, no trade tracking — those belong to P
   2. All `ApprovedSignalORM` rows for signals that passed the quota gate
   This gives full audit trail (every filtered signal visible in DB) with minimal round-trips.
 
+### Provider Realignment Boundary
+- **D-05:** Phase 4 is allowed to continue on the existing candle contract because dedup/conflict/ranker/quota/regime logic is provider-agnostic once candles are already in PostgreSQL. However, Binance/CCXT PAXG/USDT must be treated as plumbing-only data. Phase 5 optimizer/backtest work is blocked until a real XAUUSD provider is integrated and validated. Current target: IG demo → live.
+
 ### Claude's Discretion
 - Internal structure of `PipelineRunner` (whether each step is a method or standalone function)
 - How the 15-min job is named and wired into the existing `create_scheduler()` in `src/scheduler/jobs.py`
@@ -71,6 +74,7 @@ No risk gate logic, no Telegram sending, no trade tracking — those belong to P
 - `CLAUDE.md` §2 — Tech stack (Python 3.12, async everywhere, Pydantic v2, SQLAlchemy 2.0 async)
 - `CLAUDE.md` §5 — `MAX_SIGNALS_PER_DAY=5` env var (quota gate limit)
 - `.planning/PROJECT.md` — Core value: signal quality and capital protection are non-negotiable
+- `.planning/phases/02-data-ingestion/02-VERIFICATION.md` — Phase 2 proxy caveat: Binance/PAXG is not validation-grade XAUUSD data
 
 </canonical_refs>
 

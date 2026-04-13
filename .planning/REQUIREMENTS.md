@@ -12,16 +12,16 @@
 
 ### Data Ingestion
 
-- [ ] **DATA-01**: OANDA candle ingestion for M15, H1, H4, D1 timeframes with auto-backfill on startup
+- [ ] **DATA-01**: XAUUSD-aligned candle ingestion for M15, H1, H4, D1 timeframes with auto-backfill on startup
 - [ ] **DATA-02**: Gap detection flags missing candle windows before strategy execution
 
 ### Strategy Engines
 
-- [ ] **STRAT-01**: Liquidity Sweep strategy generates CandidateSignals with direction, entry, SL, TP1, TP2
-- [ ] **STRAT-02**: Trend Continuation strategy generates CandidateSignals
-- [ ] **STRAT-03**: Breakout Expansion strategy generates CandidateSignals
-- [ ] **STRAT-04**: EMA Momentum strategy generates CandidateSignals
-- [ ] **STRAT-05**: Each strategy uses at most 3 optimizable parameters
+- [x] **STRAT-01**: Liquidity Sweep strategy generates CandidateSignals with direction, entry, SL, TP1, TP2
+- [x] **STRAT-02**: Trend Continuation strategy generates CandidateSignals
+- [x] **STRAT-03**: Breakout Expansion strategy generates CandidateSignals
+- [x] **STRAT-04**: EMA Momentum strategy generates CandidateSignals
+- [x] **STRAT-05**: Each strategy uses at most 3 optimizable parameters
 
 ### Signal Pipeline
 
@@ -55,9 +55,9 @@
 
 ### Auto Mode
 
-- [ ] **AUTO-01**: Mode `auto` places market/limit orders on OANDA for approved signals
+- [ ] **AUTO-01**: Mode `auto` places market/limit orders on the selected execution broker for approved signals
 - [ ] **AUTO-02**: Partial close at TP1 (50% position) with ATR trailing stop activated on remainder
-- [ ] **AUTO-03**: Stop-loss and take-profit orders managed via OANDA v20 API
+- [ ] **AUTO-03**: Stop-loss and take-profit orders managed via the selected broker API
 
 ### Notifications
 
@@ -82,7 +82,7 @@
 | RSI/MACD indicators | Explicitly eliminated to reduce parameter count and correlation |
 | More than 3 optimizable params/strategy | Overfitting protection — hard constraint |
 | Frontend/dashboard | `/health` endpoint sufficient for v1 |
-| External data APIs | No external dependencies beyond OANDA v20 |
+| External data APIs | No external dependencies beyond the selected market-data/execution providers |
 | Multi-asset | XAUUSD exclusively — instrument loop out of scope |
 | OAuth/user management | Single-operator bot — no auth system needed |
 
@@ -94,11 +94,11 @@
 | INFRA-02 | Phase 1 | Pending |
 | DATA-01 | Phase 2 | Pending |
 | DATA-02 | Phase 2 | Pending |
-| STRAT-01 | Phase 3 | Pending |
-| STRAT-02 | Phase 3 | Pending |
-| STRAT-03 | Phase 3 | Pending |
-| STRAT-04 | Phase 3 | Pending |
-| STRAT-05 | Phase 3 | Pending |
+| STRAT-01 | Phase 3 | Complete |
+| STRAT-02 | Phase 3 | Complete |
+| STRAT-03 | Phase 3 | Complete |
+| STRAT-04 | Phase 3 | Complete |
+| STRAT-05 | Phase 3 | Complete |
 | PIPE-01 | Phase 4 | Pending |
 | PIPE-02 | Phase 4 | Pending |
 | PIPE-03 | Phase 4 | Pending |
@@ -132,4 +132,4 @@
 
 ---
 *Requirements defined: 2026-04-05*
-*Last updated: 2026-04-05 — traceability filled by roadmapper*
+*Last updated: 2026-04-10 — provider realignment applied*
