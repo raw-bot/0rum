@@ -90,6 +90,24 @@ Plans:
 - [x] 04-02-PLAN.md — Ranker (composite score + alignment map) + quota gate + PipelineRunner coordinator (in-memory → atomic DB write)
 - [x] 04-03-PLAN.md — APScheduler 15-min pipeline job (StrategyRunner → PipelineRunner inline) + unit tests for all pipeline modules
 
+### Phase 4.1: IG-Light Ingestion Hardening (INSERTED)
+**Goal**: Make IG-backed XAUUSD ingestion safe for continuous operation by replacing bulk startup backfill with bounded warm-up, incremental refresh, and limited gap recovery.
+**Depends on**: Phase 4
+**Requirements**: DATA-01, DATA-02
+**Success Criteria** (what must be TRUE):
+  1. Startup with IG no longer triggers the 6-month automatic backfill.
+  2. Empty or cold databases are warmed with bounded per-timeframe candle windows only.
+  3. Scheduled refresh jobs request only a small recent overlap window per timeframe.
+  4. Gap recovery is bounded and refuses oversized historical repairs on IG.
+  5. Default IG-light settings remain within the historical data budget envelope for continuous weekly operation.
+  6. Ingestion tests prove no automatic IG path issues a bulk historical request.
+**Plans**: 3 plans
+
+Plans:
+- [x] 04.1-01 — `CandleFetcher.warm_up_timeframe` / `warm_up_all`: single bounded fetch per TF, no date-range walk
+- [x] 04.1-02 — `main.py` provider branch (IG → warm_up_all, Binance → backfill_all) + `GapDetector` max_gap_bars guard + bounded to_time on fill
+- [x] 04.1-03 — `scheduler/jobs.py` wires ig_max_gap_bars + ingestion test suite extended (5 new tests, 1 corrected)
+
 ### Phase 5: Backtesting & Validation
 **Goal**: Every strategy has walk-forward validated parameters with WFE > 50% before any signal can be generated from them
 **Provider Gate**: Do not validate this phase on the Binance/PAXG proxy. Integrate and verify a real XAUUSD provider first; IG demo is the current target.
@@ -102,7 +120,14 @@ Plans:
   4. The multi-window test confirms parameters are profitable in at least 2 of 3 OOS windows before activation
   5. Monte Carlo validation (1000 simulations) confirms P95 drawdown ≤ 2× historical and P5 profit factor > 1.0
   6. The optimizer runs automatically every 24 hours via the APScheduler job
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [x] 05-01-PLAN.md — Walk-forward core (walk_forward.py, monte_carlo.py) + full unit test suite (window construction, WFE calc, multi-window gate, P95/P5 gates)
+- [x] 05-02-PLAN.md — Optimizer core (optimizer.py: LHS sampling, sliding-window backtester, WFE gate, DB write) + unit tests
+- [x] 05-03-PLAN.md — Scheduler wiring (run_optimizer() 24h job in jobs.py) + scheduler wiring tests
+- [ ] 05-04-PLAN.md — Data strategy decision gate (Chemin A vs Chemin B) + historical_loader.py + load_historical_data.py script (Chemin B path)
+- [ ] 05-05-PLAN.md — Full statistical validation run + integration tests + Phase 5 sign-off
 
 ### Phase 6: Risk Management
 **Goal**: No trade can execute without passing all three risk gates, position sizing is ATR-adjusted, and a circuit breaker halts trading after 8 consecutive stops
@@ -150,8 +175,9 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 1. Foundation | 3/3 | Complete | 2026-04-05 |
 | 2. Data Ingestion | 3/3 | Complete | 2026-04-08 |
 | 3. Strategy Engine | 4/4 | Complete | 2026-04-09 |
-| 4. Signal Pipeline | 0/3 | Planned | - |
-| 5. Backtesting & Validation | 0/? | Not started | - |
+| 4. Signal Pipeline | 3/3 | Complete | 2026-04-22 |
+| 4.1. IG-Light Ingestion Hardening | 3/3 | Complete | 2026-04-22 |
+| 5. Backtesting & Validation | 3/5 | In Progress (Wave 1 done, gate 05-04 pending) | 2026-04-23 |
 | 6. Risk Management | 0/? | Not started | - |
 | 7. Signal Mode & Monitoring | 0/? | Not started | - |
 | 8. Auto Mode | 0/? | Not started | - |

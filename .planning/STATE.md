@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 03 verification complete — ready to start Phase 04
-last_updated: "2026-04-10T14:18:41.854Z"
-last_activity: 2026-04-10 -- Phase 04 execution started
+last_updated: "2026-04-23T00:00:00.000Z"
+last_activity: 2026-04-23 -- Phase 5 Wave 1 complete (05-01, 05-02, 05-03 done; 185 tests green)
 progress:
-  total_phases: 8
-  completed_phases: 3
-  total_plans: 13
-  completed_plans: 10
-  percent: 77
+  total_phases: 9
+  completed_phases: 4
+  total_plans: 18
+  completed_plans: 16
+  percent: 78
 ---
 
 # Project State
@@ -25,13 +25,12 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 ## Current Position
 
-Phase: 04 (signal-pipeline) — EXECUTING
-Plan: 1 of 3
-Next Phase: 04 — signal-pipeline
-Status: Executing Phase 04
-Last activity: 2026-04-10 -- Phase 04 execution started
+Phase: 05 (backtesting-validation) — IN PROGRESS (Wave 1 done)
+Next: 05-04 decision gate (Chemin A vs Chemin B — human decision required before execution)
+Status: Blocked on path decision
+Last activity: 2026-04-23 -- Wave 1 complete (05-01, 05-02, 05-03 committed, 185 tests green)
 
-Progress: [###░░░░░░░] 37.5% (3/8 phases complete)
+Progress: [#####░░░░░] 55.6% (5/9 phases complete)
 
 ## Completed Phases
 
@@ -40,6 +39,8 @@ Progress: [###░░░░░░░] 37.5% (3/8 phases complete)
 | 01 | foundation | COMPLETE | — |
 | 02 | data-ingestion | COMPLETE | — |
 | 03 | strategy-engine | COMPLETE | 2026-04-09 |
+| 04 | signal-pipeline | COMPLETE | 2026-04-22 |
+| 04.1 | ig-light-ingestion-hardening | COMPLETE | 2026-04-22 |
 
 ## Performance Metrics
 
@@ -77,11 +78,11 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Before Phase 5, integrate and validate a real XAUUSD provider feed. IG demo → live is the current target.
+- Phase 5 requires real XAUUSD data. IG provider is now wired and IG historical access is confirmed working (tested 2026-04-22). Decide whether to run a controlled IG smoke test before opening Phase 5 plan, or proceed directly to planning.
 
 ### Blockers/Concerns
 
-- Binance/PAXG proxy is acceptable only for plumbing and provider-agnostic Phase 4 work. It must not be treated as validation-grade XAUUSD data for optimizer/backtest phases.
+- Phase 5 optimizer/walk-forward must not run on Binance/PAXG data. IG warm-up (Phase 4.1) is complete but a full continuous-operation validation on IG has not yet been performed. Treat Phase 5 execution as IG-only from the start.
 
 ## Session Continuity
 
