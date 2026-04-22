@@ -30,31 +30,38 @@ def get_last_candle_fetch() -> dict[str, str | None]:
 
 async def _refresh_timeframe(timeframe: str) -> None:
     """Fetch latest candles for one timeframe, run gap detection, update last_fetch."""
-    fetcher = CandleFetcher()
-    detector = GapDetector(fetcher=fetcher)
-    try:
-        await fetcher.fetch_and_store(
-            instrument="XAUUSD",
-            timeframe=timeframe,
-            count=10,  # only recent candles needed for scheduled refresh
-        )
-        from datetime import datetime, timezone
-        _last_candle_fetch[timeframe] = datetime.now(timezone.utc).isoformat()
+    from src.config import MarketDataProvider
+    settings = get_settings()
+    max_gap_bars = (
+        settings.ig_max_gap_bars
+        if settings.market_data_provider == MarketDataProvider.IG
+        else None
+    )
+    async with CandleFetcher(settings=settings) as fetcher:
+        detector = GapDetector(fetcher=fetcher, max_gap_bars=max_gap_bars)
+        try:
+            await fetcher.fetch_and_store(
+                instrument="XAUUSD",
+                timeframe=timeframe,
+                count=10,  # only recent candles needed for scheduled refresh
+            )
+            from datetime import datetime, timezone
+            _last_candle_fetch[timeframe] = datetime.now(timezone.utc).isoformat()
 
-        # Run gap detection after each fetch
-        gaps_found = await detector.detect_and_fill(
-            instrument="XAUUSD",
-            timeframe=timeframe,
-            lookback_hours=48,
-        )
-        if gaps_found:
-            log.info("jobs.gap_check_complete", timeframe=timeframe, gaps_found=gaps_found)
+            # Run gap detection after each fetch
+            gaps_found = await detector.detect_and_fill(
+                instrument="XAUUSD",
+                timeframe=timeframe,
+                lookback_hours=48,
+            )
+            if gaps_found:
+                log.info("jobs.gap_check_complete", timeframe=timeframe, gaps_found=gaps_found)
 
-        # Prune stale incomplete candles
-        await fetcher.prune_incomplete(instrument="XAUUSD")
+            # Prune stale incomplete candles
+            await fetcher.prune_incomplete(instrument="XAUUSD")
 
-    except Exception as exc:
-        log.error("jobs.refresh_failed", timeframe=timeframe, error=str(exc))
+        except Exception as exc:
+            log.error("jobs.refresh_failed", timeframe=timeframe, error=str(exc))
 
 
 async def refresh_m15() -> None:
@@ -75,6 +82,22 @@ async def refresh_h4() -> None:
 async def refresh_d1() -> None:
     """Refresh D1 candles — called daily at 00:05 UTC."""
     await _refresh_timeframe("D1")
+
+
+async def run_optimizer() -> None:
+    """Run walk-forward optimizer for all 4 strategies — called every 24h.
+
+    Deferred import of WalkForwardOptimizer mirrors the run_pipeline() pattern.
+    max_instances=1 on the scheduler job prevents concurrent optimizer runs
+    (each run can take several minutes on a full 3-window evaluation).
+    """
+    from src.backtesting.optimizer import WalkForwardOptimizer
+    try:
+        optimizer = WalkForwardOptimizer()
+        await optimizer.run()
+        log.info("jobs.optimizer.complete")
+    except Exception as exc:
+        log.error("jobs.optimizer.failed", error=str(exc))
 
 
 async def run_pipeline() -> None:
@@ -137,6 +160,7 @@ def create_scheduler() -> AsyncIOScheduler:
 
     All jobs use max_instances=1 to prevent job pile-up on slow fetches.
     """
+    settings = get_settings()
     scheduler = AsyncIOScheduler(timezone="UTC")
 
     scheduler.add_job(
@@ -180,6 +204,15 @@ def create_scheduler() -> AsyncIOScheduler:
         trigger=IntervalTrigger(minutes=15),
         id="run_pipeline",
         name="Run strategies and signal pipeline every 15 minutes",
+        max_instances=1,
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        run_optimizer,
+        trigger=IntervalTrigger(hours=settings.optimizer_interval_hours),
+        id="run_optimizer",
+        name="Run walk-forward optimizer every 24h",
         max_instances=1,
         replace_existing=True,
     )
