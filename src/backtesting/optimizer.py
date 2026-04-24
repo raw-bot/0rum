@@ -37,6 +37,7 @@ log = structlog.get_logger(__name__)
 INSTRUMENT = "XAUUSD"
 TIMEFRAMES = ["M15", "H1", "H4", "D1"]
 BACKTEST_WINDOW_CANDLES = 500
+BACKTEST_STEP_CANDLES = 1  # step one H1 candle per window position — per plan 05-02 spec
 MIN_TRADES_FOR_EVALUATION = 5
 N_WALK_FORWARD_WINDOWS = 3
 
@@ -133,7 +134,7 @@ class WalkForwardOptimizer:
         """Slide a 500-candle window across candle_slice and collect trade P&L.
 
         Slides BACKTEST_WINDOW_CANDLES window across the H1 timeframe in
-        BACKTEST_WINDOW_CANDLES increments (non-overlapping). For each window
+        BACKTEST_STEP_CANDLES increments. For each window
         position, calls strategy.generate_signals() with all 4 TFs aligned to
         the same date range. Simulates each signal's outcome using the 50
         subsequent H1 candles.
@@ -157,7 +158,7 @@ class WalkForwardOptimizer:
         if n < BACKTEST_WINDOW_CANDLES + 50:
             return pnl_list
 
-        for start in range(0, n - BACKTEST_WINDOW_CANDLES - 50, BACKTEST_WINDOW_CANDLES):
+        for start in range(0, n - BACKTEST_WINDOW_CANDLES - 50, BACKTEST_STEP_CANDLES):
             end = start + BACKTEST_WINDOW_CANDLES
             window_end_ts = h1_candles[end - 1].timestamp
 
