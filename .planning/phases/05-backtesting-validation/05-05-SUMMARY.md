@@ -100,11 +100,18 @@ See `05-05-PLAN.md` Task 2 for full verification steps.
 
 ## Deviations from Plan
 
-### Auto-fixed Issues
+### Bug Fix — BACKTEST_STEP_CANDLES Missing from Implementation
 
-None — plan executed exactly as written.
+**Root cause:** Plan 05-02 specified `BACKTEST_STEP_CANDLES = 1` (step one H1 candle per window position), but the executor used `BACKTEST_WINDOW_CANDLES` (500) as the `range()` step in `_run_strategy_backtest_async`. This produced ~4 signal checks per IS window instead of ~1600, causing all strategies to generate fewer than `MIN_TRADES_FOR_EVALUATION = 5` trades and exit via `no_passing_combo`.
 
-The test for `test_optimizer_full_run_activates_params` additionally patches `run_monte_carlo` and `monte_carlo_passes` at the module level (as noted in the plan's design notes) to ensure the Monte Carlo gate does not interfere with testing the activation orchestration path. This is consistent with the plan's approach (a) described in the `<action>` section.
+**Discovery:** Live optimizer run during Task 2 checkpoint showed `optimizer.strategy.no_passing_combo` for all strategies and 0 rows in `optimizer_results`. RESEARCH.md had flagged this exact failure mode ("Optimizer reports 0-2 trades per 6m training window when 30+ trades would be expected").
+
+**Fix applied (commit `fed1260`):**
+- Added `BACKTEST_STEP_CANDLES: int = 1` constant to `optimizer.py`
+- Changed `range(..., BACKTEST_WINDOW_CANDLES)` to `range(..., BACKTEST_STEP_CANDLES)` in the backtest loop
+- Window lookback (500 H1 candles) unchanged; only the step was corrected
+
+**Verification after fix:** `pytest -x -q` → 195 passed (rerun confirmed post-commit)
 
 ---
 
