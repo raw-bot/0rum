@@ -1,4 +1,4 @@
-"""Candle fetcher — fetch from Binance (PAXG/USDT proxy), store in PostgreSQL, backfill on startup."""
+"""Candle fetcher — fetch from the configured provider and store in PostgreSQL."""
 
 import asyncio
 from datetime import datetime, timedelta, timezone
@@ -19,16 +19,47 @@ TIMEFRAMES = ["M15", "H1", "H4", "D1"]
 BACKFILL_MONTHS = 6
 MAX_PAGINATION_ITERS = 200  # safety cap: 6 months M15 = ~18 pages of 1000
 
+# Minutes per bar for each supported timeframe.
+TF_INTERVAL_MINUTES: dict[str, int] = {
+    "M15": 15,
+    "H1": 60,
+    "H4": 240,
+    "D1": 1440,
+}
+
+# Maximum bars to request per API call.  IG demo caps single-request windows;
+# 1 000 bars keeps every chunk comfortably inside that limit.
+CHUNK_BARS = 1000
+
+# Per-timeframe bar counts for IG-light startup warm-up.
+# Mirrors config defaults; overridden at runtime via Settings when present.
+_IG_WARMUP_BARS_DEFAULT: dict[str, str] = {
+    "M15": "ig_warmup_bars_m15",
+    "H1": "ig_warmup_bars_h1",
+    "H4": "ig_warmup_bars_h4",
+    "D1": "ig_warmup_bars_d1",
+}
+
 
 class CandleFetcher:
-    """Fetches Binance PAXG/USDT candles (XAU/USD proxy) and stores them via upsert in PostgreSQL."""
+    """Fetches provider candles and stores them via upsert in PostgreSQL."""
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
         self.client = MarketDataClient(self.settings)
 
+    async def aclose(self) -> None:
+        """Close the underlying MarketDataClient and its network resources."""
+        await self.client.aclose()
+
+    async def __aenter__(self) -> "CandleFetcher":
+        return self
+
+    async def __aexit__(self, *_: object) -> None:
+        await self.aclose()
+
     def _parse_candle(self, raw: dict, instrument: str, timeframe: str) -> Candle | None:
-        """Parse a normalized MetaAPI candle dict into a Candle ORM object.
+        """Parse a normalized provider candle dict into a Candle ORM object.
 
         Returns None if the candle is missing required fields (malformed).
         """
@@ -50,7 +81,7 @@ class CandleFetcher:
                 low=Decimal(str(raw["low"])),
                 close=Decimal(str(raw["close"])),
                 volume=int(raw.get("tickVolume", raw.get("volume", 0))),
-                complete=True,  # MetaAPI historical candles are always complete
+                complete=True,  # Historical fetches are treated as complete bars
             )
         except (KeyError, ValueError, TypeError) as exc:
             log.warning("candle_fetcher.parse_error", error=str(exc))
@@ -62,6 +93,8 @@ class CandleFetcher:
         timeframe: str = "M15",
         count: int = 500,
         from_time: str | None = None,
+        to_time: str | None = None,
+        raw_candles: list[dict] | None = None,
     ) -> int:
         """Fetch candles and upsert into PostgreSQL.
 
@@ -72,16 +105,21 @@ class CandleFetcher:
             timeframe: One of "M15", "H1", "H4", "D1"
             count: Number of candles to fetch (ignored when from_time is set)
             from_time: ISO 8601 UTC string — if set, fetches from this time onward
+            to_time: Optional ISO 8601 UTC string to bound the fetch when supported
+            raw_candles: Optional prefetched normalized candles to avoid a duplicate
+                provider call during backfill loops
 
         Returns:
             Number of rows inserted (conflicts silently skipped).
         """
-        raw_candles = await self.client.get_candles(
-            instrument=instrument,
-            granularity=timeframe,
-            count=count,
-            from_time=from_time,
-        )
+        if raw_candles is None:
+            raw_candles = await self.client.get_candles(
+                instrument=instrument,
+                granularity=timeframe,
+                count=count,
+                from_time=from_time,
+                to_time=to_time,
+            )
 
         if not raw_candles:
             return 0
@@ -132,59 +170,70 @@ class CandleFetcher:
         self,
         instrument: str = "XAUUSD",
         timeframe: str = "M15",
+        start_dt: datetime | None = None,
+        end_dt: datetime | None = None,
     ) -> int:
-        """Backfill 6 months of candles for a single timeframe via paginated from_time fetches.
+        """Backfill candles for a single timeframe using explicit bounded chunks.
 
-        Paginates forward from (now - 6 months) until the API returns an empty list
-        or MAX_PAGINATION_ITERS is reached.
+        Each API call is bounded to [cursor, cursor + chunk_window] so the provider
+        never receives an open-ended range that exceeds per-request data allowances.
+        The cursor advances by chunk_window each iteration until it reaches end_dt.
 
         Args:
             instrument: Trading instrument, e.g. "XAUUSD"
             timeframe: One of "M15", "H1", "H4", "D1"
+            start_dt: Backfill start (UTC).  Defaults to now - 6 months.
+            end_dt: Backfill end (UTC).  Defaults to now.
 
         Returns:
             Total candles inserted.
         """
-        start_dt = datetime.now(timezone.utc) - timedelta(days=BACKFILL_MONTHS * 30)
-        from_time = start_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        now = datetime.now(timezone.utc)
+        if start_dt is None:
+            start_dt = now - timedelta(days=BACKFILL_MONTHS * 30)
+        if end_dt is None:
+            end_dt = now
+
+        interval_minutes = TF_INTERVAL_MINUTES.get(timeframe, 15)
+        chunk_window = timedelta(minutes=interval_minutes * CHUNK_BARS)
+
         total_inserted = 0
         iterations = 0
+        cursor = start_dt
 
         log.info(
             "candle_fetcher.backfill_start",
             instrument=instrument,
             timeframe=timeframe,
-            from_time=from_time,
+            from_time=cursor.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            to_time=end_dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            chunk_bars=CHUNK_BARS,
         )
 
-        while iterations < MAX_PAGINATION_ITERS:
+        while cursor < end_dt and iterations < MAX_PAGINATION_ITERS:
+            chunk_end = min(cursor + chunk_window, end_dt)
+            from_time = cursor.strftime("%Y-%m-%dT%H:%M:%SZ")
+            to_time = chunk_end.strftime("%Y-%m-%dT%H:%M:%SZ")
+
             raw_candles = await self.client.get_candles(
                 instrument=instrument,
                 granularity=timeframe,
                 from_time=from_time,
+                to_time=to_time,
             )
 
-            if not raw_candles:
-                break  # API returned empty — backfill complete for this timeframe
+            if raw_candles:
+                inserted = await self.fetch_and_store(
+                    instrument=instrument,
+                    timeframe=timeframe,
+                    from_time=from_time,
+                    to_time=to_time,
+                    raw_candles=raw_candles,
+                )
+                total_inserted += inserted
 
-            inserted = await self.fetch_and_store(
-                instrument=instrument,
-                timeframe=timeframe,
-                from_time=from_time,
-            )
-            total_inserted += inserted
             iterations += 1
-
-            # Advance from_time to just after the last candle's timestamp
-            last_ts_str = raw_candles[-1].get("time", "")
-            if not last_ts_str:
-                break
-            last_ts = datetime.fromisoformat(last_ts_str.replace("Z", "+00:00"))
-            from_time = (last_ts + timedelta(seconds=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-            # Stop if last page returned fewer than 1000 — we've reached the present
-            if len(raw_candles) < 1000:
-                break
+            cursor = chunk_end
 
         log.info(
             "candle_fetcher.backfill_complete",
@@ -216,6 +265,56 @@ class CandleFetcher:
                     error=str(exc),
                 )
         log.info("candle_fetcher.backfill_all_complete", instrument=instrument)
+
+    async def warm_up_timeframe(
+        self,
+        instrument: str = "XAUUSD",
+        timeframe: str = "M15",
+    ) -> int:
+        """Fetch a single bounded recent window for one timeframe (IG-safe startup).
+
+        Issues exactly one fetch_and_store call using a count, not a date range,
+        so no open-ended historical request is sent to IG.
+        """
+        setting_key = _IG_WARMUP_BARS_DEFAULT.get(timeframe, "ig_warmup_bars_m15")
+        bars = getattr(self.settings, setting_key, 300)
+        log.info(
+            "candle_fetcher.warmup_start",
+            instrument=instrument,
+            timeframe=timeframe,
+            bars=bars,
+        )
+        inserted = await self.fetch_and_store(
+            instrument=instrument,
+            timeframe=timeframe,
+            count=bars,
+        )
+        log.info(
+            "candle_fetcher.warmup_complete",
+            instrument=instrument,
+            timeframe=timeframe,
+            inserted=inserted,
+        )
+        return inserted
+
+    async def warm_up_all(self, instrument: str = "XAUUSD") -> None:
+        """Warm up all 4 timeframes with one bounded fetch each.
+
+        Replaces backfill_all() on the IG path — never issues a multi-page
+        date-range walk.
+        """
+        log.info("candle_fetcher.warmup_all_start", instrument=instrument)
+        for timeframe in TIMEFRAMES:
+            try:
+                await self.warm_up_timeframe(instrument=instrument, timeframe=timeframe)
+            except Exception as exc:
+                log.error(
+                    "candle_fetcher.warmup_timeframe_failed",
+                    instrument=instrument,
+                    timeframe=timeframe,
+                    error=str(exc),
+                )
+        log.info("candle_fetcher.warmup_all_complete", instrument=instrument)
 
     async def prune_incomplete(self, instrument: str = "XAUUSD") -> int:
         """Delete candles with complete=False that are older than 24 hours.

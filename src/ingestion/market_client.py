@@ -1,20 +1,16 @@
-"""Binance market data client — PAXG/USDT as XAU/USD proxy, no authentication required.
+"""Market data client with provider selection.
 
-NOTE: PAXG/USDT is a gold-backed ERC-20 token traded on Binance against USDT.
-It is used as a proxy for XAU/USD during prototyping and backtesting because
-Binance's public API requires zero authentication. Differences vs real XAU/USD:
-  - Crypto microstructure (order book, liquidity profile)
-  - 24/7 trading (Forex closes on weekends)
-  - USDT denomination (not USD)
-Before Phase 7 (execution): validate strategy signals against a real XAU/USD
-source and connect a live Forex broker for order placement.
+Default runtime remains Binance/PAXG for backwards compatibility, but IG demo/live
+can now be selected additively for real XAUUSD ingestion.
 """
+
+from datetime import datetime, timezone
 
 import ccxt.async_support as ccxt
 import structlog
-from datetime import datetime, timezone
 
-from src.config import Settings
+from src.config import MarketDataProvider, Settings, get_settings
+from src.ingestion.ig_client import IGClient
 
 log = structlog.get_logger(__name__)
 
@@ -36,11 +32,35 @@ BINANCE_MAX_CANDLES = 1000
 
 
 class MarketDataClient:
-    """Async Binance client for PAXG/USDT candle data — no API key required."""
+    """Async market-data client that routes to Binance or IG based on settings."""
 
     def __init__(self, settings: Settings | None = None) -> None:
-        # No credentials needed — Binance klines endpoint is public
-        self._exchange = ccxt.binance({"enableRateLimit": True})
+        self.settings = settings or get_settings()
+        self._provider = (
+            self.settings.market_data_provider.value
+            if isinstance(self.settings.market_data_provider, MarketDataProvider)
+            else str(self.settings.market_data_provider).lower()
+        )
+        self._exchange = None
+        self._ig_client = None
+
+        if self._provider == MarketDataProvider.IG.value:
+            self._ig_client = IGClient(self.settings)
+        elif self._provider == MarketDataProvider.BINANCE.value:
+            # No credentials needed — Binance klines endpoint is public.
+            self._exchange = ccxt.binance({"enableRateLimit": True})
+        else:
+            raise RuntimeError(
+                f"Unsupported market data provider '{self._provider}'. "
+                "Use 'binance' or 'ig'."
+            )
+
+    async def aclose(self) -> None:
+        """Close any provider-specific network clients."""
+        if self._ig_client is not None:
+            await self._ig_client.aclose()
+        if self._exchange is not None:
+            await self._exchange.close()
 
     async def get_candles(
         self,
@@ -48,19 +68,44 @@ class MarketDataClient:
         granularity: str,
         count: int = BINANCE_MAX_CANDLES,
         from_time: str | None = None,
+        to_time: str | None = None,
     ) -> list[dict]:
-        """Fetch up to 1000 candles from Binance for PAXG/USDT.
+        """Fetch normalized candles from the selected market-data provider.
 
         Args:
-            instrument: e.g. "XAUUSD" (mapped to PAXG/USDT internally)
+            instrument: e.g. "XAUUSD"
             granularity: "M15", "H1", "H4", or "D1"
-            count: Max candles per call (Binance cap: 1000)
+            count: Max candles per call
             from_time: ISO 8601 UTC string — if set, fetches forward from this time
+            to_time: Optional ISO 8601 UTC string — used by providers that support
+                bounded date ranges (IG)
 
         Returns:
             List of normalized candle dicts:
             {time (ISO str), open, high, low, close, volume}
         """
+        provider = getattr(self, "_provider", MarketDataProvider.BINANCE.value)
+
+        if provider == MarketDataProvider.IG.value:
+            assert self._ig_client is not None
+            candles = await self._ig_client.get_candles(
+                instrument=instrument,
+                granularity=granularity,
+                count=count,
+                from_time=from_time,
+                to_time=to_time,
+            )
+            log.info(
+                "market_client.fetched",
+                provider=provider,
+                instrument=instrument,
+                granularity=granularity,
+                count=len(candles),
+                from_time=from_time,
+                to_time=to_time,
+            )
+            return candles
+
         symbol = _INSTRUMENT_MAP.get(instrument, instrument)
         tf = _TF_MAP.get(granularity, granularity)
         since_ms: int | None = None
@@ -69,6 +114,7 @@ class MarketDataClient:
             since_ms = int(dt.timestamp() * 1000)
 
         try:
+            assert self._exchange is not None
             raw = await self._exchange.fetch_ohlcv(
                 symbol,
                 timeframe=tf,
@@ -78,22 +124,28 @@ class MarketDataClient:
             candles = [self._normalize(c) for c in (raw or [])]
             log.info(
                 "market_client.fetched",
+                provider=provider,
                 instrument=instrument,
                 symbol=symbol,
                 granularity=granularity,
                 count=len(candles),
                 from_time=from_time,
+                to_time=to_time,
             )
             return candles
 
         except ccxt.NetworkError as e:
-            log.error("market_client.network_error", error=str(e))
+            log.error("market_client.network_error", provider=provider, error=str(e))
             raise
         except ccxt.ExchangeError as e:
-            log.error("market_client.exchange_error", error=type(e).__name__)
+            log.error(
+                "market_client.exchange_error",
+                provider=provider,
+                error=type(e).__name__,
+            )
             raise
         except Exception as e:
-            log.error("market_client.fetch_error", error=type(e).__name__)
+            log.error("market_client.fetch_error", provider=provider, error=type(e).__name__)
             raise
 
     @staticmethod

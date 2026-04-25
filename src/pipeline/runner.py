@@ -6,7 +6,7 @@ Orchestrates all five pipeline steps:
 Per D-04 (04-CONTEXT.md): All signals are processed in-memory. A single DB transaction
 at the end writes all CandidateSignalORM rows (with final statuses) and ApprovedSignalORM rows.
 
-Provider-agnostic: no Binance/OANDA/IG-specific code here (D-05).
+Provider-agnostic: no broker/provider-specific code here (D-05).
 """
 
 import structlog

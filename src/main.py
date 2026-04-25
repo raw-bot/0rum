@@ -48,11 +48,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         database_url=settings.database_url.split("@")[-1],  # hide credentials
     )
 
-    # Launch 6-month backfill as background task (non-blocking)
+    from src.config import MarketDataProvider
     from src.ingestion.candle_fetcher import CandleFetcher
-    fetcher = CandleFetcher(settings=settings)
-    asyncio.create_task(fetcher.backfill_all())
-    logger.info("app.backfill_launched")
+
+    async def _run_startup_ingestion() -> None:
+        async with CandleFetcher(settings=settings) as fetcher:
+            if settings.market_data_provider == MarketDataProvider.IG:
+                await fetcher.warm_up_all()
+            else:
+                await fetcher.backfill_all()
+
+    asyncio.create_task(_run_startup_ingestion())
+    logger.info(
+        "app.startup_ingestion_launched",
+        provider=settings.market_data_provider.value,
+    )
 
     # Start APScheduler with all 4 timeframe jobs
     from src.scheduler.jobs import create_scheduler

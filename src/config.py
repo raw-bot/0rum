@@ -12,11 +12,35 @@ class ExecutionMode(str, Enum):
     AUTO = "auto"
 
 
+class MarketDataProvider(str, Enum):
+    """Supported market-data providers for candle ingestion."""
+
+    BINANCE = "binance"
+    IG = "ig"
+
+
 class Settings(BaseSettings):
     """All application settings loaded from .env."""
 
     # Broker credentials (Phase 7 — execution engine, not needed for ingestion)
     # broker_api_key: str = ""  # placeholder for future live trading
+
+    market_data_provider: MarketDataProvider = MarketDataProvider.BINANCE
+
+    # IG demo/provider validation (Phase 4.1+)
+    ig_api_key: str = ""
+    ig_identifier: str = ""
+    ig_password: str = ""
+    ig_account_id: str = ""
+    ig_api_url: str = "https://demo-api.ig.com/gateway/deal"
+    ig_xauusd_epic: str = ""
+
+    # IG-light ingestion limits (avoids bulk historical on demo)
+    ig_warmup_bars_m15: int = 300   # ~3 days of M15
+    ig_warmup_bars_h1: int = 250    # ~10 days of H1 (EMA200 + margin)
+    ig_warmup_bars_h4: int = 80     # ~13 days of H4
+    ig_warmup_bars_d1: int = 60     # 60 trading days of D1
+    ig_max_gap_bars: int = 100      # refuse gap fill > 100 bars per timeframe on IG
 
     # Database
     database_url: str

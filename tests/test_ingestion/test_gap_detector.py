@@ -182,3 +182,58 @@ async def test_find_gaps_empty_table_returns_empty(async_session: AsyncSession):
         gaps = await detector.find_gaps("XAUUSD", "H1", lookback_hours=48)
 
     assert gaps == []
+
+
+@pytest.mark.asyncio
+async def test_detect_and_fill_skips_oversized_gap(async_session: AsyncSession):
+    """detect_and_fill skips gaps larger than max_gap_bars without fetching."""
+    base = _recent_base()
+    # Gap of 6 bars (delta=90 min > 2×15=30 min threshold), so find_gaps detects it.
+    timestamps = [base, base + timedelta(minutes=90)]
+    await _seed_candles(async_session, "M15", timestamps)
+
+    mock_fetcher = AsyncMock()
+    detector = GapDetector(fetcher=mock_fetcher, max_gap_bars=3)
+
+    with pytest.MonkeyPatch().context() as mp:
+        import src.ingestion.gap_detector as gd_module
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def mock_session_ctx():
+            yield async_session
+
+        mp.setattr(gd_module, "AsyncSessionLocal", mock_session_ctx)
+        gap_count = await detector.detect_and_fill("XAUUSD", "M15", lookback_hours=48)
+
+    assert gap_count == 1
+    mock_fetcher.fetch_and_store.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_detect_and_fill_passes_to_time_on_fill(async_session: AsyncSession):
+    """detect_and_fill always passes to_time to bound the historical request."""
+    base = _recent_base()
+    timestamps = [base, base + timedelta(minutes=90)]
+    await _seed_candles(async_session, "M15", timestamps)
+
+    mock_fetcher = AsyncMock()
+    mock_fetcher.fetch_and_store = AsyncMock(return_value=1)
+    detector = GapDetector(fetcher=mock_fetcher, max_gap_bars=10)
+
+    with pytest.MonkeyPatch().context() as mp:
+        import src.ingestion.gap_detector as gd_module
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def mock_session_ctx():
+            yield async_session
+
+        mp.setattr(gd_module, "AsyncSessionLocal", mock_session_ctx)
+        gap_count = await detector.detect_and_fill("XAUUSD", "M15", lookback_hours=48)
+
+    assert gap_count == 1
+    mock_fetcher.fetch_and_store.assert_called_once()
+    kwargs = mock_fetcher.fetch_and_store.call_args.kwargs
+    assert kwargs.get("to_time") is not None
+    assert kwargs.get("from_time") is not None

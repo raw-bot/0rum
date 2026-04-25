@@ -3,7 +3,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, Boolean, Index, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, DateTime, Index, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.database import Base
@@ -22,11 +22,15 @@ class Candle(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     instrument: Mapped[str] = mapped_column(String(10), nullable=False, default="XAUUSD")
     timeframe: Mapped[str] = mapped_column(String(5), nullable=False)
-    timestamp: Mapped[datetime] = mapped_column(nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     open: Mapped[Decimal] = mapped_column(Numeric(12, 5), nullable=False)
     high: Mapped[Decimal] = mapped_column(Numeric(12, 5), nullable=False)
     low: Mapped[Decimal] = mapped_column(Numeric(12, 5), nullable=False)
     close: Mapped[Decimal] = mapped_column(Numeric(12, 5), nullable=False)
     volume: Mapped[int] = mapped_column(Integer, nullable=False)
     complete: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default="NOW()")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default="NOW()",
+    )

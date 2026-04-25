@@ -30,8 +30,13 @@ class Gap(NamedTuple):
 class GapDetector:
     """Detects temporal gaps in the candles table and triggers backfill."""
 
-    def __init__(self, fetcher: CandleFetcher | None = None) -> None:
+    def __init__(
+        self,
+        fetcher: CandleFetcher | None = None,
+        max_gap_bars: int | None = None,
+    ) -> None:
         self.fetcher = fetcher or CandleFetcher()
+        self.max_gap_bars = max_gap_bars
 
     async def find_gaps(
         self,
@@ -78,10 +83,16 @@ class GapDetector:
 
             # Allow up to 2× the expected interval before flagging
             if delta > expected_delta * 2:
-                # Skip weekend gaps: Sat 22:00–Sun 22:00 UTC
-                # Saturday = weekday 5, Sunday = weekday 6
-                if prev.weekday() == 4 and delta.total_seconds() <= 172800:
-                    # Friday close → Sunday open: up to 48h tolerated
+                # Skip only true market-closure gaps. A short Friday intraday
+                # hole is still a data gap and must be backfilled.
+                if (
+                    prev.weekday() == 4
+                    and prev.hour >= 20
+                    and curr.weekday() == 6
+                    and curr.hour >= 20
+                    and delta.total_seconds() <= 172800
+                ):
+                    # Friday close → Sunday open: up to 48h tolerated.
                     continue
                 gaps.append(Gap(timeframe=timeframe, gap_start=prev, gap_end=curr))
 
@@ -115,12 +126,34 @@ class GapDetector:
                 gap_start=gap.gap_start.isoformat(),
                 gap_end=gap.gap_end.isoformat(),
             )
+
+            if self.max_gap_bars is not None:
+                from datetime import timedelta
+                interval_min = TIMEFRAME_MINUTES.get(timeframe, 15)
+                gap_bars = int(
+                    (gap.gap_end - gap.gap_start).total_seconds()
+                    / (interval_min * 60)
+                )
+                if gap_bars > self.max_gap_bars:
+                    log.warning(
+                        "gap_detector.gap_too_large_skipped",
+                        instrument=instrument,
+                        timeframe=timeframe,
+                        gap_bars=gap_bars,
+                        max_gap_bars=self.max_gap_bars,
+                        gap_start=gap.gap_start.isoformat(),
+                        gap_end=gap.gap_end.isoformat(),
+                    )
+                    continue
+
             try:
                 from_time = gap.gap_start.strftime("%Y-%m-%dT%H:%M:%SZ")
+                to_time = gap.gap_end.strftime("%Y-%m-%dT%H:%M:%SZ")
                 inserted = await self.fetcher.fetch_and_store(
                     instrument=instrument,
                     timeframe=timeframe,
                     from_time=from_time,
+                    to_time=to_time,
                 )
                 if inserted > 0:
                     log.info(
