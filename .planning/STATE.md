@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 03 verification complete — ready to start Phase 04
-last_updated: "2026-04-23T00:00:00.000Z"
-last_activity: 2026-04-23 -- Phase 5 Wave 1 complete (05-01, 05-02, 05-03 done; 185 tests green)
+last_updated: "2026-04-26T00:00:00.000Z"
+last_activity: 2026-04-26 -- Phase 05-05 optimizer correction committed; liquidity_sweep active after HistData rerun
 progress:
   total_phases: 9
   completed_phases: 4
   total_plans: 18
-  completed_plans: 16
-  percent: 78
+  completed_plans: 17
+  percent: 94
 ---
 
 # Project State
@@ -21,16 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** The bot must reliably generate validated XAUUSD signals in mode signal, with every trade candidate passing all risk gates — signal quality and capital protection are non-negotiable before any auto-execution is considered.
-**Current focus:** Phase 04 — signal-pipeline
+**Current focus:** Phase 05 — backtesting-validation
 
 ## Current Position
 
-Phase: 05 (backtesting-validation) — IN PROGRESS (Wave 1 done)
-Next: 05-04 decision gate (Chemin A vs Chemin B — human decision required before execution)
-Status: Blocked on path decision
-Last activity: 2026-04-23 -- Wave 1 complete (05-01, 05-02, 05-03 committed, 185 tests green)
+Phase: 05 (backtesting-validation) — IN PROGRESS
+Plan: 05-05 optimizer correction/debug complete
+Next: Targeted breakout_expansion zero-trade audit
+Status: HistData-backed optimizer can persist validated params; liquidity_sweep active
+Last activity: 2026-04-26 -- Monte Carlo reproducibility/PF correction committed and real optimizer rerun completed
 
-Progress: [#####░░░░░] 55.6% (5/9 phases complete)
+Progress: [######░░░░] 60.0% (5/9 phases complete)
 
 ## Completed Phases
 
@@ -78,11 +79,11 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Phase 5 requires real XAUUSD data. IG provider is now wired and IG historical access is confirmed working (tested 2026-04-22). Decide whether to run a controlled IG smoke test before opening Phase 5 plan, or proceed directly to planning.
+- Phase 5 historical source is HistData XAUUSD M1 Generic ASCII downloaded locally under `data/histdata/xauusd_m1_ascii/`. Run `./.venv/bin/python scripts/histdata_phase5_loader.py qa` for read-only coverage checks, then `./.venv/bin/python scripts/histdata_phase5_loader.py import` when ready to load PostgreSQL.
 
 ### Blockers/Concerns
 
-- Phase 5 optimizer/walk-forward must not run on Binance/PAXG data. IG warm-up (Phase 4.1) is complete but a full continuous-operation validation on IG has not yet been performed. Treat Phase 5 execution as IG-only from the start.
+- Phase 5 optimizer/walk-forward must not run on Binance/PAXG data. IG and OANDA are no longer active candidates. HistData is historical/bootstrap only; runtime XAUUSD provider selection is deferred before Phase 7, with Dukascopy as the likely candidate to validate.
 
 ## Session Continuity
 

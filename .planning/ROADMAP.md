@@ -110,7 +110,7 @@ Plans:
 
 ### Phase 5: Backtesting & Validation
 **Goal**: Every strategy has walk-forward validated parameters with WFE > 50% before any signal can be generated from them
-**Provider Gate**: Do not validate this phase on the Binance/PAXG proxy. Integrate and verify a real XAUUSD provider first; IG demo is the current target.
+**Provider Gate**: Do not validate this phase on the Binance/PAXG proxy. IG and OANDA are no longer active candidates. Phase 5 historical validation uses HistData XAUUSD M1 as an offline bootstrap source; runtime XAUUSD provider selection is deferred before Phase 7.
 **Depends on**: Phase 2, Phase 3
 **Requirements**: OPTIM-01, OPTIM-02, OPTIM-03, OPTIM-04, OPTIM-05
 **Success Criteria** (what must be TRUE):
@@ -126,7 +126,7 @@ Plans:
 - [x] 05-01-PLAN.md — Walk-forward core (walk_forward.py, monte_carlo.py) + full unit test suite (window construction, WFE calc, multi-window gate, P95/P5 gates)
 - [x] 05-02-PLAN.md — Optimizer core (optimizer.py: LHS sampling, sliding-window backtester, WFE gate, DB write) + unit tests
 - [x] 05-03-PLAN.md — Scheduler wiring (run_optimizer() 24h job in jobs.py) + scheduler wiring tests
-- [ ] 05-04-PLAN.md — Data strategy decision gate (Chemin A vs Chemin B) + historical_loader.py + load_historical_data.py script (Chemin B path)
+- [x] 05-04-PLAN.md — Historical data provider validation gate (IG insufficient; HistData offline bootstrap selected)
 - [ ] 05-05-PLAN.md — Full statistical validation run + integration tests + Phase 5 sign-off
 
 ### Phase 6: Risk Management
@@ -177,7 +177,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 3. Strategy Engine | 4/4 | Complete | 2026-04-09 |
 | 4. Signal Pipeline | 3/3 | Complete | 2026-04-22 |
 | 4.1. IG-Light Ingestion Hardening | 3/3 | Complete | 2026-04-22 |
-| 5. Backtesting & Validation | 3/5 | In Progress (Wave 1 done, gate 05-04 pending) | 2026-04-23 |
+| 5. Backtesting & Validation | 4/5 | In Progress (HistData bootstrap ready; 05-05 pending) | 2026-04-23 |
 | 6. Risk Management | 0/? | Not started | - |
 | 7. Signal Mode & Monitoring | 0/? | Not started | - |
 | 8. Auto Mode | 0/? | Not started | - |

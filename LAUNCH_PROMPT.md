@@ -75,10 +75,11 @@ Tu es un développeur senior Python. Lis CLAUDE.md dans ce répertoire.
 
 Exécute la Phase 2 — Data Ingestion :
 
-1. Crée src/ingestion/oanda_client.py (section 8.1)
-   - Client async httpx pour OANDA v20
-   - Attention : instrument = "XAU_USD" pour OANDA, granularité "D" (pas "D1")
-   - Rate limiting : max 1 req/500ms
+1. Crée src/ingestion/market_client.py (section 8.1)
+   - Client async pour le provider de marché retenu
+   - Priorité: IG demo → live pour le vrai XAUUSD
+   - Garder le mapping interne des timeframes M15 / H1 / H4 / D1
+   - Rate limiting respecté côté provider
 2. Crée src/ingestion/candle_fetcher.py (section 8.2)
    - Fetch les 4 timeframes : M15, H1, H4, D1
    - Upsert (ON CONFLICT DO NOTHING)
@@ -266,8 +267,8 @@ Exécute la Phase 7 — Execution Engine :
    - Formatte les signaux pour Telegram (emoji + prix + SL/TP + confidence)
    - Démarre le tracking théorique post-signal
 
-2. Crée src/execution/oanda_executor.py (section 13.2)
-   - Place les ordres via OANDA API
+2. Crée src/execution/broker_executor.py (section 13.2)
+   - Place les ordres via le broker choisi
    - Partial close 50% à TP1
    - Trailing stop ATR-based après TP1 (section 13.2)
    - Trail = 1.0 × ATR(14) H1, ratchet only
@@ -275,7 +276,7 @@ Exécute la Phase 7 — Execution Engine :
 3. Crée src/execution/executor.py (section 13.4)
    - ExecutionRouter : switch signal/auto selon EXECUTION_MODE
    - Mode signal → telegram sender + theoretical tracking
-   - Mode auto → oanda executor + telegram notification
+   - Mode auto → broker executor + telegram notification
 
 4. Intègre le tracking théorique en mode signal :
    - Surveille le prix post-signal
@@ -362,7 +363,7 @@ Checklist de vérification :
 
 4. EXECUTION MODES
    - [ ] Mode signal : Telegram + theoretical tracking
-   - [ ] Mode auto : OANDA + partial close + trailing
+   - [ ] Mode auto : broker natif + partial close + trailing
    - [ ] Switch via .env uniquement
    - [ ] Transition recommandée : 4 semaines minimum
 
@@ -375,10 +376,10 @@ Checklist de vérification :
    - [ ] Pas de multi-asset
    - [ ] Docstrings Google style
 
-6. OANDA
-   - [ ] Instrument = "XAU_USD"
-   - [ ] Granularité D1 → "D"
-   - [ ] Auth header correct
+6. PROVIDER / BROKER
+   - [ ] Provider réel XAUUSD validé
+   - [ ] Broker executor aligné avec le broker choisi
+   - [ ] Auth / sessions / headers corrects
    - [ ] Rate limiting
 
 Rapporte chaque anomalie trouvée avec le fichier et la ligne concernée.

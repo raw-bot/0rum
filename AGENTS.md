@@ -5,14 +5,14 @@
 
 ## Realignment Override — 2026-04-10
 
-Les références historiques à OANDA dans ce document sont désormais **legacy** et ne doivent plus piloter l'implémentation courante.
+Les anciennes références broker/provider dans ce document sont désormais **legacy** et ne doivent plus piloter l'implémentation courante.
 
 Règles de priorité :
 - `market data provider` et `execution broker` sont **deux concerns séparés**
 - la cible prioritaire pour le vrai `XAUUSD` est désormais **IG demo → live**
 - l'implémentation Binance/CCXT `PAXG/USDT` de la Phase 2 reste **tolérée uniquement pour la plomberie et la Phase 4 provider-agnostic**
 - **Phase 5 et au-delà** ne doivent pas être validées sur le proxy `PAXG/USDT`
-- en cas de conflit avec une section plus bas qui suppose `OANDA`, cet addendum l'emporte
+- en cas de conflit avec une section plus bas qui suppose un ancien provider ou broker, cet addendum l'emporte
 
 ---
 
@@ -165,10 +165,16 @@ python-telegram-bot (notifications)
 ## 5. Configuration — `.env`
 
 ```env
-# === PROVIDER NOTE ===
-# OANDA n'est plus la cible du projet.
-# La cible prioritaire pour le vrai XAUUSD est IG demo → live.
-# Les variables provider-specific seront ajoutées quand l'intégration IG sera implémentée.
+# === MARKET DATA PROVIDER ===
+MARKET_DATA_PROVIDER=binance
+
+# === IG DEMO ===
+IG_API_KEY=your-ig-api-key
+IG_IDENTIFIER=your-ig-demo-identifier
+IG_PASSWORD=your-ig-demo-password
+IG_ACCOUNT_ID=your-ig-demo-account-id
+IG_API_URL=https://demo-api.ig.com/gateway/deal
+IG_XAUUSD_EPIC=CS.D.CFEGOLD.CFE.IP
 
 # === DATABASE ===
 DATABASE_URL=postgresql+asyncpg://orum:orum@postgres:5432/orum
@@ -212,8 +218,15 @@ class ExecutionMode(str, Enum):
     AUTO = "auto"
 
 class Settings(BaseSettings):
-    # Provider-specific credentials are intentionally deferred until the
-    # IG integration lands. Current code keeps only provider-agnostic settings.
+    market_data_provider: str = "binance"
+
+    # IG demo/provider validation
+    ig_api_key: str = ""
+    ig_identifier: str = ""
+    ig_password: str = ""
+    ig_account_id: str = ""
+    ig_api_url: str = "https://demo-api.ig.com/gateway/deal"
+    ig_xauusd_epic: str = ""
 
     # Database
     database_url: str
@@ -315,7 +328,7 @@ CREATE TABLE approved_signals (
 CREATE TABLE trades (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     approved_signal_id  UUID NOT NULL REFERENCES approved_signals(id),
-    oanda_trade_id      VARCHAR(30),
+    broker_trade_id     VARCHAR(30),
     direction           VARCHAR(5) NOT NULL,
     entry_price         NUMERIC(12,5) NOT NULL,
     sl_price            NUMERIC(12,5) NOT NULL,
