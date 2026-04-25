@@ -6,11 +6,20 @@ os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://test:test@localhost/
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "test-token")
 os.environ.setdefault("TELEGRAM_CHAT_ID", "test-chat")
 
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from sqlalchemy import DateTime
 
-from src.backtesting.optimizer import WalkForwardOptimizer
+from src.backtesting.optimizer import (
+    SimulatedTradeResult,
+    WalkForwardOptimizer,
+    _build_daily_pnl_series,
+    _compute_aggregate_scores,
+    _strategy_lhs_seed,
+)
+from src.models.optimizer_result import OptimizerResultORM
 
 SAMPLE_PARAM_RANGES: dict[str, tuple[float, float]] = {
     "sweep_atr_mult": (0.2, 0.8),
@@ -54,6 +63,62 @@ def test_lhs_values_are_python_floats():
             assert isinstance(value, float), f"Expected float, got {type(value)}"
 
 
+def test_lhs_is_deterministic_when_seeded():
+    opt = WalkForwardOptimizer()
+    seed = 12345
+    combos_a = opt._sample_param_combinations(SAMPLE_PARAM_RANGES, n_combos=10, seed=seed)
+    combos_b = opt._sample_param_combinations(SAMPLE_PARAM_RANGES, n_combos=10, seed=seed)
+    assert combos_a == combos_b
+
+
+def test_strategy_lhs_seed_is_stable_and_distinct():
+    liquidity_seed = _strategy_lhs_seed("liquidity_sweep")
+    trend_seed = _strategy_lhs_seed("trend_continuation")
+    assert liquidity_seed == _strategy_lhs_seed("liquidity_sweep")
+    assert liquidity_seed != trend_seed
+
+
+def test_optimizer_result_datetime_columns_are_timezone_aware():
+    """Optimizer result timestamps must match TIMESTAMPTZ schema in 0001 migration."""
+    for column_name in ["train_start", "train_end", "test_start", "test_end", "created_at"]:
+        column = OptimizerResultORM.__table__.c[column_name]
+        assert isinstance(column.type, DateTime)
+        assert column.type.timezone is True, f"{column_name} must be timezone-aware"
+
+
+def test_optimizer_result_max_drawdown_column_has_expanded_precision():
+    column = OptimizerResultORM.__table__.c["max_drawdown"]
+    assert column.type.precision == 12
+    assert column.type.scale == 5
+
+
+def test_compute_aggregate_scores_uses_all_windows():
+    """Aggregate WFE must be derived from all IS/OOS trades, not just the last window."""
+    is_pf, oos_pf, wfe = _compute_aggregate_scores(
+        all_is_pnl=[10.0, 10.0, -5.0, -5.0],
+        all_oos_pnl=[8.0, 8.0, -4.0, -4.0],
+    )
+    assert is_pf == pytest.approx(2.0)
+    assert oos_pf == pytest.approx(2.0)
+    assert wfe == pytest.approx(1.0)
+
+
+def test_build_daily_pnl_series_sums_same_day_and_fills_gaps():
+    """Monte Carlo input must be a dense daily vector with zero-filled missing days."""
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    end = datetime(2026, 1, 5, tzinfo=timezone.utc)
+    series = _build_daily_pnl_series(
+        trade_results=[
+            SimulatedTradeResult(signal_timestamp=start + timedelta(hours=1), pnl=10.0),
+            SimulatedTradeResult(signal_timestamp=start + timedelta(hours=5), pnl=-3.0),
+            SimulatedTradeResult(signal_timestamp=start + timedelta(days=2, hours=2), pnl=7.5),
+        ],
+        start=start,
+        end=end,
+    )
+    assert series.tolist() == [7.0, 0.0, 7.5, 0.0]
+
+
 # ---------------------------------------------------------------------------
 # Data guard — run() must return early when insufficient data
 # ---------------------------------------------------------------------------
@@ -86,7 +151,6 @@ async def test_retains_previous_on_no_passing_combo():
     """When _evaluate_all_combos returns None, _activate_best_params is not called."""
     opt = WalkForwardOptimizer()
 
-    from datetime import datetime, timezone
     from src.backtesting.walk_forward import WalkForwardWindow, MIN_CANDLES_FOR_OPTIMIZER
 
     # Sufficient candle counts (just at minimum)

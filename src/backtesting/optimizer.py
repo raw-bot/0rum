@@ -7,7 +7,11 @@ Architecture (per RESEARCH.md Sync/Async Decision):
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from bisect import bisect_left, bisect_right
+from copy import deepcopy
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta, timezone
+from hashlib import sha256
 from typing import Any
 
 import numpy as np
@@ -40,6 +44,119 @@ BACKTEST_WINDOW_CANDLES = 500
 BACKTEST_STEP_CANDLES = 1  # step one H1 candle per window position — per plan 05-02 spec
 MIN_TRADES_FOR_EVALUATION = 5
 N_WALK_FORWARD_WINDOWS = 3
+LHS_BASE_SEED = 20260425
+
+
+@dataclass(frozen=True)
+class SimulatedTradeResult:
+    """One simulated trade outcome tagged with the signal timestamp."""
+
+    signal_timestamp: datetime
+    pnl: float
+
+
+def _compute_aggregate_scores(
+    all_is_pnl: list[float],
+    all_oos_pnl: list[float],
+) -> tuple[float, float, float]:
+    """Compute aggregate IS PF, aggregate OOS PF, and aggregate WFE."""
+    is_pf = (
+        _compute_profit_factor(np.array(all_is_pnl, dtype=float))
+        if all_is_pnl
+        else 0.0
+    )
+    oos_pf = (
+        _compute_profit_factor(np.array(all_oos_pnl, dtype=float))
+        if all_oos_pnl
+        else 0.0
+    )
+    return is_pf, oos_pf, _compute_wfe(is_pf, oos_pf)
+
+
+def _build_daily_pnl_series(
+    trade_results: list[SimulatedTradeResult],
+    start: datetime,
+    end: datetime,
+) -> np.ndarray:
+    """Aggregate simulated trade P&L into a dense UTC daily vector.
+
+    The Monte Carlo module is defined in terms of daily P&L, so this helper
+    groups all simulated trade outcomes by UTC calendar day and fills missing
+    days with 0.0 across the evaluation span.
+    """
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+    else:
+        start = start.astimezone(timezone.utc)
+
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=timezone.utc)
+    else:
+        end = end.astimezone(timezone.utc)
+
+    if end <= start:
+        return np.array([], dtype=float)
+
+    daily_totals: dict[date, float] = {}
+    for trade in trade_results:
+        ts = trade.signal_timestamp
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        else:
+            ts = ts.astimezone(timezone.utc)
+        trade_day = ts.date()
+        daily_totals[trade_day] = daily_totals.get(trade_day, 0.0) + trade.pnl
+
+    values: list[float] = []
+    current_day = start.date()
+    end_day = end.date()
+    while current_day < end_day:
+        values.append(daily_totals.get(current_day, 0.0))
+        current_day += timedelta(days=1)
+
+    return np.array(values, dtype=float)
+
+
+def _extract_diagnostic_snapshot(
+    combo: dict[str, float],
+    wfe: float,
+    is_score: float,
+    oos_score: float,
+    oos_pf_per_window: list[float],
+    train_trade_counts: list[int],
+    oos_trade_counts: list[int],
+    trade_count: int,
+    windows_with_too_few_is_trades: int,
+    wfe_minimum: float,
+) -> dict[str, Any]:
+    """Build a compact per-combo diagnostic snapshot for post-mortem analysis."""
+    profitable_windows = sum(1 for pf in oos_pf_per_window if pf > 1.0)
+    multi_window_passed = multi_window_gate_passes(oos_pf_per_window)
+    return {
+        "params": combo,
+        "wfe": wfe,
+        "is_score": is_score,
+        "oos_score": oos_score,
+        "oos_pf_per_window": oos_pf_per_window,
+        "profitable_windows": profitable_windows,
+        "multi_window_passed": multi_window_passed,
+        "wfe_passed": wfe >= wfe_minimum,
+        "trade_count": trade_count,
+        "train_trade_counts": train_trade_counts,
+        "oos_trade_counts": oos_trade_counts,
+        "too_few_trades": windows_with_too_few_is_trades > 0,
+        "windows_with_too_few_is_trades": windows_with_too_few_is_trades,
+    }
+
+
+def _strategy_lhs_seed(strategy_name: str) -> int:
+    """Return a stable per-strategy LHS seed.
+
+    Python's built-in hash is process-randomized, so derive the seed from a
+    stable digest instead to keep optimizer sampling reproducible across runs.
+    """
+    digest = sha256(strategy_name.encode("utf-8")).digest()
+    return (LHS_BASE_SEED + int.from_bytes(digest[:4], "big")) % (2**32)
 
 
 class WalkForwardOptimizer:
@@ -59,11 +176,13 @@ class WalkForwardOptimizer:
 
     def __init__(self) -> None:
         self._settings = get_settings()
+        self.last_run_diagnostics: dict[str, dict[str, Any]] = {}
 
     def _sample_param_combinations(
         self,
         param_ranges: dict[str, tuple[float, float]],
         n_combos: int,
+        seed: int | None = None,
     ) -> list[dict[str, float]]:
         """Generate n_combos LHS parameter combinations for one strategy.
 
@@ -74,6 +193,7 @@ class WalkForwardOptimizer:
         Args:
             param_ranges: Strategy PARAM_RANGES dict mapping name → (lo, hi).
             n_combos: Number of combinations (100 per CONTEXT.md locked decision).
+            seed: Optional deterministic seed for reproducible LHS sampling.
 
         Returns:
             List of n_combos dicts, each mapping param_name → clamped float value.
@@ -83,7 +203,7 @@ class WalkForwardOptimizer:
         l_bounds = [param_ranges[k][0] for k in param_names]
         u_bounds = [param_ranges[k][1] for k in param_names]
 
-        sampler = LatinHypercube(d=d)
+        sampler = LatinHypercube(d=d, seed=seed)
         unit_samples = sampler.random(n=n_combos)
         scaled_samples = scale(unit_samples, l_bounds, u_bounds)
 
@@ -131,7 +251,19 @@ class WalkForwardOptimizer:
         strategy_instance: Any,
         candle_slice: dict[str, list],
     ) -> list[float]:
-        """Slide a 500-candle window across candle_slice and collect trade P&L.
+        """Compatibility wrapper returning only float P&L values."""
+        trade_results = await self._run_strategy_backtest_detailed_async(
+            strategy_instance,
+            candle_slice,
+        )
+        return [result.pnl for result in trade_results]
+
+    async def _run_strategy_backtest_detailed_async(
+        self,
+        strategy_instance: Any,
+        candle_slice: dict[str, list],
+    ) -> list[SimulatedTradeResult]:
+        """Slide a 500-candle window across candle_slice and collect tagged P&L.
 
         Slides BACKTEST_WINDOW_CANDLES window across the H1 timeframe in
         BACKTEST_STEP_CANDLES increments. For each window
@@ -149,14 +281,19 @@ class WalkForwardOptimizer:
             candle_slice: dict[str, list[Candle]] — all timeframes, oldest-first.
 
         Returns:
-            List of float P&L values from simulated trade outcomes.
+            List of simulated trade results tagged with the signal timestamp.
         """
-        pnl_list: list[float] = []
+        trade_results: list[SimulatedTradeResult] = []
         h1_candles = candle_slice.get("H1", [])
         n = len(h1_candles)
 
         if n < BACKTEST_WINDOW_CANDLES + 50:
-            return pnl_list
+            return trade_results
+
+        tf_timestamps: dict[str, list] = {
+            tf: [c.timestamp for c in all_tf_candles]
+            for tf, all_tf_candles in candle_slice.items()
+        }
 
         for start in range(0, n - BACKTEST_WINDOW_CANDLES - 50, BACKTEST_STEP_CANDLES):
             end = start + BACKTEST_WINDOW_CANDLES
@@ -164,8 +301,10 @@ class WalkForwardOptimizer:
 
             window_candles: dict[str, list] = {}
             for tf, all_tf_candles in candle_slice.items():
-                tf_window = [c for c in all_tf_candles if c.timestamp <= window_end_ts]
-                window_candles[tf] = tf_window[-BACKTEST_WINDOW_CANDLES:]
+                timestamps = tf_timestamps[tf]
+                upper_idx = bisect_right(timestamps, window_end_ts)
+                lower_idx = max(0, upper_idx - BACKTEST_WINDOW_CANDLES)
+                window_candles[tf] = all_tf_candles[lower_idx:upper_idx]
 
             try:
                 signals = await strategy_instance.generate_signals(window_candles)
@@ -193,11 +332,16 @@ class WalkForwardOptimizer:
                         tp2=float(signal.tp2_price) if signal.tp2_price else None,
                         subsequent_candles=outcome_candles,
                     )
-                    pnl_list.append(pnl)
+                    trade_results.append(
+                        SimulatedTradeResult(
+                            signal_timestamp=window_end_ts,
+                            pnl=pnl,
+                        )
+                    )
                 except Exception as exc:
                     log.debug("optimizer.outcome_sim_error", error=str(exc))
 
-        return pnl_list
+        return trade_results
 
     async def _evaluate_all_combos(
         self,
@@ -218,37 +362,67 @@ class WalkForwardOptimizer:
         Returns:
             Dict with combo and metrics, or None if no combo passes.
         """
+        strategy_name = strategy_class.STRATEGY_NAME
         combos = self._sample_param_combinations(
             param_ranges=strategy_class.PARAM_RANGES,
             n_combos=self._settings.lhs_combos,
+            seed=_strategy_lhs_seed(strategy_name),
         )
 
         best: dict[str, Any] | None = None
         best_wfe: float = -1.0
+        diagnostics: dict[str, Any] = {
+            "strategy": strategy_name,
+            "combos_evaluated": 0,
+            "best_combo": None,
+            "best_passing_combo": None,
+        }
+        window_slices: list[tuple[WalkForwardWindow, dict[str, list], dict[str, list]]] = []
+
+        for window in windows:
+            is_slice: dict[str, list] = {}
+            oos_slice: dict[str, list] = {}
+            for tf, cs in candles_by_tf.items():
+                timestamps = [c.timestamp for c in cs]
+                is_start = bisect_left(timestamps, window.train_start)
+                is_end = bisect_left(timestamps, window.train_end)
+                oos_start = bisect_left(timestamps, window.oos_start)
+                oos_end = bisect_left(timestamps, window.oos_end)
+                is_slice[tf] = cs[is_start:is_end]
+                oos_slice[tf] = cs[oos_start:oos_end]
+            window_slices.append((window, is_slice, oos_slice))
 
         for combo in combos:
+            diagnostics["combos_evaluated"] += 1
             oos_pfs: list[float] = []
-            is_pf_last: float = 0.0
-            oos_pf_last: float = 0.0
+            all_is_pnl: list[float] = []
             all_oos_pnl: list[float] = []
+            all_oos_trades: list[SimulatedTradeResult] = []
             total_trades: int = 0
+            train_trade_counts: list[int] = []
+            oos_trade_counts: list[int] = []
+            windows_with_too_few_is_trades = 0
 
-            for window in windows:
-                is_slice: dict[str, list] = {
-                    tf: [c for c in cs if window.train_start <= c.timestamp < window.train_end]
-                    for tf, cs in candles_by_tf.items()
-                }
-                oos_slice: dict[str, list] = {
-                    tf: [c for c in cs if window.oos_start <= c.timestamp < window.oos_end]
-                    for tf, cs in candles_by_tf.items()
-                }
-
+            for window, is_slice, oos_slice in window_slices:
                 strategy = strategy_class(params=combo)
+                strategy.emit_signal_logs = False
+                strategy.emit_diagnostic_logs = False
 
-                is_pnl = await self._run_strategy_backtest_async(strategy, is_slice)
-                oos_pnl = await self._run_strategy_backtest_async(strategy, oos_slice)
+                is_trade_results = await self._run_strategy_backtest_detailed_async(
+                    strategy,
+                    is_slice,
+                )
+                oos_trade_results = await self._run_strategy_backtest_detailed_async(
+                    strategy,
+                    oos_slice,
+                )
+                is_pnl = [result.pnl for result in is_trade_results]
+                oos_pnl = [result.pnl for result in oos_trade_results]
+                train_trade_counts.append(len(is_pnl))
+                oos_trade_counts.append(len(oos_pnl))
 
                 if len(is_pnl) < MIN_TRADES_FOR_EVALUATION:
+                    windows_with_too_few_is_trades += 1
                     oos_pfs.append(0.0)
                     continue
 
@@ -256,17 +430,38 @@ class WalkForwardOptimizer:
                 oos_pf = _compute_profit_factor(np.array(oos_pnl, dtype=float))
                 oos_pfs.append(oos_pf)
 
-                is_pf_last = is_pf
-                oos_pf_last = oos_pf
+                all_is_pnl.extend(is_pnl)
                 total_trades += len(oos_pnl)
                 all_oos_pnl.extend(oos_pnl)
+                all_oos_trades.extend(oos_trade_results)
 
-            wfe = _compute_wfe(is_pf_last, oos_pf_last)
+            aggregate_is_pf, aggregate_oos_pf, wfe = _compute_aggregate_scores(
+                all_is_pnl=all_is_pnl,
+                all_oos_pnl=all_oos_pnl,
+            )
+            combo_snapshot = _extract_diagnostic_snapshot(
+                combo=combo,
+                wfe=wfe,
+                is_score=aggregate_is_pf,
+                oos_score=aggregate_oos_pf,
+                oos_pf_per_window=oos_pfs,
+                train_trade_counts=train_trade_counts,
+                oos_trade_counts=oos_trade_counts,
+                trade_count=total_trades,
+                windows_with_too_few_is_trades=windows_with_too_few_is_trades,
+                wfe_minimum=self._settings.wfe_minimum,
+            )
+
+            if (
+                diagnostics["best_combo"] is None
+                or combo_snapshot["wfe"] > diagnostics["best_combo"]["wfe"]
+            ):
+                diagnostics["best_combo"] = deepcopy(combo_snapshot)
 
             if wfe < self._settings.wfe_minimum:
                 continue
 
-            if not multi_window_gate_passes(oos_pfs):
+            if not combo_snapshot["multi_window_passed"]:
                 continue
 
             if wfe > best_wfe:
@@ -281,16 +476,23 @@ class WalkForwardOptimizer:
                 best = {
                     "combo": combo,
                     "best_wfe": wfe,
-                    "is_score": is_pf_last,
-                    "oos_score": oos_pf_last,
+                    "is_score": aggregate_is_pf,
+                    "oos_score": aggregate_oos_pf,
                     "oos_pf_per_window": oos_pfs,
                     "trade_count": total_trades,
                     "win_rate": win_rate,
                     "max_dd": max_dd,
+                    "train_start": windows[0].train_start,
+                    "train_end": windows[-1].train_end,
+                    "test_start": windows[0].oos_start,
+                    "test_end": windows[-1].oos_end,
                     "latest_window": windows[-1],
                     "all_oos_pnl": all_oos_pnl,
+                    "all_oos_trades": all_oos_trades,
                 }
+                diagnostics["best_passing_combo"] = deepcopy(combo_snapshot)
 
+        self.last_run_diagnostics[strategy_name] = diagnostics
         return best
 
     async def _activate_best_params(
@@ -308,6 +510,10 @@ class WalkForwardOptimizer:
             result: Dict from _evaluate_all_combos() containing combo and metrics.
         """
         window: WalkForwardWindow = result["latest_window"]
+        train_start = result.get("train_start", window.train_start)
+        train_end = result.get("train_end", window.train_end)
+        test_start = result.get("test_start", window.oos_start)
+        test_end = result.get("test_end", window.oos_end)
 
         async with AsyncSessionLocal() as session:
             await session.execute(
@@ -322,10 +528,10 @@ class WalkForwardOptimizer:
             new_result = OptimizerResultORM(
                 strategy=strategy_name,
                 params=result["combo"],
-                train_start=window.train_start,
-                train_end=window.train_end,
-                test_start=window.oos_start,
-                test_end=window.oos_end,
+                train_start=train_start,
+                train_end=train_end,
+                test_start=test_start,
+                test_end=test_end,
                 in_sample_score=result["is_score"],
                 oos_score=result["oos_score"],
                 wfe=result["best_wfe"],
@@ -370,6 +576,7 @@ class WalkForwardOptimizer:
         ]
 
         log.info("optimizer.run.start")
+        self.last_run_diagnostics = {}
 
         candles_by_tf = await self._fetch_all_candles()
 
@@ -399,30 +606,93 @@ class WalkForwardOptimizer:
             log.info("optimizer.strategy.start", strategy=strategy_name)
 
             best = await self._evaluate_all_combos(strategy_class, windows, candles_by_tf)
+            diagnostics = self.last_run_diagnostics.setdefault(
+                strategy_name,
+                {
+                    "strategy": strategy_name,
+                    "combos_evaluated": 0,
+                    "best_combo": None,
+                    "best_passing_combo": None,
+                },
+            )
 
             if best is None:
+                best_combo = diagnostics.get("best_combo") or {}
+                diagnostics["final_stage"] = "no_passing_combo"
                 log.warning(
                     "optimizer.strategy.no_passing_combo",
                     strategy=strategy_name,
+                )
+                log.info(
+                    "optimizer.strategy.diagnostics",
+                    strategy=strategy_name,
+                    final_stage="no_passing_combo",
+                    combos_evaluated=diagnostics.get("combos_evaluated", 0),
+                    best_wfe_seen=best_combo.get("wfe"),
+                    best_combo_multi_window_passed=best_combo.get("multi_window_passed"),
+                    best_combo_profitable_windows=best_combo.get("profitable_windows"),
+                    best_combo_trade_count=best_combo.get("trade_count"),
+                    best_combo_train_trade_counts=best_combo.get("train_trade_counts"),
+                    best_combo_oos_trade_counts=best_combo.get("oos_trade_counts"),
+                    too_few_trades=best_combo.get("too_few_trades"),
+                    windows_with_too_few_is_trades=best_combo.get("windows_with_too_few_is_trades"),
+                    best_oos_pf_per_window=best_combo.get("oos_pf_per_window"),
                 )
                 # Retain previous active params — no deactivation
                 continue
 
             oos_pnl = best.get("all_oos_pnl", [])
+            diagnostics["best_passing_combo"] = diagnostics.get("best_passing_combo") or {
+                "wfe": best.get("best_wfe"),
+                "trade_count": len(oos_pnl),
+            }
             if len(oos_pnl) < MIN_TRADES_FOR_EVALUATION:
+                diagnostics["final_stage"] = "mc_skipped_too_few_trades"
+                diagnostics["too_few_trades_for_mc"] = True
                 log.warning(
                     "optimizer.strategy.mc_skipped_too_few_trades",
                     strategy=strategy_name,
                     trade_count=len(oos_pnl),
                 )
+                log.info(
+                    "optimizer.strategy.diagnostics",
+                    strategy=strategy_name,
+                    final_stage="mc_skipped_too_few_trades",
+                    combos_evaluated=diagnostics.get("combos_evaluated", 0),
+                    best_wfe_seen=diagnostics["best_passing_combo"].get("wfe"),
+                    best_combo_trade_count=diagnostics["best_passing_combo"].get("trade_count"),
+                    too_few_trades_for_mc=True,
+                )
                 continue
 
+            latest_window = best.get("latest_window")
+            test_start = best.get("test_start")
+            test_end = best.get("test_end")
+            if latest_window is not None:
+                test_start = test_start or latest_window.oos_start
+                test_end = test_end or latest_window.oos_end
+
             mc_results = run_monte_carlo(
-                daily_pnl=np.array(oos_pnl, dtype=float),
+                daily_pnl=_build_daily_pnl_series(
+                    trade_results=best.get("all_oos_trades", []),
+                    start=test_start,
+                    end=test_end,
+                ),
                 n_simulations=1000,
+                seed=_strategy_lhs_seed(f"{strategy_name}:monte_carlo"),
             )
+            dd_gate_passed = (
+                mc_results["p95_drawdown"] <= 2.0 * mc_results["historical_max_drawdown"]
+            )
+            pf_gate_passed = mc_results["p5_profit_factor"] > 1.0
+            diagnostics["monte_carlo"] = {
+                **mc_results,
+                "dd_gate_passed": dd_gate_passed,
+                "pf_gate_passed": pf_gate_passed,
+            }
 
             if not monte_carlo_passes(mc_results):
+                diagnostics["final_stage"] = "mc_gate_failed"
                 log.warning(
                     "optimizer.strategy.mc_gate_failed",
                     strategy=strategy_name,
@@ -430,8 +700,35 @@ class WalkForwardOptimizer:
                     p5_pf=mc_results["p5_profit_factor"],
                     hist_dd=mc_results["historical_max_drawdown"],
                 )
+                log.info(
+                    "optimizer.strategy.diagnostics",
+                    strategy=strategy_name,
+                    final_stage="mc_gate_failed",
+                    combos_evaluated=diagnostics.get("combos_evaluated", 0),
+                    best_wfe_seen=diagnostics["best_passing_combo"].get("wfe"),
+                    best_combo_trade_count=diagnostics["best_passing_combo"].get("trade_count"),
+                    mc_p95_drawdown=mc_results["p95_drawdown"],
+                    mc_historical_drawdown=mc_results["historical_max_drawdown"],
+                    mc_p5_profit_factor=mc_results["p5_profit_factor"],
+                    mc_dd_gate_passed=dd_gate_passed,
+                    mc_pf_gate_passed=pf_gate_passed,
+                )
                 continue  # Retain previous params
 
             await self._activate_best_params(strategy_name, best)
+            diagnostics["final_stage"] = "activated"
+            log.info(
+                "optimizer.strategy.diagnostics",
+                strategy=strategy_name,
+                final_stage="activated",
+                combos_evaluated=diagnostics.get("combos_evaluated", 0),
+                best_wfe_seen=diagnostics["best_passing_combo"].get("wfe"),
+                best_combo_trade_count=diagnostics["best_passing_combo"].get("trade_count"),
+                mc_p95_drawdown=mc_results["p95_drawdown"],
+                mc_historical_drawdown=mc_results["historical_max_drawdown"],
+                mc_p5_profit_factor=mc_results["p5_profit_factor"],
+                mc_dd_gate_passed=dd_gate_passed,
+                mc_pf_gate_passed=pf_gate_passed,
+            )
 
         log.info("optimizer.run.complete")

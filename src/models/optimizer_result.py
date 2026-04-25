@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import Boolean, Index, Integer, Numeric, String, text
+from sqlalchemy import Boolean, DateTime, Index, Integer, Numeric, String, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -26,17 +26,21 @@ class OptimizerResultORM(Base):
     )
     strategy: Mapped[str] = mapped_column(String(30), nullable=False)
     params: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    train_start: Mapped[datetime] = mapped_column(nullable=False)
-    train_end: Mapped[datetime] = mapped_column(nullable=False)
-    test_start: Mapped[datetime] = mapped_column(nullable=False)
-    test_end: Mapped[datetime] = mapped_column(nullable=False)
+    train_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    train_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    test_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    test_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     in_sample_score: Mapped[Decimal] = mapped_column(Numeric(8, 5), nullable=False)
     oos_score: Mapped[Decimal] = mapped_column(Numeric(8, 5), nullable=False)
     wfe: Mapped[Decimal] = mapped_column(Numeric(6, 4), nullable=False)
     profit_factor: Mapped[Optional[Decimal]] = mapped_column(Numeric(8, 4), nullable=True)
     sharpe_ratio: Mapped[Optional[Decimal]] = mapped_column(Numeric(8, 4), nullable=True)
     win_rate: Mapped[Optional[Decimal]] = mapped_column(Numeric(6, 4), nullable=True)
-    max_drawdown: Mapped[Optional[Decimal]] = mapped_column(Numeric(8, 5), nullable=True)
+    max_drawdown: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 5), nullable=True)
     trade_count: Mapped[int] = mapped_column(Integer, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default="NOW()")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default="NOW()",
+    )
