@@ -85,26 +85,29 @@ class BreakoutExpansionStrategy(AbstractStrategy):
         # --- Guard: minimum H4 candles needed (squeeze window + ATR period) ---
         min_h4_required = squeeze_lookback + 14
         if len(h4_candles) < min_h4_required:
-            log.debug(
-                "breakout_expansion.insufficient_h4_candles",
-                have=len(h4_candles),
-                need=min_h4_required,
-            )
+            if self.emit_diagnostic_logs:
+                log.debug(
+                    "breakout_expansion.insufficient_h4_candles",
+                    have=len(h4_candles),
+                    need=min_h4_required,
+                )
             return []
 
         # --- Guard: minimum H1 candles needed (20 for SMA + at least 1 breakout) ---
         if len(h1_candles) < 21:
-            log.debug(
-                "breakout_expansion.insufficient_h1_candles",
-                have=len(h1_candles),
-                need=21,
-            )
+            if self.emit_diagnostic_logs:
+                log.debug(
+                    "breakout_expansion.insufficient_h1_candles",
+                    have=len(h1_candles),
+                    need=21,
+                )
             return []
 
         # --- Step 1: ATR(14) on H4 ---
         atr_h4 = self.calculate_atr(h4_candles, period=14)
         if atr_h4 == 0.0:
-            log.debug("breakout_expansion.atr_zero", timeframe="H4")
+            if self.emit_diagnostic_logs:
+                log.debug("breakout_expansion.atr_zero", timeframe="H4")
             return []
 
         # --- Step 2: Range qualification — last squeeze_lookback H4 candles ---
@@ -114,11 +117,12 @@ class BreakoutExpansionStrategy(AbstractStrategy):
         range_width = range_high - range_low
 
         if range_width >= 1.5 * atr_h4:
-            log.debug(
-                "breakout_expansion.range_too_wide",
-                range_width=range_width,
-                threshold=1.5 * atr_h4,
-            )
+            if self.emit_diagnostic_logs:
+                log.debug(
+                    "breakout_expansion.range_too_wide",
+                    range_width=range_width,
+                    threshold=1.5 * atr_h4,
+                )
             return []
 
         # --- Step 3: Breakout check — last 2 H1 candles ---
@@ -137,7 +141,8 @@ class BreakoutExpansionStrategy(AbstractStrategy):
                 break
 
         if breakout_candle is None or direction is None:
-            log.debug("breakout_expansion.no_breakout_detected")
+            if self.emit_diagnostic_logs:
+                log.debug("breakout_expansion.no_breakout_detected")
             return []
 
         # --- Step 4: Volume confirmation ---
@@ -150,7 +155,8 @@ class BreakoutExpansionStrategy(AbstractStrategy):
             vol_reference_slice = h1_candles[:-2]
 
         if not vol_reference_slice:
-            log.debug("breakout_expansion.no_volume_reference")
+            if self.emit_diagnostic_logs:
+                log.debug("breakout_expansion.no_volume_reference")
             return []
 
         sma20_volume = float(
@@ -159,11 +165,12 @@ class BreakoutExpansionStrategy(AbstractStrategy):
         breakout_volume = float(breakout_candle.volume)
 
         if breakout_volume <= volume_mult * max(sma20_volume, 1.0):
-            log.debug(
-                "breakout_expansion.volume_insufficient",
-                breakout_volume=breakout_volume,
-                threshold=volume_mult * sma20_volume,
-            )
+            if self.emit_diagnostic_logs:
+                log.debug(
+                    "breakout_expansion.volume_insufficient",
+                    breakout_volume=breakout_volume,
+                    threshold=volume_mult * sma20_volume,
+                )
             return []
 
         # --- Steps 5-8: Entry, SL, TP ---
@@ -209,15 +216,16 @@ class BreakoutExpansionStrategy(AbstractStrategy):
             params_snapshot=self.params,
         )
 
-        log.info(
-            "breakout_expansion.signal_generated",
-            direction=direction.value,
-            entry=entry,
-            sl=sl,
-            tp1=tp1,
-            confidence=round(confidence, 4),
-            squeeze_lookback=squeeze_lookback,
-            range_width=range_width,
-        )
+        if self.emit_signal_logs:
+            log.info(
+                "breakout_expansion.signal_generated",
+                direction=direction.value,
+                entry=entry,
+                sl=sl,
+                tp1=tp1,
+                confidence=round(confidence, 4),
+                squeeze_lookback=squeeze_lookback,
+                range_width=range_width,
+            )
 
         return [signal]

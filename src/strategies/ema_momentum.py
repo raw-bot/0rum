@@ -131,11 +131,12 @@ class EmaMomentumStrategy(AbstractStrategy):
         # Need EMA50_PERIOD + 2 candles at minimum (50 for EMA seed + 2 for crossover).
         min_h1_required = _EMA50_PERIOD + 2
         if len(h1_candles) < min_h1_required:
-            log.debug(
-                "ema_momentum.insufficient_h1_candles",
-                have=len(h1_candles),
-                need=min_h1_required,
-            )
+            if self.emit_diagnostic_logs:
+                log.debug(
+                    "ema_momentum.insufficient_h1_candles",
+                    have=len(h1_candles),
+                    need=min_h1_required,
+                )
             return []
 
         closes = [float(c.close) for c in h1_candles]
@@ -148,7 +149,8 @@ class EmaMomentumStrategy(AbstractStrategy):
         # Verify all EMAs have valid values at the last two positions.
         for name, arr in (("ema_fast", ema_fast), ("ema_slow", ema_slow), ("ema50", ema50)):
             if np.isnan(arr[-1]) or np.isnan(arr[-2]):
-                log.debug("ema_momentum.ema_nan", ema=name)
+                if self.emit_diagnostic_logs:
+                    log.debug("ema_momentum.ema_nan", ema=name)
                 return []
 
         # --- Step 2: Crossover detection (last 2 candles) ---
@@ -160,26 +162,29 @@ class EmaMomentumStrategy(AbstractStrategy):
             direction = Direction.SELL
 
         if direction is None:
-            log.debug("ema_momentum.no_crossover_detected")
+            if self.emit_diagnostic_logs:
+                log.debug("ema_momentum.no_crossover_detected")
             return []
 
         # --- Step 3: Trend filter — EMA(fast_ema) vs EMA(50) ---
         if direction == Direction.BUY and ema_fast[-1] <= ema50[-1]:
-            log.debug(
-                "ema_momentum.trend_filter_failed",
-                direction="BUY",
-                ema_fast=float(ema_fast[-1]),
-                ema50=float(ema50[-1]),
-            )
+            if self.emit_diagnostic_logs:
+                log.debug(
+                    "ema_momentum.trend_filter_failed",
+                    direction="BUY",
+                    ema_fast=float(ema_fast[-1]),
+                    ema50=float(ema50[-1]),
+                )
             return []
 
         if direction == Direction.SELL and ema_fast[-1] >= ema50[-1]:
-            log.debug(
-                "ema_momentum.trend_filter_failed",
-                direction="SELL",
-                ema_fast=float(ema_fast[-1]),
-                ema50=float(ema50[-1]),
-            )
+            if self.emit_diagnostic_logs:
+                log.debug(
+                    "ema_momentum.trend_filter_failed",
+                    direction="SELL",
+                    ema_fast=float(ema_fast[-1]),
+                    ema50=float(ema50[-1]),
+                )
             return []
 
         # --- Step 4: Entry price ---
@@ -188,7 +193,8 @@ class EmaMomentumStrategy(AbstractStrategy):
         # --- Step 5: SL — opposite side of EMA(slow) adjusted by ATR ---
         atr_h1 = self.calculate_atr(h1_candles, period=14)
         if atr_h1 == 0.0:
-            log.debug("ema_momentum.atr_zero", timeframe="H1")
+            if self.emit_diagnostic_logs:
+                log.debug("ema_momentum.atr_zero", timeframe="H1")
             return []
 
         if direction == Direction.BUY:
@@ -238,15 +244,16 @@ class EmaMomentumStrategy(AbstractStrategy):
             params_snapshot=self.params,
         )
 
-        log.info(
-            "ema_momentum.signal_generated",
-            direction=direction.value,
-            entry=entry,
-            sl=sl,
-            tp1=tp1,
-            confidence=round(confidence, 4),
-            fast_ema=fast_period,
-            slow_ema=slow_period,
-        )
+        if self.emit_signal_logs:
+            log.info(
+                "ema_momentum.signal_generated",
+                direction=direction.value,
+                entry=entry,
+                sl=sl,
+                tp1=tp1,
+                confidence=round(confidence, 4),
+                fast_ema=fast_period,
+                slow_ema=slow_period,
+            )
 
         return [signal]

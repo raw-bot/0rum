@@ -107,21 +107,24 @@ class LiquiditySweepStrategy(AbstractStrategy):
 
         # --- guard: minimum H4 data for swing detection (order=10 needs 2*10+1 = 21) ---
         if len(h4_candles) < 21:
-            log.debug(
-                "liquidity_sweep.insufficient_h4_candles",
-                count=len(h4_candles),
-                required=21,
-            )
+            if self.emit_diagnostic_logs:
+                log.debug(
+                    "liquidity_sweep.insufficient_h4_candles",
+                    count=len(h4_candles),
+                    required=21,
+                )
             return []
 
         if len(m15_candles) < 2:
-            log.debug("liquidity_sweep.insufficient_m15_candles", count=len(m15_candles))
+            if self.emit_diagnostic_logs:
+                log.debug("liquidity_sweep.insufficient_m15_candles", count=len(m15_candles))
             return []
 
         # --- ATR guard ---
         atr_m15 = self.calculate_atr(m15_candles, period=14)
         if atr_m15 == 0.0:
-            log.debug("liquidity_sweep.zero_atr_m15")
+            if self.emit_diagnostic_logs:
+                log.debug("liquidity_sweep.zero_atr_m15")
             return []
 
         # --- Collect S/R levels from H4 (and optionally D1) ---
@@ -133,7 +136,8 @@ class LiquiditySweepStrategy(AbstractStrategy):
             all_swing_levels += d1_highs + d1_lows
 
         if not all_swing_levels:
-            log.debug("liquidity_sweep.no_swing_levels_detected")
+            if self.emit_diagnostic_logs:
+                log.debug("liquidity_sweep.no_swing_levels_detected")
             return []
 
         # --- Resolve params ---
@@ -183,17 +187,18 @@ class LiquiditySweepStrategy(AbstractStrategy):
                         has_volume=True,
                     )
 
-                    log.info(
-                        "liquidity_sweep.signal_generated",
-                        direction="BUY",
-                        entry=entry,
-                        sl=sl,
-                        tp1=tp1,
-                        tp2=tp2,
-                        confidence=confidence,
-                        sweep_depth=sweep_depth,
-                        level=level,
-                    )
+                    if self.emit_signal_logs:
+                        log.info(
+                            "liquidity_sweep.signal_generated",
+                            direction="BUY",
+                            entry=entry,
+                            sl=sl,
+                            tp1=tp1,
+                            tp2=tp2,
+                            confidence=confidence,
+                            sweep_depth=sweep_depth,
+                            level=level,
+                        )
 
                     signals.append(
                         CandidateSignal(
@@ -235,17 +240,18 @@ class LiquiditySweepStrategy(AbstractStrategy):
                         has_volume=True,
                     )
 
-                    log.info(
-                        "liquidity_sweep.signal_generated",
-                        direction="SELL",
-                        entry=entry,
-                        sl=sl,
-                        tp1=tp1,
-                        tp2=tp2,
-                        confidence=confidence,
-                        sweep_depth=sweep_depth,
-                        level=level,
-                    )
+                    if self.emit_signal_logs:
+                        log.info(
+                            "liquidity_sweep.signal_generated",
+                            direction="SELL",
+                            entry=entry,
+                            sl=sl,
+                            tp1=tp1,
+                            tp2=tp2,
+                            confidence=confidence,
+                            sweep_depth=sweep_depth,
+                            level=level,
+                        )
 
                     signals.append(
                         CandidateSignal(

@@ -43,6 +43,11 @@ class AbstractStrategy(ABC):
                     results or computed as midpoints of PARAM_RANGES by StrategyRunner.
         """
         self.params = params
+        # Backtests call generate_signals() hundreds of thousands of times; keep
+        # per-signal INFO logs enabled for runtime usage, but allow the optimizer
+        # to mute them to avoid overwhelming stdout and slowing execution.
+        self.emit_signal_logs = True
+        self.emit_diagnostic_logs = True
 
     @abstractmethod
     async def generate_signals(

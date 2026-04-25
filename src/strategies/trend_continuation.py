@@ -117,21 +117,24 @@ class TrendContinuationStrategy(AbstractStrategy):
 
         # --- Guard: minimum H1 data for EMA(200) ---
         if len(h1_candles) < _MIN_H1_CANDLES:
-            log.debug(
-                "trend_continuation.insufficient_h1_candles",
-                count=len(h1_candles),
-                required=_MIN_H1_CANDLES,
-            )
+            if self.emit_diagnostic_logs:
+                log.debug(
+                    "trend_continuation.insufficient_h1_candles",
+                    count=len(h1_candles),
+                    required=_MIN_H1_CANDLES,
+                )
             return []
 
         if len(m15_candles) < 3:
-            log.debug("trend_continuation.insufficient_m15_candles", count=len(m15_candles))
+            if self.emit_diagnostic_logs:
+                log.debug("trend_continuation.insufficient_m15_candles", count=len(m15_candles))
             return []
 
         # --- ATR guard ---
         atr_h1 = self.calculate_atr(h1_candles, period=14)
         if atr_h1 == 0.0:
-            log.debug("trend_continuation.zero_atr_h1")
+            if self.emit_diagnostic_logs:
+                log.debug("trend_continuation.zero_atr_h1")
             return []
 
         # --- Compute structural trend EMAs ---
@@ -143,7 +146,8 @@ class TrendContinuationStrategy(AbstractStrategy):
         ema200_last = float(ema200[-1])
 
         if ema50_last == ema200_last:
-            log.debug("trend_continuation.no_trend_ema_equal")
+            if self.emit_diagnostic_logs:
+                log.debug("trend_continuation.no_trend_ema_equal")
             return []
 
         trend_direction = Direction.BUY if ema50_last > ema200_last else Direction.SELL
@@ -164,11 +168,12 @@ class TrendContinuationStrategy(AbstractStrategy):
         )
 
         if pullback_candle is None:
-            log.debug(
-                "trend_continuation.no_pullback_detected",
-                direction=trend_direction.value,
-                ema_pb=ema_pb_last,
-            )
+            if self.emit_diagnostic_logs:
+                log.debug(
+                    "trend_continuation.no_pullback_detected",
+                    direction=trend_direction.value,
+                    ema_pb=ema_pb_last,
+                )
             return []
 
         # --- Detect M15 price action confirmation ---
@@ -178,7 +183,8 @@ class TrendContinuationStrategy(AbstractStrategy):
         )
 
         if pattern_type is None or confirmation_candle is None:
-            log.debug("trend_continuation.no_m15_confirmation", direction=trend_direction.value)
+            if self.emit_diagnostic_logs:
+                log.debug("trend_continuation.no_m15_confirmation", direction=trend_direction.value)
             return []
 
         # --- Compute SL, TP1, TP2 ---
@@ -223,17 +229,18 @@ class TrendContinuationStrategy(AbstractStrategy):
         )
         confidence = float(max(0.0, min(confidence, 1.0)))
 
-        log.info(
-            "trend_continuation.signal_generated",
-            direction=trend_direction.value,
-            entry=entry,
-            sl=sl,
-            tp1=tp1,
-            tp2=tp2,
-            confidence=confidence,
-            pattern=pattern_type,
-            adx=adx_value,
-        )
+        if self.emit_signal_logs:
+            log.info(
+                "trend_continuation.signal_generated",
+                direction=trend_direction.value,
+                entry=entry,
+                sl=sl,
+                tp1=tp1,
+                tp2=tp2,
+                confidence=confidence,
+                pattern=pattern_type,
+                adx=adx_value,
+            )
 
         return [
             CandidateSignal(
