@@ -27,6 +27,7 @@ data/histdata/
 .vscode/
 *.swp
 .DS_Store
+.gitnexus/
 .claude/
 
 # Docker
