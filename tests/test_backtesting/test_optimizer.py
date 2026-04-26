@@ -9,6 +9,7 @@ os.environ.setdefault("TELEGRAM_CHAT_ID", "test-chat")
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import numpy as np
 import pytest
 from sqlalchemy import DateTime
 
@@ -19,6 +20,7 @@ from src.backtesting.optimizer import (
     _compute_aggregate_scores,
     _strategy_lhs_seed,
 )
+from src.backtesting.monte_carlo import run_monte_carlo
 from src.models.optimizer_result import OptimizerResultORM
 
 SAMPLE_PARAM_RANGES: dict[str, tuple[float, float]] = {
@@ -117,6 +119,30 @@ def test_build_daily_pnl_series_sums_same_day_and_fills_gaps():
         end=end,
     )
     assert series.tolist() == [7.0, 0.0, 7.5, 0.0]
+
+
+def test_sparse_daily_monte_carlo_pipeline_is_deterministic_and_loss_sensitive():
+    """Sparse OOS trades become dense daily PnL without making PF artificial."""
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    end = start + timedelta(days=30)
+    daily_pnl = _build_daily_pnl_series(
+        trade_results=[
+            SimulatedTradeResult(signal_timestamp=start + timedelta(days=2), pnl=4.0),
+            SimulatedTradeResult(signal_timestamp=start + timedelta(days=10), pnl=-10.0),
+            SimulatedTradeResult(signal_timestamp=start + timedelta(days=20), pnl=3.0),
+        ],
+        start=start,
+        end=end,
+    )
+
+    first = run_monte_carlo(daily_pnl, n_simulations=500, seed=77)
+    second = run_monte_carlo(daily_pnl, n_simulations=500, seed=77)
+
+    assert len(daily_pnl) == 30
+    assert np.count_nonzero(daily_pnl) == 3
+    assert first == second
+    assert first["p5_profit_factor"] == 0.0
+    assert first["historical_max_drawdown"] == pytest.approx(10.0)
 
 
 # ---------------------------------------------------------------------------

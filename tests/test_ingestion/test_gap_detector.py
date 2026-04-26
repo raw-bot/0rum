@@ -139,6 +139,82 @@ async def test_find_gaps_detects_missing_candle(async_session: AsyncSession):
 
 
 @pytest.mark.asyncio
+async def test_find_gaps_does_not_mask_friday_gap_before_market_close(
+    async_session: AsyncSession,
+):
+    """A Friday gap starting before 20:00 UTC is a data gap, not a weekend close."""
+    timestamps = [
+        datetime(2026, 4, 24, 19, 59, tzinfo=timezone.utc),  # Friday
+        datetime(2026, 4, 26, 19, 59, tzinfo=timezone.utc),  # Sunday
+    ]
+    await _seed_candles(async_session, "M15", timestamps)
+
+    detector = GapDetector.__new__(GapDetector)
+    with pytest.MonkeyPatch().context() as mp:
+        import src.ingestion.gap_detector as gd_module
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def mock_session_ctx():
+            yield async_session
+
+        mp.setattr(gd_module, "AsyncSessionLocal", mock_session_ctx)
+        gaps = await detector.find_gaps("XAUUSD", "M15", lookback_hours=24 * 365)
+
+    assert len(gaps) == 1
+
+
+@pytest.mark.asyncio
+async def test_find_gaps_masks_expected_weekend_market_close(async_session: AsyncSession):
+    """Friday 20:00 UTC to Sunday 20:00 UTC is treated as expected closure."""
+    timestamps = [
+        datetime(2026, 4, 24, 20, 0, tzinfo=timezone.utc),  # Friday
+        datetime(2026, 4, 26, 20, 0, tzinfo=timezone.utc),  # Sunday
+    ]
+    await _seed_candles(async_session, "M15", timestamps)
+
+    detector = GapDetector.__new__(GapDetector)
+    with pytest.MonkeyPatch().context() as mp:
+        import src.ingestion.gap_detector as gd_module
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def mock_session_ctx():
+            yield async_session
+
+        mp.setattr(gd_module, "AsyncSessionLocal", mock_session_ctx)
+        gaps = await detector.find_gaps("XAUUSD", "M15", lookback_hours=24 * 365)
+
+    assert gaps == []
+
+
+@pytest.mark.asyncio
+async def test_find_gaps_does_not_mask_sunday_gap_before_market_reopen(
+    async_session: AsyncSession,
+):
+    """A Sunday candle before 20:00 UTC should not satisfy the weekend-open mask."""
+    timestamps = [
+        datetime(2026, 4, 24, 20, 0, tzinfo=timezone.utc),  # Friday
+        datetime(2026, 4, 26, 19, 59, tzinfo=timezone.utc),  # Sunday
+    ]
+    await _seed_candles(async_session, "M15", timestamps)
+
+    detector = GapDetector.__new__(GapDetector)
+    with pytest.MonkeyPatch().context() as mp:
+        import src.ingestion.gap_detector as gd_module
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def mock_session_ctx():
+            yield async_session
+
+        mp.setattr(gd_module, "AsyncSessionLocal", mock_session_ctx)
+        gaps = await detector.find_gaps("XAUUSD", "M15", lookback_hours=24 * 365)
+
+    assert len(gaps) == 1
+
+
+@pytest.mark.asyncio
 async def test_detect_and_fill_calls_fetch_per_gap(async_session: AsyncSession):
     """detect_and_fill() calls fetch_and_store once per detected gap."""
     base = _recent_base()

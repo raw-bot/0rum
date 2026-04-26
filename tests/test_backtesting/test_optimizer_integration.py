@@ -22,7 +22,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import structlog.testing
 
-from src.backtesting.optimizer import WalkForwardOptimizer
+from src.backtesting.optimizer import SimulatedTradeResult, WalkForwardOptimizer
 from src.backtesting.walk_forward import MIN_CANDLES_FOR_OPTIMIZER, WalkForwardWindow
 
 
@@ -60,6 +60,8 @@ def _fake_window() -> WalkForwardWindow:
 
 def _passing_result() -> dict:
     """Pre-built result dict that satisfies all post-evaluate checks in run()."""
+    window = _fake_window()
+    trade_start = window.oos_start
     return {
         "combo": {"param_a": 0.5, "param_b": 0.7, "param_c": 2.0},
         "best_wfe": 0.65,
@@ -69,9 +71,18 @@ def _passing_result() -> dict:
         "trade_count": 42,
         "win_rate": 0.55,
         "max_dd": 150.0,
-        "latest_window": _fake_window(),
+        "latest_window": window,
+        "test_start": window.oos_start,
+        "test_end": window.oos_end,
         # 40 trades — satisfies MIN_TRADES_FOR_EVALUATION (5) for Monte Carlo gate
         "all_oos_pnl": [10.0, -5.0, 15.0, -3.0, 8.0] * 8,
+        "all_oos_trades": [
+            SimulatedTradeResult(signal_timestamp=trade_start, pnl=10.0),
+            SimulatedTradeResult(signal_timestamp=trade_start, pnl=-5.0),
+            SimulatedTradeResult(signal_timestamp=trade_start, pnl=15.0),
+            SimulatedTradeResult(signal_timestamp=trade_start, pnl=-3.0),
+            SimulatedTradeResult(signal_timestamp=trade_start, pnl=8.0),
+        ] * 8,
     }
 
 
@@ -197,3 +208,43 @@ async def test_optimizer_data_guard_on_empty_db() -> None:
     assert len(warning_events) >= 1, (
         f"Expected 'optimizer.skipped.insufficient_data' in log output, got: {captured}"
     )
+
+
+@pytest.mark.asyncio
+async def test_optimizer_retains_previous_when_monte_carlo_gate_fails() -> None:
+    """Passing WFE + multi-window combo is not activated when Monte Carlo fails."""
+    optimizer = WalkForwardOptimizer()
+    sufficient = _sufficient_candles()
+    passing = _passing_result()
+
+    with (
+        patch.object(
+            optimizer, "_fetch_all_candles", new=AsyncMock(return_value=sufficient)
+        ),
+        patch.object(
+            optimizer, "_evaluate_all_combos", new=AsyncMock(return_value=passing)
+        ),
+        patch.object(
+            optimizer, "_activate_best_params", new=AsyncMock()
+        ) as mock_activate,
+        patch(
+            "src.backtesting.optimizer.run_monte_carlo",
+            return_value={
+                "p95_drawdown": 11.0,
+                "p5_profit_factor": 0.75,
+                "historical_max_drawdown": 5.0,
+            },
+        ),
+        patch(
+            "src.backtesting.optimizer.monte_carlo_passes",
+            return_value=False,
+        ),
+    ):
+        await optimizer.run()
+
+    mock_activate.assert_not_called()
+    assert optimizer.last_run_diagnostics
+    for diagnostics in optimizer.last_run_diagnostics.values():
+        assert diagnostics["final_stage"] == "mc_gate_failed"
+        assert diagnostics["monte_carlo"]["dd_gate_passed"] is False
+        assert diagnostics["monte_carlo"]["pf_gate_passed"] is False
