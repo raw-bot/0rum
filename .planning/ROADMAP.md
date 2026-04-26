@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 2: Data Ingestion** - XAUUSD-aligned candle fetching for 4 timeframes with backfill and gap detection
 - [ ] **Phase 3: Strategy Engine** - 4 parallel technical strategies generating CandidateSignals
 - [ ] **Phase 4: Signal Pipeline** - Dedup, conflict filter, regime detection, ranker, quota producing ApprovedSignals
-- [ ] **Phase 5: Backtesting & Validation** - Walk-forward optimizer, Monte Carlo validation, LHS sampling
+- [x] **Phase 5: Backtesting & Validation** - Walk-forward optimizer, Monte Carlo validation, LHS sampling
 - [ ] **Phase 6: Risk Management** - 3 risk gates, ATR position sizing, circuit breaker
 - [ ] **Phase 7: Signal Mode & Monitoring** - Telegram signal sending, theoretical trade tracking, full notifications
 - [ ] **Phase 8: Auto Mode** - Broker-native order execution, partial close at TP1, ATR trailing stop
@@ -127,7 +127,7 @@ Plans:
 - [x] 05-02-PLAN.md — Optimizer core (optimizer.py: LHS sampling, sliding-window backtester, WFE gate, DB write) + unit tests
 - [x] 05-03-PLAN.md — Scheduler wiring (run_optimizer() 24h job in jobs.py) + scheduler wiring tests
 - [x] 05-04-PLAN.md — Historical data provider validation gate (IG insufficient; HistData offline bootstrap selected)
-- [ ] 05-05-PLAN.md — Full statistical validation run + integration tests + Phase 5 sign-off
+- [x] 05-05-PLAN.md — Full statistical validation run + integration tests + Phase 5 sign-off
 
 ### Phase 6: Risk Management
 **Goal**: No trade can execute without passing all three risk gates, position sizing is ATR-adjusted, and a circuit breaker halts trading after 8 consecutive stops
@@ -177,7 +177,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 3. Strategy Engine | 4/4 | Complete | 2026-04-09 |
 | 4. Signal Pipeline | 3/3 | Complete | 2026-04-22 |
 | 4.1. IG-Light Ingestion Hardening | 3/3 | Complete | 2026-04-22 |
-| 5. Backtesting & Validation | 4/5 | In Progress (HistData bootstrap ready; 05-05 pending) | 2026-04-23 |
+| 5. Backtesting & Validation | 5/5 | Complete (HistData-backed run persisted `liquidity_sweep`; unvalidated strategies skipped at runtime) | 2026-04-26 |
 | 6. Risk Management | 0/? | Not started | - |
 | 7. Signal Mode & Monitoring | 0/? | Not started | - |
 | 8. Auto Mode | 0/? | Not started | - |

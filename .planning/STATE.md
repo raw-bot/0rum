@@ -5,13 +5,13 @@ milestone_name: milestone
 status: executing
 stopped_at: Phase 03 verification complete — ready to start Phase 04
 last_updated: "2026-04-26T00:00:00.000Z"
-last_activity: 2026-04-26 -- Phase 05-05 optimizer correction committed; liquidity_sweep active after HistData rerun
+last_activity: 2026-04-26 -- Phase 5 signed off; liquidity_sweep active and unvalidated strategies skipped
 progress:
   total_phases: 9
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 18
-  completed_plans: 17
-  percent: 94
+  completed_plans: 18
+  percent: 100
 ---
 
 # Project State
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-10)
 
 **Core value:** The bot must reliably generate validated XAUUSD signals in mode signal, with every trade candidate passing all risk gates — signal quality and capital protection are non-negotiable before any auto-execution is considered.
-**Current focus:** Phase 05 — backtesting-validation
+**Current focus:** Phase 06 — risk-management
 
 ## Current Position
 
-Phase: 05 (backtesting-validation) — IN PROGRESS
-Plan: 05-05 optimizer correction/debug complete
-Next: Targeted breakout_expansion zero-trade audit
-Status: HistData-backed optimizer can persist validated params; liquidity_sweep active
-Last activity: 2026-04-26 -- Monte Carlo reproducibility/PF correction committed and real optimizer rerun completed
+Phase: 06 (risk-management) — READY TO PLAN
+Plan: TBD
+Next: Start Phase 6 risk gates planning
+Status: Phase 5 complete; HistData-backed optimizer persisted `liquidity_sweep` and runtime skips strategies without active validated params
+Last activity: 2026-04-26 -- Phase 5 sign-off completed after StrategyRunner validation boundary correction
 
 Progress: [######░░░░] 60.0% (5/9 phases complete)
 
@@ -42,6 +42,7 @@ Progress: [######░░░░] 60.0% (5/9 phases complete)
 | 03 | strategy-engine | COMPLETE | 2026-04-09 |
 | 04 | signal-pipeline | COMPLETE | 2026-04-22 |
 | 04.1 | ig-light-ingestion-hardening | COMPLETE | 2026-04-22 |
+| 05 | backtesting-validation | COMPLETE | 2026-04-26 |
 
 ## Performance Metrics
 
@@ -79,11 +80,11 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Phase 5 historical source is HistData XAUUSD M1 Generic ASCII downloaded locally under `data/histdata/xauusd_m1_ascii/`. Run `./.venv/bin/python scripts/histdata_phase5_loader.py qa` for read-only coverage checks, then `./.venv/bin/python scripts/histdata_phase5_loader.py import` when ready to load PostgreSQL.
+- Phase 5 historical source is HistData XAUUSD M1 Generic ASCII loaded into local PostgreSQL. Latest verified active optimizer row is `liquidity_sweep` with WFE `1.8478`, PF `2.5744`, 108 OOS trades.
 
 ### Blockers/Concerns
 
-- Phase 5 optimizer/walk-forward must not run on Binance/PAXG data. IG and OANDA are no longer active candidates. HistData is historical/bootstrap only; runtime XAUUSD provider selection is deferred before Phase 7, with Dukascopy as the likely candidate to validate.
+- Phase 5 optimizer/walk-forward must not run on Binance/PAXG data. HistData is historical/bootstrap only; runtime XAUUSD provider selection is deferred before Phase 7.
 
 ## Session Continuity
 

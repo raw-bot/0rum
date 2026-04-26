@@ -33,11 +33,11 @@
 
 ### Optimization
 
-- [ ] **OPTIM-01**: Walk-forward optimizer samples 100 parameter combos via Latin Hypercube Sampling per strategy
-- [ ] **OPTIM-02**: WFE > 50% gate — strategies with failing walk-forward efficiency are not activated
-- [ ] **OPTIM-03**: Multi-window test requires 2 of 3 OOS windows profitable before activating params
-- [ ] **OPTIM-04**: Optimizer runs every 24h and activates best-validated params for each strategy
-- [ ] **OPTIM-05**: Monte Carlo validation (1000 simulations) — P95 drawdown ≤ 2× historical, P5 profit factor > 1.0
+- [x] **OPTIM-01**: Walk-forward optimizer samples 100 parameter combos via Latin Hypercube Sampling per strategy
+- [x] **OPTIM-02**: WFE > 50% gate — strategies with failing walk-forward efficiency are not activated
+- [x] **OPTIM-03**: Multi-window test requires 2 of 3 OOS windows profitable before activating params
+- [x] **OPTIM-04**: Optimizer runs every 24h and activates best-validated params for each strategy
+- [x] **OPTIM-05**: Monte Carlo validation (1000 simulations) — P95 drawdown ≤ 2× historical, P5 profit factor > 1.0
 
 ### Risk Management
 
@@ -104,11 +104,11 @@
 | PIPE-03 | Phase 4 | Pending |
 | PIPE-04 | Phase 4 | Pending |
 | PIPE-05 | Phase 4 | Pending |
-| OPTIM-01 | Phase 5 | Pending |
-| OPTIM-02 | Phase 5 | Pending |
-| OPTIM-03 | Phase 5 | Pending |
-| OPTIM-04 | Phase 5 | Pending |
-| OPTIM-05 | Phase 5 | Pending |
+| OPTIM-01 | Phase 5 | Complete |
+| OPTIM-02 | Phase 5 | Complete |
+| OPTIM-03 | Phase 5 | Complete |
+| OPTIM-04 | Phase 5 | Complete |
+| OPTIM-05 | Phase 5 | Complete |
 | RISK-01 | Phase 6 | Pending |
 | RISK-02 | Phase 6 | Pending |
 | RISK-03 | Phase 6 | Pending |
@@ -132,4 +132,4 @@
 
 ---
 *Requirements defined: 2026-04-05*
-*Last updated: 2026-04-10 — provider realignment applied*
+*Last updated: 2026-04-26 — Phase 5 optimizer validation complete*
