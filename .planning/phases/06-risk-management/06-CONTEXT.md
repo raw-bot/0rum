@@ -38,7 +38,7 @@ What this phase is NOT:
 ### Module Location & Pipeline Integration
 - **D-02:** New package `src/risk/` houses ALL risk logic. `src/pipeline/runner.py` calls a single public interface (e.g., `RiskGateRunner.evaluate(candidate, regime, h1_candles, session) -> RiskDecision`) and never imports gate-internal helpers. Pipeline does NOT absorb gate logic.
 - **D-03:** Risk gates run as a NEW pipeline step inserted between the existing `quota` step (step 5) and `_persist` (step 6). The new step is conceptually `step 5.5: risk gates`. Quota stays exactly as-is — `MAX_SIGNALS_PER_DAY` (5 signals/calendar UTC day) is semantically distinct from RISK-02's `max_positions` (5 concurrent open theoretical positions). Both stay in place.
-- **D-05:** Rejection auditing = structlog only in Phase 6. The status of a risk-rejected `CandidateSignalORM` stays `REJECTED` (existing enum); the reason is captured in a structured log event `risk.gate.rejected` with fields `gate`, `reason`, `candidate_id`, `strategy`, `direction`. Adding a `rejection_reason` column to `candidate_signals` is deferred — low ROI for v1; logs are sufficient.
+- **D-05:** Rejection auditing = structlog only in Phase 6. The status of a risk-rejected `CandidateSignalORM` stays `REJECTED` (existing enum); the reason is captured in a structured log event `risk.gate.rejected` with fields `gate`, `reason`, `strategy`, `direction`, `entry_price`, and optionally an in-memory `signal_ref=id(sig)`. A database `candidate_id` is not available before `_persist()` flushes ORM rows. Adding a `rejection_reason` column to `candidate_signals` is deferred — low ROI for v1; logs are sufficient.
 
 ### RISK-03 Concentration Semantics (override of REQUIREMENTS.md text)
 - **D-04:** RISK-03 REDUCES the new trade size by 50% when 4+ positions are open in the same direction. It does NOT block. This aligns with `AGENTS.md` §12.1 Gate 3 ("4+ positions même direction → réduire la taille du nouveau trade de 50%"). The `REQUIREMENTS.md` wording "blocks signals that would over-expose the same direction" is overridden by AGENTS.md and explicit user direction. The signal still passes the gate (`risk_check_passed=True`); the sizer downstream halves the lot size. Reflected in the gate decision payload, not via REJECTED status.
@@ -46,9 +46,11 @@ What this phase is NOT:
 ### ATR Sizing (RISK-04)
 - **D-06:** ATR window/timeframe = ATR(14) on H1 candles. This matches what existing strategies use and what `RegimeDetector.detect()` already computes. The sizer DOES NOT recompute ATR — it consumes `MarketRegime.atr_value` and `MarketRegime.atr_pctile` already in pipeline scope (the regime is detected in step 3, before the new risk step).
 - **D-07:** Symmetric volatility scaling per AGENTS.md §12.2:
-  - `atr_pctile >= atr_high_vol_percentile (90)` → multiply `risk_pct` by **0.7**
-  - `atr_pctile <= atr_low_vol_percentile (10)` → multiply `risk_pct` by **1.3**
+  - `atr_pctile >= atr_high_vol_percentile / 100` → multiply `risk_pct` by **0.7**
+  - `atr_pctile <= atr_low_vol_percentile / 100` → multiply `risk_pct` by **1.3**
   - else → multiply by **1.0**
+
+  Important scale invariant: existing `MarketRegime.atr_pctile` and `RegimeDetector._calculate_atr_percentile()` use a **0.0–1.0** percentile rank (`0.90` = 90th percentile). Existing settings use whole-number percentiles (`atr_high_vol_percentile=90`, `atr_low_vol_percentile=10`). The sizer must normalize settings to `0.90` / `0.10` before comparing. Do NOT compare `atr_pctile` directly to `90` or `10`.
 
   Order of operations: `risk_pct = risk_per_trade × vol_factor`, then `risk_pct = min(risk_pct, hard_cap_risk)` (the 2% hard cap, applied AFTER vol adjustment so a high-vol bump can never escape the cap), then `risk_pct *= 0.5` if the concentration condition triggered (D-04). The hard cap is the maximum risk for a non-concentrated trade; concentration further halves whatever survived the cap.
 - **D-16:** RISK-04 success criterion in ROADMAP.md only mentions "reduced 30% in high-vol regimes". The symmetric "+30% in low-vol" branch IS in scope (per AGENTS.md §12.2 and explicit user confirmation). The verifier should not treat the low-vol branch as scope creep.
@@ -77,9 +79,9 @@ What this phase is NOT:
   - `risk:cb:cooldown_until` (ISO-8601 timestamp; written when the breaker trips, with Redis TTL = `circuit_breaker_cooldown_hours × 3600` so the keys expire automatically)
 - **D-11:** Phase 6 exposes `BreakerManager` with:
   - `is_tripped() -> bool` (true iff `tripped_at` set AND `cooldown_until` in the future; reads existing Redis keys without mutating)
-  - `record_stop(trade_id, strategy) -> CircuitBreakerAlert | None` (Phase 7 calls this when a `TradeORM` row closes with `close_reason = 'sl_hit'`; returns the alert event ONLY when this stop is the trip)
+  - `record_stop(trade_id, strategy) -> CircuitBreakerAlert | None` (Phase 7 calls this when a `TradeORM` row closes with `close_reason = 'SL'`; returns the alert event ONLY when this stop is the trip)
   - `record_win() -> None` (Phase 7 calls this on any closed-with-profit trade; resets the counter to 0 per AGENTS.md §12.3)
-  - `reset_if_expired() -> bool` (called at the start of every gate evaluation; deletes `tripped_at` / `cooldown_until` if cooldown elapsed; idempotent)
+  - `reset_if_expired() -> bool` (called at the start of every gate evaluation; deletes `tripped_at` / `cooldown_until` and resets `consecutive_stops` to 0 if cooldown elapsed; idempotent)
   Reset rule per AGENTS.md §12.3: counter resets on the **first winning trade** OR **end of cooldown**.
 - **D-12:** While the breaker `is_tripped()`, the gate evaluator short-circuits ALL candidates to `REJECTED` with reason `circuit_breaker_active`. No daily-loss / max-positions / concentration evaluation runs. The signal is REJECTED before the sizer is invoked.
 - **D-15:** RISK-01 (daily loss limit) does NOT trip the circuit breaker in Phase 6. AGENTS.md §12.1 Gate 1 includes "+ circuit breaker alert" but this is not in the ROADMAP success criterion and the user did not confirm it explicitly. Phase 6 implements RISK-01 strictly per ROADMAP: block + structlog event, no breaker trip. Tying daily-loss to the breaker is deferred (cheap to add later if needed).
@@ -95,7 +97,7 @@ What this phase is NOT:
   When `BreakerManager.record_stop()` returns a non-None alert, Phase 6 emits structlog `risk.circuit_breaker.tripped` AND publishes the alert through a simple in-process hook interface (e.g., `BreakerAlertHook` callable list) that Phase 7's Telegram NOTIF-03 will register against. **No `python-telegram-bot` import in Phase 6**. `src/monitoring/telegram_bot.py` stays unimplemented.
 
 ### Mode Coverage
-- **D-13b:** Phase 6 targets signal mode only. "Consecutive stops" = theoretical stops (`TradeORM.close_reason = 'sl_hit'` AND `status = 'CLOSED'`). Auto-mode broker-fill stops will be wired in Phase 8/9; the breaker contract designed here is mode-agnostic and will not need changes.
+- **D-13b:** Phase 6 targets signal mode only. "Consecutive stops" = theoretical stops (`TradeORM.close_reason = 'SL'` AND `status = 'CLOSED'`). Use the existing AGENTS.md / schema convention (`SL`, `TP1`, `TP2`, `TRAIL`, `MANUAL`, `CIRCUIT_BREAKER`) rather than introducing `sl_hit`. Auto-mode broker-fill stops will be wired in Phase 8/9; the breaker contract designed here is mode-agnostic and will not need changes.
 
 ### Claude's Discretion
 
@@ -128,13 +130,13 @@ What this phase is NOT:
 
 ### Existing Code to Read Before Implementing
 - `src/config.py` lines 56–65 — All risk env vars already present: `risk_per_trade`, `daily_loss_limit`, `max_positions`, `circuit_breaker_stops`, `circuit_breaker_cooldown_hours`, `atr_high_vol_percentile`, `atr_low_vol_percentile`, `hard_cap_risk`. Add `theoretical_equity_usd: Decimal = Decimal("10000")` here per D-09.
-- `src/pipeline/runner.py` — Integration point. Insert new step between line ~90 (quota) and `await self._persist(...)`. Pass the existing `regime: MarketRegime` and `h1_candles` into the new step.
+- `src/pipeline/runner.py` — Integration point. Insert new step between line ~90 (quota) and `await self._persist(...)`. Pass the existing `regime: MarketRegime` and `h1_candles` into the new step. The risk step happens before candidate ORM rows are flushed, so no database `candidate_id` exists yet; risk logs must use signal fields (`strategy`, `direction`, `entry_price`, optionally an in-memory `signal_ref=id(sig)`) rather than a DB candidate id.
 - `src/backtesting/regime_detector.py` — Produces `MarketRegime` with `atr_value`, `atr_pctile`, `regime`, `adx_value`. Risk sizer reuses these (D-06).
 - `src/models/trade.py` — `TradeORM` (read-only consumer): `status`, `pnl`, `pnl_pct`, `close_reason`, `closed_at`, `direction`. Phase 6 queries this; Phase 7 writes it.
 - `src/models/signal.py` — `ApprovedSignalORM.risk_check_passed: bool` already exists; gates set this. `CandidateSignalORM.status` already supports `REJECTED`.
 - `src/models/regime.py` — `MarketRegimeORM` for joining historical regime context if needed.
 - `src/models/signal_data.py` — `CandidateSignal`, `MarketRegime`, `MarketRegimeType` Pydantic DTOs. Risk DTOs (`RiskDecision`, `PositionSizing`, `CircuitBreakerAlert`) follow the same Pydantic v2 pattern.
-- `src/database.py` — `AsyncSessionLocal` for `TradeORM` queries.
+- `src/database.py` — `AsyncSessionLocal` for `TradeORM` queries. Risk gate reads must be read-only and must not reuse or mutate the `_persist()` transaction in `PipelineRunner`; either `RiskGateRunner` opens its own short-lived read-only sessions or the caller passes an explicitly read-only session before `_persist()` begins.
 - `src/monitoring/health.py` lines 27–28, 68–71 — `circuit_breaker`, `open_positions`, `daily_pnl_pct`, `signals_today` placeholders. Phase 6 wires the first three to real values; `signals_today` stays as quota-counted.
 
 ### Adjacent Phase Decisions That Bind Phase 6
@@ -169,16 +171,16 @@ What this phase is NOT:
 
 ### Integration Points
 - New `src/risk/` package: `runner.py` (public `RiskGateRunner.evaluate`), `gates.py` (the 3 gates), `sizer.py` (pure `calculate_position_size`), `breaker.py` (`BreakerManager` against Redis), `events.py` (`RiskDecision`, `PositionSizing`, `CircuitBreakerAlert`).
-- `src/pipeline/runner.py`: insert call between `apply_quota(...)` and `await self._persist(...)`; iterate quota survivors, call `RiskGateRunner.evaluate` for each, mark `risk_check_passed=False` and move the candidate from `approved_ranked` to `quota_rejected`-like list when the gate fails.
+- `src/pipeline/runner.py`: insert call between `apply_quota(...)` and `await self._persist(...)`; iterate quota survivors, call `RiskGateRunner.evaluate` for each, mark failed candidates as `REJECTED` in `status_map`, and keep passed candidates in `approved_ranked`. Since this is pre-persistence, do not expect candidate DB IDs in decisions or logs.
 - `src/main.py` does NOT need changes — risk runs inline via the existing scheduled pipeline job.
 - `src/monitoring/health.py`: Phase 6 wires `circuit_breaker` (from `BreakerManager.is_tripped()`), `open_positions` (count of `TradeORM` rows where `status='OPEN'`), and `daily_pnl_pct` (D-14 query). `signals_today` stays as today's `ApprovedSignalORM` count.
 - Phase 7 (SIG-02) hooks into `BreakerManager.record_stop()` / `record_win()` when it implements the theoretical-trade lifecycle.
 - Phase 7 (NOTIF-03) registers a Telegram callback against the `CircuitBreakerAlert` hook surface (D-13).
 
 ### Test Strategy
-- Unit tests for each gate function (populated TradeORM, empty TradeORM, threshold edge cases).
+- Unit tests for each gate function (populated TradeORM, empty TradeORM, threshold edge cases, UTC day boundary).
 - Pure-function tests for `calculate_position_size` covering: baseline, high-vol (×0.7), low-vol (×1.3), hard-cap clamp (e.g., low-vol × baseline × 1.3 above 2% caps to 2%), concentration halving applied after cap.
-- `BreakerManager` tests against `fakeredis`: counter increment, trip on Nth stop, cooldown TTL, reset on win, reset on cooldown expiry.
+- `BreakerManager` tests against `fakeredis`: counter increment, trip on Nth stop, cooldown TTL, reset on win, reset on cooldown expiry including `consecutive_stops` reset to 0.
 - One integration test (real Redis from compose) for the breaker happy path.
 - Pipeline integration test: full pipeline run with the risk step injected, asserting `ApprovedSignalORM.risk_check_passed` is False for rejected candidates and that the corresponding `CandidateSignalORM.status = 'REJECTED'`.
 
