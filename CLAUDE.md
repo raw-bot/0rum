@@ -53,7 +53,8 @@ The repo currently covers the foundation through Phase 5 backtesting/validation 
   Accepts `max_gap_bars` — gaps exceeding this limit are logged and skipped instead of triggering a fetch.
   Always passes `to_time=gap_end` to `fetch_and_store` so no open-ended historical request is issued on IG.
 - `src/strategies/runner.py`
-  Loads the latest 500 complete candles per timeframe from PostgreSQL, restores active optimizer params when present, otherwise falls back to `PARAM_RANGES` midpoints, then runs all four strategies with `asyncio.gather(..., return_exceptions=True)`.
+  Loads the latest 500 complete candles per timeframe from PostgreSQL, restores active optimizer params when present, then runs eligible strategies with `asyncio.gather(..., return_exceptions=True)`.
+  Before the first optimizer result exists, it can bootstrap with `PARAM_RANGES` midpoints. After optimizer history exists, strategies without an active optimizer row are skipped as unvalidated.
 - `src/pipeline/runner.py`
   Runs `dedup -> conflict -> regime -> rank -> quota -> persist`.
   Persistence is one transaction that writes the regime row, candidate rows with final statuses, then approved rows.
@@ -70,7 +71,8 @@ The repo currently covers the foundation through Phase 5 backtesting/validation 
 - Current plumbing still supports Binance `PAXG/USDT` as a temporary proxy.
 - Do not treat the Binance proxy as sufficient validation for later live-like phases.
 - Phase 5 validation is backed by local HistData XAUUSD M1 archives resampled into M15/H1/H4/D1.
-- Latest real optimizer rerun persisted one active strategy: `liquidity_sweep`.
+- Latest real optimizer rerun persisted one active strategy: `liquidity_sweep` with WFE `1.8478`, PF `2.5744`, 108 OOS trades.
+- `trend_continuation` and `ema_momentum` failed Monte Carlo; `breakout_expansion` had no passing combo. Runtime skips these unvalidated strategies until an optimizer run activates them.
 
 ## Invariants
 
@@ -87,7 +89,8 @@ The repo currently covers the foundation through Phase 5 backtesting/validation 
   `PARAM_RANGES`
   `async def generate_signals(...)`
 - Each strategy is expected to keep exactly three optimizable params.
-- Missing strategy params are filled from midpoints either in the strategy or in `StrategyRunner`.
+- Missing strategy params are filled from midpoints inside each strategy only for missing keys in an already-selected params dict.
+- `StrategyRunner` midpoint fallback is bootstrap-only: it is allowed when `optimizer_results` has no rows yet, but once optimizer history exists, missing active params cause that strategy to be skipped.
 - Keep `STRATEGY_NAME` values aligned with `optimizer_results.strategy`.
 - Preserve `CandidateSignal` object identity through the pipeline unless you also rewrite status tracking.
   `PipelineRunner` uses `status_map[id(sig)]`.

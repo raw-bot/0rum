@@ -11,7 +11,7 @@ Per CLAUDE.md §9:
 import asyncio
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from src.database import AsyncSessionLocal
 from src.models.candle import Candle
@@ -45,14 +45,19 @@ class StrategyRunner:
 
     async def _load_active_params(
         self, strategy_name: str, param_ranges: dict
-    ) -> dict:
-        """Load active optimizer params for a strategy, falling back to midpoints.
+    ) -> dict | None:
+        """Load active optimizer params for a strategy.
 
         Queries optimizer_results WHERE is_active=TRUE AND strategy=<strategy_name>,
         orders by created_at DESC, takes the most recent row.
 
-        Per D-05: If no active row exists, computes midpoints of PARAM_RANGES and logs
-        at INFO level with event key "strategy_runner.fallback_to_midpoints".
+        Per D-05: If the optimizer has never produced any result, computes
+        midpoints of PARAM_RANGES and logs at INFO level with event key
+        "strategy_runner.fallback_to_midpoints".
+
+        After Phase 5 validation has run, a missing active row means the strategy
+        has not passed validation. In that case return None so the runner skips
+        the strategy instead of generating signals with unvalidated midpoint params.
 
         Per threat T-03-01: Caller (strategy.generate_signals) is responsible for
         validating param keys and values are within their declared PARAM_RANGES before use.
@@ -63,7 +68,8 @@ class StrategyRunner:
             param_ranges: Strategy's PARAM_RANGES dict for midpoint computation.
 
         Returns:
-            Dict of param_name → value. Either from DB or computed midpoints.
+            Dict of param_name → value from DB or computed midpoints, or None
+            when optimizer history exists but this strategy has no active row.
         """
         async with AsyncSessionLocal() as session:
             stmt = (
@@ -78,8 +84,24 @@ class StrategyRunner:
             result = await session.execute(stmt)
             row = result.scalar_one_or_none()
 
+            if row is None:
+                optimizer_result_count = int(
+                    (
+                        await session.execute(
+                            select(func.count()).select_from(OptimizerResultORM)
+                        )
+                    ).scalar_one()
+                )
+
         if row is not None:
             return dict(row.params)
+
+        if optimizer_result_count > 0:
+            log.info(
+                "strategy_runner.skipped_unvalidated_strategy",
+                strategy=strategy_name,
+            )
+            return None
 
         # D-05: No active params — compute midpoint of each PARAM_RANGES entry.
         # midpoint = (min + max) / 2 for each optimisable parameter.
@@ -174,8 +196,17 @@ class StrategyRunner:
             ]
         )
 
-        # Instantiate strategies with loaded params
-        instances = [cls(params=p) for cls, p in zip(strategy_classes, params_list)]
+        # Instantiate only strategies with validated params, or bootstrap midpoints
+        # before the first optimizer result exists.
+        instances = [
+            cls(params=p)
+            for cls, p in zip(strategy_classes, params_list)
+            if p is not None
+        ]
+
+        if not instances:
+            log.info("strategy_runner.no_validated_strategies")
+            return []
 
         # Run all 4 strategies concurrently — D-04: asyncio.gather with exception capture
         results = await asyncio.gather(

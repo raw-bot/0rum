@@ -83,6 +83,7 @@ class TestMidpointFallback:
         mock_session = AsyncMock()
         mock_execute_result = MagicMock()
         mock_execute_result.scalar_one_or_none.return_value = None
+        mock_execute_result.scalar_one.return_value = 0
         mock_session.execute = AsyncMock(return_value=mock_execute_result)
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=None)
@@ -107,6 +108,7 @@ class TestMidpointFallback:
         mock_session = AsyncMock()
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = None
+        mock_result.scalar_one.return_value = 0
         mock_session.execute = AsyncMock(return_value=mock_result)
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock(return_value=None)
@@ -124,6 +126,27 @@ class TestMidpointFallback:
         assert abs(params["fast_ema"] - 10.0) < 1e-9    # (5+15)/2
         assert abs(params["slow_ema"] - 22.5) < 1e-9   # (15+30)/2
         assert abs(params["sl_atr_mult"] - 0.5) < 1e-9  # (0.2+0.8)/2
+
+    async def test_unvalidated_strategy_skipped_after_optimizer_has_results(self) -> None:
+        """No active row after optimizer history exists means the strategy is skipped."""
+        runner = StrategyRunner()
+
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_result.scalar_one.return_value = 1
+
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=mock_result)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("src.strategies.runner.AsyncSessionLocal", return_value=mock_session):
+            params = await runner._load_active_params(
+                "trend_continuation",
+                {"pullback_ema": (15.0, 55.0)},
+            )
+
+        assert params is None
 
     async def test_active_params_from_db_used_when_present(self) -> None:
         """When DB returns an active row, its params dict is used (not midpoints)."""
@@ -246,6 +269,42 @@ class TestStrategyRunnerRun:
         assert call_counts.get("breakout_expansion", 0) == 1
         assert call_counts.get("ema_momentum", 0) == 1
 
+    async def test_run_skips_strategies_without_validated_params(self, candles_dict: dict) -> None:
+        """After optimizer history exists, strategies without active params are not run."""
+        from src.strategies.liquidity_sweep import LiquiditySweepStrategy
+        from src.strategies.trend_continuation import TrendContinuationStrategy
+        from src.strategies.breakout_expansion import BreakoutExpansionStrategy
+        from src.strategies.ema_momentum import EmaMomentumStrategy
+
+        call_counts: dict[str, int] = {}
+
+        def track_call(cls_name: str):
+            async def _fake_generate_signals(self, candles):
+                call_counts[cls_name] = call_counts.get(cls_name, 0) + 1
+                return []
+            return _fake_generate_signals
+
+        runner = StrategyRunner()
+        liquidity_params = {
+            "sweep_atr_mult": 0.5,
+            "sl_atr_mult": 0.65,
+            "tp_risk_mult": 2.0,
+        }
+
+        with patch.object(runner, "_fetch_candles", AsyncMock(return_value=candles_dict)), \
+             patch.object(
+                 runner,
+                 "_load_active_params",
+                 AsyncMock(side_effect=[liquidity_params, None, None, None]),
+             ), \
+             patch.object(LiquiditySweepStrategy, "generate_signals", track_call("liquidity_sweep")), \
+             patch.object(TrendContinuationStrategy, "generate_signals", track_call("trend_continuation")), \
+             patch.object(BreakoutExpansionStrategy, "generate_signals", track_call("breakout_expansion")), \
+             patch.object(EmaMomentumStrategy, "generate_signals", track_call("ema_momentum")):
+            await runner.run()
+
+        assert call_counts == {"liquidity_sweep": 1}
+
 
 # ---------------------------------------------------------------------------
 # No DB writes test
@@ -266,6 +325,7 @@ class TestRunnerNoDbWrites:
         # Return None for optimizer results (midpoint fallback path)
         mock_execute_result = MagicMock()
         mock_execute_result.scalar_one_or_none.return_value = None
+        mock_execute_result.scalar_one.return_value = 0
         mock_execute_result.scalars.return_value.all.return_value = []
         mock_session.execute = AsyncMock(return_value=mock_execute_result)
 
@@ -286,6 +346,7 @@ class TestRunnerNoDbWrites:
 
         mock_execute_result = MagicMock()
         mock_execute_result.scalar_one_or_none.return_value = None
+        mock_execute_result.scalar_one.return_value = 0
         mock_session.execute = AsyncMock(return_value=mock_execute_result)
 
         with patch("src.strategies.runner.AsyncSessionLocal", return_value=mock_session), \
