@@ -1,5 +1,6 @@
 """Application configuration loaded from environment variables."""
 
+from decimal import Decimal
 from enum import Enum
 
 from pydantic_settings import BaseSettings
@@ -63,6 +64,7 @@ class Settings(BaseSettings):
     atr_high_vol_percentile: int = 90
     atr_low_vol_percentile: int = 10
     hard_cap_risk: float = 0.02
+    theoretical_equity_usd: Decimal = Decimal("10000")
 
     # Optimizer
     optimizer_interval_hours: int = 24
