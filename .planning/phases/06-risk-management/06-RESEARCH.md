@@ -1081,27 +1081,19 @@ def test_atr_pctile_scale_invariant():
 | A7 | Phase 7 will register a `BreakerAlertHook` at startup; until then, the hook list is empty and `_publish_alert` is a no-op | Code Examples §4 | If Phase 6 ships and a stop sequence trips the breaker before Phase 7, no Telegram alert fires (only structlog). This is acceptable per D-13 (deferred delivery). [VERIFIED: CONTEXT.md D-13] |
 | A8 | `pyproject.toml` should add `fakeredis>=2.20` to main `[project.dependencies]` (not optional-dependencies) | Standard Stack | Pollutes prod image with test-only dep (~100KB). Project precedent (pytest, respx, aiosqlite already in main deps) supports it; cleaner alternative is to add `[project.optional-dependencies.test]`. [ASSUMED — project precedent; either works] |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `RiskGateRunner.evaluate` accept a session or open its own?**
-   - What we know: D-04 of Phase 4 requires single transaction at persist; risk reads must NOT be in that transaction.
-   - What's unclear: Whether to open ONE session for the entire pipeline cycle (pass into `evaluate()`) or open a new session per gate call.
-   - Recommendation: Open one read-only session in `PipelineRunner.run()`, pass it to `RiskGateRunner.evaluate()` for each candidate. Closes after the loop, before `_persist` opens its own transaction. This matches the integration sketch in Code Examples §6.
+   - RESOLVED: Open one read-only session in `PipelineRunner.run()`, pass it to `RiskGateRunner.evaluate()` for each candidate. Closes after the loop, before `_persist` opens its own transaction. This matches the integration sketch in Code Examples §6. Implemented in Plan 08.
 
 2. **Where does Phase 6 wire `register_alert_hook`?**
-   - What we know: Phase 7 will call it (D-13).
-   - What's unclear: Phase 6 deliverables include the function; Phase 7 deliverables include calling it. Phase 6 needs to test the hook plumbing.
-   - Recommendation: Phase 6 ships `register_alert_hook` and a unit test that registers a fake hook + verifies it gets called when the breaker trips. Wiring from `src/main.py` is Phase 7 work.
+   - RESOLVED: Phase 6 ships `register_alert_hook` and a unit test that registers a fake hook + verifies it gets called when the breaker trips. Wiring from `src/main.py` is Phase 7 work. Implemented in Plan 02.
 
 3. **Should `theoretical_equity_usd` be Decimal or float in `Settings`?**
-   - What we know: Project leans Decimal for money fields in models.
-   - What's unclear: Pydantic Settings + `.env` parsing — Pydantic v2 supports `Decimal` as a field type, but env vars are strings. `Decimal("10000")` is the canonical default.
-   - Recommendation: Decimal. Add a settings test confirming `Settings().theoretical_equity_usd == Decimal("10000")` and that `Settings(theoretical_equity_usd="20000").theoretical_equity_usd == Decimal("20000")`.
+   - RESOLVED: Decimal. Settings test confirms `Settings().theoretical_equity_usd == Decimal("10000")` and env-override path. Implemented in Plan 03.
 
 4. **Health endpoint `daily_pnl_pct` uses gate query — refactor concern?**
-   - What we know: `evaluate_daily_loss` returns `(passed, daily_pnl_pct)`.
-   - What's unclear: Should `health.py` import from `src/risk/gates.py` (creating a dep), or should the query helper move to a shared location?
-   - Recommendation: Export a thin `async def get_daily_pnl_pct(session) -> float` from `src/risk/gates.py`; both `evaluate_daily_loss` and `health.py` consume it. No circular imports (health.py already imports from `src.config`, `src.database`).
+   - RESOLVED: Export thin `async def get_daily_pnl_pct(session) -> float` and `async def get_open_positions(session) -> int` from `src/risk/gates.py`; `health.py` consumes them directly. No circular imports. Implemented in Plans 05 and 09.
 
 ## Environment Availability
 
