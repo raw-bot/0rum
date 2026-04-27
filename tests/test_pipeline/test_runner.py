@@ -67,6 +67,7 @@ async def test_runner_conflict_resolved_one_approved():
         patch("src.pipeline.runner.RegimeDetector") as mock_rd_cls,
         patch("src.pipeline.runner.rank_signals", new_callable=AsyncMock) as mock_rank,
         patch("src.pipeline.runner.apply_quota", new_callable=AsyncMock) as mock_quota,
+        patch("src.pipeline.runner.RiskGateRunner") as mock_rgr_cls,
         patch("src.pipeline.runner.AsyncSessionLocal") as mock_session_cls,
         patch("src.pipeline.runner.get_settings") as mock_settings,
     ):
@@ -77,6 +78,10 @@ async def test_runner_conflict_resolved_one_approved():
         # After conflict filter: only buy survives (higher confidence)
         mock_rank.return_value = [(buy, 0.72)]
         mock_quota.return_value = ([(buy, 0.72)], [])
+
+        mock_rgr = MagicMock()
+        mock_rgr.evaluate = AsyncMock(return_value=MagicMock(passed=True, reason=None))
+        mock_rgr_cls.return_value = mock_rgr
 
         # Mock settings
         mock_settings.return_value.max_signals_per_day = 5

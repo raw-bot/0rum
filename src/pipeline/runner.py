@@ -21,6 +21,7 @@ from src.pipeline.conflict_filter import filter_conflicts
 from src.pipeline.dedup import dedup_signals
 from src.pipeline.quota import apply_quota
 from src.pipeline.ranker import rank_signals
+from src.risk import RiskGateRunner
 
 log = structlog.get_logger(__name__)
 
@@ -89,6 +90,21 @@ class PipelineRunner:
             ranked, max_per_day=settings.max_signals_per_day
         )
 
+        # Step 5.5: Risk gates (D-03 / D-04 / D-12)
+        # Per Pitfall 4: risk reads run in their own short-lived session,
+        # closed before _persist opens its persistence transaction.
+        risk_runner = RiskGateRunner()
+        risk_passed: list[tuple[CandidateSignal, float]] = []
+        risk_rejected: list[CandidateSignal] = []
+        async with AsyncSessionLocal() as risk_session:
+            for sig, score in approved_ranked:
+                decision = await risk_runner.evaluate(sig, regime, risk_session)
+                if decision.passed:
+                    risk_passed.append((sig, score))
+                else:
+                    risk_rejected.append(sig)
+        approved_ranked = risk_passed
+
         # Build status map: id(signal) → final status string
         # All candidates start PENDING; update based on pipeline outcome
         status_map: dict[int, str] = {}
@@ -97,6 +113,8 @@ class PipelineRunner:
         for sig in conflict_rejected:
             status_map[id(sig)] = "REJECTED"
         for sig in quota_rejected:
+            status_map[id(sig)] = "REJECTED"
+        for sig in risk_rejected:
             status_map[id(sig)] = "REJECTED"
         for sig, _ in approved_ranked:
             status_map[id(sig)] = "APPROVED"
@@ -111,6 +129,7 @@ class PipelineRunner:
             deduped=len(deduped),
             conflict_rejected=len(conflict_rejected),
             quota_rejected=len(quota_rejected),
+            risk_rejected=len(risk_rejected),
         )
         return approved_orms
 
