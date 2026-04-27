@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import get_settings
 from src.database import get_db
+from src.risk.breaker import BreakerManager
+from src.risk.gates import get_daily_pnl_pct, get_open_positions
 from src.scheduler.jobs import get_last_candle_fetch
 
 logger = structlog.get_logger(__name__)
@@ -54,6 +56,20 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> dict:
 
     overall_status = "healthy" if (postgres_connected and redis_connected) else "degraded"
 
+    # Risk module wiring (Phase 6) — degrade gracefully if risk module unavailable.
+    # Reuse the existing Redis client to avoid a second connection (T-06-09-01).
+    try:
+        r_risk = aioredis.from_url(settings.redis_url, decode_responses=True, socket_connect_timeout=2)
+        circuit_breaker_val = await BreakerManager(redis=r_risk).is_tripped()
+        await r_risk.aclose()
+        open_positions_val = await get_open_positions(db)
+        daily_pnl_pct_val = float(await get_daily_pnl_pct(db))
+    except Exception as exc:
+        logger.warning("health.risk_wiring.failed", error=str(exc))
+        circuit_breaker_val = False
+        open_positions_val = 0
+        daily_pnl_pct_val = 0.0
+
     logger.info(
         "health.checked",
         status=overall_status,
@@ -65,9 +81,9 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> dict:
         "status": overall_status,
         "uptime_hours": uptime_hours,
         "execution_mode": settings.execution_mode.value,
-        "circuit_breaker": False,
-        "open_positions": 0,
-        "daily_pnl_pct": 0.0,
+        "circuit_breaker": circuit_breaker_val,
+        "open_positions": open_positions_val,
+        "daily_pnl_pct": daily_pnl_pct_val,
         "signals_today": 0,
         "last_candle_fetch": get_last_candle_fetch(),
         "strategies_active": 4,
