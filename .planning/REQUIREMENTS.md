@@ -43,8 +43,8 @@
 
 - [ ] **RISK-01**: Daily loss limit gate blocks all new signals if cumulative theoretical loss ≥ −3%
 - [ ] **RISK-02**: Max positions gate blocks new signals if concurrent theoretical positions ≥ 5
-- [ ] **RISK-03**: Concentration check gate blocks signals that would over-expose the same direction
-- [ ] **RISK-04**: ATR-based position sizing with volatility adjustment and 2% hard cap per trade
+- [x] **RISK-03**: Concentration check gate blocks signals that would over-expose the same direction
+- [x] **RISK-04**: ATR-based position sizing with volatility adjustment and 2% hard cap per trade
 - [ ] **RISK-05**: Circuit breaker triggers 24h trading shutdown after 8 consecutive stop-losses, sends Telegram alert
 
 ### Signal Mode
@@ -111,8 +111,8 @@
 | OPTIM-05 | Phase 5 | Complete |
 | RISK-01 | Phase 6 | Pending |
 | RISK-02 | Phase 6 | Pending |
-| RISK-03 | Phase 6 | Pending |
-| RISK-04 | Phase 6 | Pending |
+| RISK-03 | Phase 6 | Complete |
+| RISK-04 | Phase 6 | Complete |
 | RISK-05 | Phase 6 | Pending |
 | SIG-01 | Phase 7 | Pending |
 | SIG-02 | Phase 7 | Pending |
