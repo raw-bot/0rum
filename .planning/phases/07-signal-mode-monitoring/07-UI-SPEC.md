@@ -48,7 +48,6 @@ Declared values (must be multiples of 4). Dense trading-terminal aesthetic — t
 
 Exceptions:
 - Status indicator dots: 8×8px (not on scale, necessary for inline status badges)
-- Table row height: 28px (tight data rows, intentional density — Bloomberg terminal reference)
 - Section header height: 32px
 
 ---
@@ -90,7 +89,7 @@ Dark theme. High contrast. Functional signal colors only — no decorative color
 
 **Color rules:**
 - Accent (`#00c896`) is reserved exclusively for: positive P&L, BUY direction, SENT status. Never used decoratively.
-- Destructive (`#e05252`) is reserved exclusively for: negative P&L, SELL direction, SL close reason, CB TRIPPED.
+- Destructive (`#e05252`) is reserved exclusively for: negative P&L, SELL direction, SL close reason, CB TRIPPED, AUTO MODE badge (caution signal — operator must see execution mode as high-stakes state).
 - Warning (`#d4a017`) is reserved exclusively for: TP1_HIT, TRAIL, HIGH_VOL. Never used for non-state elements.
 - Background never uses pure black (`#000000`) — `#0d0f11` only.
 - No gradients. Flat colors only — trading terminal aesthetic, not SaaS landing page.
@@ -139,6 +138,11 @@ Single-page, vertical-scroll layout. No sidebar. Full-width sections.
 - No sticky header (operator tool, not a long-scroll consumer page)
 - Table rows: zebra striping using `--surface` / `--bg` alternation
 
+**Primary visual anchor:** Execution mode badge (20px Display size, center of header bar). It is the first element the operator's eye must resolve — SIGNAL vs AUTO — before reading any data.
+
+**Component dimensions (layout values, not spacing tokens):**
+- Table row height: 28px — intentional density for data-heavy tables (Bloomberg terminal reference). This is a component dimension, not a spacing scale token.
+
 ---
 
 ## Sections and Component Inventory
@@ -153,7 +157,7 @@ Single-page, vertical-scroll layout. No sidebar. Full-width sections.
 - Right: last updated timestamp (`--text-2`, 13px), then [Refresh] button
 
 **Refresh button:**
-- Label: "Refresh" (no icon) — see Copywriting section
+- Label: "Refresh" (no icon) — single verb is acceptable here because the action is a stateless re-fetch with no mutation, no confirmation required, and no side effects (D-22). A noun would add no semantic value.
 - Style: `border: 1px solid var(--border)`, background `--surface`, text `--text`, padding 6px 16px, font-size 13px
 - Hover state: background `#1e2329` (one step lighter than surface)
 - No rounded corners beyond 4px — sharp, functional look
@@ -206,7 +210,7 @@ Table columns: Time | Strategy | Direction | Entry | SL | TP1 | TP2 | Confidence
 - Confidence: percentage (monospace)
 - Status badge: "SENT" (accent), "PENDING" (muted), "FAILED" (destructive)
 - All price values: monospace
-- Empty state: "No signals in the database yet" (`--muted`, 13px)
+- Empty state: "No signals recorded yet" (`--muted`, 13px)
 
 ### 6. Circuit Breaker State
 
@@ -251,7 +255,7 @@ Fetch error handling: if `/api/dashboard` returns non-200 or throws, display an 
 | Element | Copy | Notes |
 |---------|------|-------|
 | Page title (`<title>`) | `0rum Dashboard` | Plain, no emoji |
-| Refresh button | `Refresh` | Verb only, no noun — consistent with read-only, no mutation |
+| Refresh button | `Refresh` | Single verb — acceptable because this is a stateless re-fetch with no mutation (D-22); a noun would add no semantic value |
 | Auto-refresh label | `Auto-refresh: 30s` | Shown in header bar as secondary text, `--text-2` |
 | Loading state | `Loading...` | Shown in data panels while first fetch is in flight |
 | Fetch error banner | `Dashboard data unavailable — check API connection` | Error banner below header, `--destructive` text, `--surface` background |
@@ -260,7 +264,7 @@ Fetch error handling: if `/api/dashboard` returns non-200 or throws, display an 
 | Empty state — latest signals | `No signals recorded yet` | Centered in latest signals table body |
 | Circuit breaker badge | `CIRCUIT BREAKER TRIPPED` | ALL CAPS, badge — destructive color |
 | Execution mode — signal | `SIGNAL MODE` | ALL CAPS badge — accent color |
-| Execution mode — auto | `AUTO MODE` | ALL CAPS badge — destructive color (caution signal) |
+| Execution mode — auto | `AUTO MODE` | ALL CAPS badge — destructive color (caution signal; operator must register execution mode as a high-stakes state) |
 | DB health — healthy | `ONLINE` | Short dot label |
 | DB health — unhealthy | `OFFLINE` | Short dot label |
 | Direction — long | `BUY` | Not "LONG" — matches Telegram message format in AGENTS.md §14.1 |
