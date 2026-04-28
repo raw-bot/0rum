@@ -862,3 +862,46 @@ If one operational improvement is chosen after that, implement this next:
 That imports the strongest idea from the third case study while avoiding its most
 fragile parts, such as Git-based runtime memory and overly broad autonomous
 permissions.
+
+## Home Finance API Layer
+
+This is a candidate update for the broader `Home` ecosystem, not an immediate
+runtime dependency for `0rum`.
+
+Use `public-apis/public-apis` as a discovery catalog for finance-related APIs,
+not as a direct runtime source of truth. The repository is useful for surfacing
+provider ideas, but it is too noisy and uneven to consume automatically in a
+production workflow.
+
+### Promising Providers
+
+- `Frankfurter`: currency rates, no key, self-hostable
+- `SEC EDGAR`: official filings and XBRL company facts
+- `FRED`: macroeconomic time series
+- `OpenFIGI`: financial identifier mapping
+- `FMP`: broad market and fundamental data
+- `Twelve Data`: OHLC/time-series, forex, commodities, `XAU/USD`
+
+### Suggested Shape
+
+If Home needs finance features, build a curated provider registry rather than
+importing the full public API catalog.
+
+```text
+provider -> normalize -> cache -> freshness -> dashboard
+```
+
+The registry should track:
+
+- provider purpose
+- auth model
+- rate limits
+- reliability / freshness
+- redistribution constraints
+- normalized output contracts
+- health-check status
+
+### Recommendation
+
+Record this as an opportunity for Home, but do not integrate it into `0rum` until
+there is a concrete Home feature that needs financial data.

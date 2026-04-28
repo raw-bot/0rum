@@ -178,6 +178,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 4. Signal Pipeline | 3/3 | Complete | 2026-04-22 |
 | 4.1. IG-Light Ingestion Hardening | 3/3 | Complete | 2026-04-22 |
 | 5. Backtesting & Validation | 5/5 | Complete (HistData-backed run persisted `liquidity_sweep`; unvalidated strategies skipped at runtime) | 2026-04-26 |
-| 6. Risk Management | 4/9 | In Progress|  |
+| 6. Risk Management | 9/9 | Complete | 2026-04-28 |
 | 7. Signal Mode & Monitoring | 0/? | Not started | - |
 | 8. Auto Mode | 0/? | Not started | - |
