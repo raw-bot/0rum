@@ -6,16 +6,18 @@
 <domain>
 ## Phase Boundary
 
-Phase 7 delivers the complete signal mode runtime:
+Phase 7 delivers the complete signal mode runtime plus a minimal read-only operator dashboard:
 1. Every `ApprovedSignal` produces a formatted Telegram signal message (SIG-01 / NOTIF-01).
 2. A theoretical trade lifecycle (OPEN → TP1_HIT → CLOSED) is tracked in `TradeORM` for every approved signal (SIG-02).
 3. Per-strategy win rate, profit factor, and P&L are accumulated in a new `strategy_stats` table and queryable (SIG-03).
 4. All notification types fire correctly: TP1, TP2, SL, trailing close, circuit breaker, and daily summary (NOTIF-01..04).
+5. A read-only operator dashboard (`/dashboard`) displays bot health, execution mode, circuit breaker state, latest signals, open theoretical trades, daily P&L, and per-strategy stats. No trading controls — display only.
 
 What this phase is NOT:
 - Auto-mode broker order placement (Phase 8). `ExecutionRouter` auto branch raises `NotImplementedError` here.
 - Telegram bot command handling — one-way notifications only.
-- Health dashboard or frontend — `/health` endpoint gains `strategies_active` count only.
+- Trading controls of any kind in the dashboard — read-only display only.
+- Real-time push (WebSocket/SSE) — dashboard polls or is manually refreshed; Telegram handles real-time alerts.
 
 </domain>
 
@@ -73,6 +75,15 @@ What this phase is NOT:
   - Execution mode (from settings)
   - Top per-strategy lifetime `win_rate` and `profit_factor` from `strategy_stats`
 - **D-20:** `/health` endpoint stays lightweight. Phase 7 adds only `strategies_active` count (number of `optimizer_results` rows WHERE `is_active = TRUE`) if not already present. Full `strategy_stats` array is NOT exposed via `/health`.
+
+### Operator Dashboard (UI)
+
+- **D-21:** New route `/dashboard` served by FastAPI as a single HTML page (Jinja2 template or inline HTML with `HTMLResponse`). No separate frontend build step — plain HTML + minimal CSS + vanilla JS (or Alpine.js). No React, no bundler.
+- **D-22:** Dashboard is **read-only**. No forms, no buttons that mutate state. The only interactive element is a manual refresh button (or auto-refresh via `<meta http-equiv="refresh">` or `setInterval` fetch).
+- **D-23:** Dashboard data is served by a new `/api/dashboard` JSON endpoint that aggregates: bot health (DB + Redis reachability), execution mode (from settings), circuit breaker state (`BreakerManager.is_tripped()`), latest 20 approved signals (from `approved_signals` table), open theoretical trades (from `trades WHERE status IN ('OPEN','TP1_HIT')`), daily P&L (sum of today's closed `pnl_pct`), per-strategy stats (from `strategy_stats`).
+- **D-24:** `/api/dashboard` reuses the same DB session pattern as `/health` (`AsyncSessionLocal`). No new DB connection pool.
+- **D-25:** No authentication on the dashboard in Phase 7 — operator tool, runs locally or behind a firewall. Authentication is a Phase 8/v2 concern.
+- **D-26:** Dashboard styling: dark theme, minimal. Functional over beautiful — a trading terminal aesthetic, not a marketing page. No external CDN dependencies in production; self-contained single file.
 
 ### Claude's Discretion
 
