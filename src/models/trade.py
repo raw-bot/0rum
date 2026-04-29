@@ -35,6 +35,7 @@ class TradeORM(Base):
     sl_price: Mapped[Decimal] = mapped_column(Numeric(12, 5), nullable=False)
     tp1_price: Mapped[Decimal] = mapped_column(Numeric(12, 5), nullable=False)
     tp2_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 5), nullable=True)
+    trailing_stop_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 5), nullable=True)
     size_lots: Mapped[Decimal] = mapped_column(Numeric(8, 4), nullable=False)
     status: Mapped[str] = mapped_column(String(15), nullable=False, default="OPEN")
     pnl: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 5), nullable=True)

@@ -571,22 +571,25 @@ The correct test for a BUY: SL touched if `candle_low <= sl_price`; TP1 touched 
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Trailing stop anchor point**
    - What we know: AGENTS.md §13.2 says "trail distance = 1.0 × ATR(H1), updated per H1 candle, ratchet only"
    - What's unclear: whether trail = `current_price ± ATR` (floating) or `entry_price ± ATR` (fixed anchor) or `TP1_price ± ATR` (post-TP1 anchor)
    - Recommendation: Assume `current_candle_high/low ± ATR` is the computed trail level, and the ratchet only accepts improvements. The most natural interpretation for "trailing stop" is that it follows the favorable price move.
+   - **RESOLVED:** Plans use `current_candle_high - atr_h1` for BUY (candle anchor, not entry_price anchor). Ratchet: only update trailing_stop_price when the new computed value is strictly higher (BUY) or lower (SELL) than stored value.
 
 2. **profit_factor sentinel for zero-loss strategies**
    - What we know: D-16 says store `gross_profit_pct` and `gross_loss_pct` raw so `profit_factor` can always be recomputed correctly
    - What's unclear: what to store in `profit_factor` column when `gross_loss_pct = 0`
    - Recommendation: Store `Decimal("0")` until there is at least one loss; recompute after every update.
+   - **RESOLVED:** Plans use `Decimal("999.9999")` sentinel when `gross_loss_pct == 0` and `wins > 0`. When `gross_loss_pct == 0` and `wins == 0`, use `Decimal("0")`. Dashboard renders sentinel as "∞" or "999.99".
 
 3. **`consecutive_stops` in circuit_breaker dashboard payload**
    - What we know: UI-SPEC requires `"circuit_breaker": {"tripped": false, "consecutive_stops": 2}` in `/api/dashboard` JSON
    - What's unclear: `BreakerManager` only exposes `is_tripped()` — the counter is stored in Redis as `CB_COUNTER` key but there is no public `get_count()` method
    - Recommendation: Phase 7 adds `BreakerManager.get_consecutive_stops() -> int` method that reads `CB_COUNTER` from Redis, or `/api/dashboard` reads the Redis key directly.
+   - **RESOLVED:** Plan 04 adds `BreakerManager.get_consecutive_stops() -> int` that reads the `CB_COUNTER` Redis key using the existing Redis client. Plan 05 calls this method in `/api/dashboard` response construction.
 
 ---
 

@@ -6,6 +6,7 @@ from src.models.signal import CandidateSignalORM, ApprovedSignalORM
 from src.models.trade import TradeORM
 from src.models.optimizer_result import OptimizerResultORM
 from src.models.regime import MarketRegimeORM
+from src.models.strategy_stats import StrategyStatsORM
 
 __all__ = [
     "Base",
@@ -15,4 +16,5 @@ __all__ = [
     "TradeORM",
     "OptimizerResultORM",
     "MarketRegimeORM",
+    "StrategyStatsORM",
 ]

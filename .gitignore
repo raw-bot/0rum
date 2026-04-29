@@ -29,6 +29,10 @@ data/histdata/
 .DS_Store
 .gitnexus/
 .claude/
+.agents/
+.kilocode/
+.kiro/
+skills-lock.json
 
 # Docker
 *.log

@@ -1,25 +1,26 @@
 ---
-status: complete
+status: partial
 phase: 04-signal-pipeline
 source: [04-01-SUMMARY.md, 04-02-SUMMARY.md, 04-03-SUMMARY.md]
 started: "2026-04-10T00:00:00Z"
-updated: "2026-04-10T00:00:00Z"
+updated: "2026-04-29T00:00:00Z"
 ---
 
 ## Current Test
 
-[testing complete]
+[offline validation refreshed — destructive cold-start smoke still deferred]
 
 ## Tests
 
 ### 1. Cold Start Smoke Test
 expected: Tear down and restart the stack from scratch (docker compose down -v && docker compose up -d). App container starts, Alembic migrations run, and the health endpoint responds (curl http://localhost:8000/health). No errors in logs. Scheduler boots and registers jobs.
 result: skipped
-reason: not run yet
+reason: not run yet — requires explicit approval because `docker compose down -v` destroys local PostgreSQL volume state
 
 ### 2. Full Pipeline Test Suite — 27 tests pass
 expected: Running `pytest tests/test_pipeline/ -v` from the project root produces 27 passed, 0 failed, 0 errors. All 6 test files are collected (test_dedup, test_conflict_filter, test_ranker, test_quota, test_regime_detector, test_runner).
 result: pass
+note: 2026-04-29 — `./.venv/bin/pytest tests/test_pipeline/ -q` passed 29 tests.
 
 ### 3. Regime Detector — 4 regimes classified correctly
 expected: Running `pytest tests/test_pipeline/test_regime_detector.py -v` shows 5 tests passing, covering: HIGH_VOL override (ATR >= 90th percentile), TRENDING_UP (ADX > 25 + EMA50 > EMA200), TRENDING_DOWN (ADX > 25 + EMA50 < EMA200), RANGING (default fallback), and ATR=0.0 guard for flat candle data.

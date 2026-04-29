@@ -154,7 +154,7 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 07-01-PLAN.md — DB migration (trailing_stop_price, strategy_stats) + ORM + test scaffolds
+- [x] 07-01-PLAN.md — DB migration (trailing_stop_price, strategy_stats) + ORM + test scaffolds
 - [ ] 07-02-PLAN.md — Telegram delivery layer (SignalSender, TelegramBot) + unit tests
 - [ ] 07-03-PLAN.md — ExecutionRouter + PipelineRunner D-13/D-14/D-15 changes + tests
 - [ ] 07-04-PLAN.md — monitor_trades job + daily_summary job + strategy_stats upsert + scheduler registration
@@ -186,5 +186,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 4.1. IG-Light Ingestion Hardening | 3/3 | Complete | 2026-04-22 |
 | 5. Backtesting & Validation | 5/5 | Complete (HistData-backed run persisted `liquidity_sweep`; unvalidated strategies skipped at runtime) | 2026-04-26 |
 | 6. Risk Management | 9/9 | Complete | 2026-04-28 |
-| 7. Signal Mode & Monitoring | 0/? | Not started | - |
+| 7. Signal Mode & Monitoring | 1/5 | In Progress | - |
 | 8. Auto Mode | 0/? | Not started | - |

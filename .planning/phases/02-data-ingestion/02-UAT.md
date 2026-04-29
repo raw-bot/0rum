@@ -3,12 +3,12 @@ status: partial
 phase: 02-data-ingestion
 source: [02-01-SUMMARY.md, 02-02-SUMMARY.md, 02-03-SUMMARY.md]
 started: 2026-04-06T00:00:00Z
-updated: 2026-04-07T00:00:00Z
+updated: 2026-04-29T00:00:00Z
 ---
 
 ## Current Test
 
-[testing complete — legacy OANDA tests cancelled]
+[offline validation refreshed — legacy OANDA tests remain cancelled]
 
 ## Provider Realignment Note
 
@@ -22,9 +22,9 @@ result: pass
 note: legacy broker API backfill skipped in test env — server did not crash, error was caught and logged via structured JSON logger
 
 ### 2. Unit Tests Pass (Offline)
-expected: Running `pytest tests/test_ingestion/ -x -v` with no live broker connection or PostgreSQL passes all 13 tests. No failures, no collection errors.
-result: skipped
-reason: user moved to Binance
+expected: Running `pytest tests/test_ingestion/ -x -v` with no live broker connection or PostgreSQL passes all ingestion tests. No failures, no collection errors.
+result: pass
+note: 2026-04-29 — `./.venv/bin/pytest tests/test_ingestion/ -x -v` collected and passed 35 tests, including Binance proxy plumbing, IG client normalization/session retry, bounded IG warm-up, and bounded gap-fill guards.
 
 ### 3. Broker Client Candle Fetch
 expected: Calling `BrokerClient.get_candles(instrument="EUR_USD", granularity="H1", count=10)` returns a list of raw candle dicts. D1 granularity maps to "D" when sent to broker. Providing `from_time` removes `count` from the request params automatically.
@@ -58,19 +58,21 @@ reason: "Broker migration - legacy OANDA"
 
 ### 9. APScheduler 4 Jobs Running
 expected: After server start, `create_scheduler()` registers exactly 4 jobs: M15 (every 15 min), H1 (every 1h), H4 (every 4h), D1 (00:05 UTC daily). All have `max_instances=1`. Scheduler starts without error; jobs execute on schedule.
-result: [pending]
+result: pass
+note: 2026-04-29 — non-destructive scheduler smoke verified ingestion jobs `refresh_m15`, `refresh_h1`, `refresh_h4`, `refresh_d1`; each has `max_instances=1`. Current scheduler also includes later-phase jobs `run_pipeline` and `run_optimizer`.
 
 ### 10. Health Endpoint last_candle_fetch
 expected: `GET /health` returns JSON with a `last_candle_fetch` field. Before any scheduled job has run, each timeframe shows `null`. After at least one job runs, the matching timeframe shows an ISO timestamp. The endpoint returns 200 in both states.
-result: [pending]
+result: pass
+note: 2026-04-29 — `get_last_candle_fetch()` returns `{"M15": null, "H1": null, "H4": null, "D1": null}` before jobs run; `tests/test_monitoring/test_health_risk.py` also passes and confirms health degrades gracefully.
 
 ## Summary
 
 total: 10
-passed: 1
+passed: 4
 issues: 0
-pending: 2
-skipped: 1
+pending: 0
+skipped: 0
 blocked: 0
 cancelled: 6
 
