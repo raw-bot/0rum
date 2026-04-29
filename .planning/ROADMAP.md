@@ -151,7 +151,14 @@ Plans:
   3. Per-strategy win rate, profit factor, and theoretical P&L are accumulated in the database and queryable
   4. TP1 hit, TP2 hit, SL hit, and circuit breaker events each produce the correct Telegram notification
   5. The daily summary Telegram message fires at 00:00 UTC with signals sent, trades, P&L, and circuit breaker state
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — DB migration (trailing_stop_price, strategy_stats) + ORM + test scaffolds
+- [ ] 07-02-PLAN.md — Telegram delivery layer (SignalSender, TelegramBot) + unit tests
+- [ ] 07-03-PLAN.md — ExecutionRouter + PipelineRunner D-13/D-14/D-15 changes + tests
+- [ ] 07-04-PLAN.md — monitor_trades job + daily_summary job + strategy_stats upsert + scheduler registration
+- [ ] 07-05-PLAN.md — /api/dashboard + /dashboard template + main.py wiring + /health fix + human verification
 **UI hint**: yes
 
 ### Phase 8: Auto Mode
