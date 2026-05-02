@@ -4,12 +4,34 @@ Tests call _process_trade() directly to isolate logic from scheduler/DB overhead
 All DB sessions are mocked — no live DB or Redis required.
 """
 
+import importlib
+import sys
 import uuid
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+
+def _ensure_real_jobs_module():
+    """Ensure src.scheduler.jobs is the real module, not a stub from test_health_risk.
+
+    test_health_risk.py injects an empty ModuleType stub for src.scheduler.jobs
+    (only if not already in sys.modules). If our module is collected after it,
+    the stub will be cached. We must evict the stub and force a real import.
+    """
+    jobs_mod = sys.modules.get("src.scheduler.jobs")
+    if jobs_mod is None or not hasattr(jobs_mod, "_process_trade"):
+        # Evict stub and any parent package stub so importlib can load the real module
+        for key in list(sys.modules.keys()):
+            if key in ("src.scheduler.jobs", "src.scheduler"):
+                del sys.modules[key]
+        real = importlib.import_module("src.scheduler.jobs")
+        sys.modules["src.scheduler.jobs"] = real
+
+
+_ensure_real_jobs_module()
 
 
 def make_trade(
@@ -75,7 +97,7 @@ async def test_open_buy_sl_touched_closes_as_sl():
     mock_breaker.record_stop = AsyncMock(return_value=None)
     mock_breaker.record_win = AsyncMock()
 
-    with patch("src.scheduler.jobs.AsyncSessionLocal", make_session_factory()):
+    with patch("src.database.AsyncSessionLocal", make_session_factory()):
         with patch("src.scheduler.jobs._breaker_manager", mock_breaker):
             from src.scheduler.jobs import _process_trade
             await _process_trade(
@@ -95,7 +117,7 @@ async def test_open_buy_tp1_touched_transitions_to_tp1_hit():
     """OPEN BUY: candle_high >= tp1_price → status becomes TP1_HIT."""
     trade = make_trade(status="OPEN", direction="BUY", sl=2325.20, entry=2340.50, tp1=2358.80)
 
-    with patch("src.scheduler.jobs.AsyncSessionLocal", make_session_factory()):
+    with patch("src.database.AsyncSessionLocal", make_session_factory()):
         from src.scheduler.jobs import _process_trade
         await _process_trade(
             trade=trade,
@@ -117,7 +139,7 @@ async def test_open_buy_both_touched_sl_wins():
     mock_breaker.record_stop = AsyncMock(return_value=None)
     mock_breaker.record_win = AsyncMock()
 
-    with patch("src.scheduler.jobs.AsyncSessionLocal", make_session_factory()):
+    with patch("src.database.AsyncSessionLocal", make_session_factory()):
         with patch("src.scheduler.jobs._breaker_manager", mock_breaker):
             from src.scheduler.jobs import _process_trade
             await _process_trade(
@@ -150,7 +172,7 @@ async def test_tp1_hit_trail_touched_closes_as_trail():
     mock_breaker.record_stop = AsyncMock(return_value=None)
     mock_breaker.record_win = AsyncMock()
 
-    with patch("src.scheduler.jobs.AsyncSessionLocal", make_session_factory()):
+    with patch("src.database.AsyncSessionLocal", make_session_factory()):
         with patch("src.scheduler.jobs._breaker_manager", mock_breaker):
             from src.scheduler.jobs import _process_trade
             await _process_trade(
@@ -189,7 +211,7 @@ async def test_tp1_hit_tp2_touched_closes_as_tp2():
     mock_breaker.record_stop = AsyncMock(return_value=None)
     mock_breaker.record_win = AsyncMock()
 
-    with patch("src.scheduler.jobs.AsyncSessionLocal", make_session_factory()):
+    with patch("src.database.AsyncSessionLocal", make_session_factory()):
         with patch("src.scheduler.jobs._breaker_manager", mock_breaker):
             from src.scheduler.jobs import _process_trade
             await _process_trade(
@@ -224,7 +246,7 @@ async def test_tp1_hit_both_touched_trail_wins():
     mock_breaker.record_stop = AsyncMock(return_value=None)
     mock_breaker.record_win = AsyncMock()
 
-    with patch("src.scheduler.jobs.AsyncSessionLocal", make_session_factory()):
+    with patch("src.database.AsyncSessionLocal", make_session_factory()):
         with patch("src.scheduler.jobs._breaker_manager", mock_breaker):
             from src.scheduler.jobs import _process_trade
             await _process_trade(
@@ -254,7 +276,7 @@ async def test_trail_ratchets_only_upward_for_buy():
         trailing_stop_price=2350.00,
     )
 
-    with patch("src.scheduler.jobs.AsyncSessionLocal", make_session_factory()):
+    with patch("src.database.AsyncSessionLocal", make_session_factory()):
         from src.scheduler.jobs import _process_trade
 
         # First call: candle_high=2355.00, atr=10 → new_trail = 2355 - 10 = 2345.00 (worse, should NOT update)
@@ -293,7 +315,7 @@ async def test_sl_close_calls_record_stop():
     mock_breaker.record_stop = AsyncMock(return_value=None)
     mock_breaker.record_win = AsyncMock()
 
-    with patch("src.scheduler.jobs.AsyncSessionLocal", make_session_factory()):
+    with patch("src.database.AsyncSessionLocal", make_session_factory()):
         with patch("src.scheduler.jobs._breaker_manager", mock_breaker):
             from src.scheduler.jobs import _process_trade
             await _process_trade(
@@ -327,7 +349,7 @@ async def test_win_close_calls_record_win():
     mock_breaker.record_stop = AsyncMock(return_value=None)
     mock_breaker.record_win = AsyncMock()
 
-    with patch("src.scheduler.jobs.AsyncSessionLocal", make_session_factory()):
+    with patch("src.database.AsyncSessionLocal", make_session_factory()):
         with patch("src.scheduler.jobs._breaker_manager", mock_breaker):
             from src.scheduler.jobs import _process_trade
             await _process_trade(

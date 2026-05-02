@@ -11,7 +11,6 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from src.config import get_settings
-from src.database import AsyncSessionLocal
 from src.ingestion.candle_fetcher import CandleFetcher
 from src.ingestion.gap_detector import GapDetector
 
@@ -127,6 +126,7 @@ async def run_pipeline() -> None:
     from src.strategies.runner import StrategyRunner
     from src.pipeline.runner import PipelineRunner
     from src.models.candle import Candle
+    from src.database import AsyncSessionLocal
     from sqlalchemy import select
 
     try:
@@ -180,6 +180,7 @@ async def monitor_trades() -> None:
     """
     from sqlalchemy import select
     from src.backtesting.regime_detector import RegimeDetector
+    from src.database import AsyncSessionLocal
     from src.models.candle import Candle
     from src.models.signal import ApprovedSignalORM, CandidateSignalORM
     from src.models.trade import TradeORM
@@ -265,6 +266,8 @@ async def _process_trade(
     atr_h1: Decimal,
 ) -> None:
     """Evaluate one trade against the latest M15 candle; update DB if status changes."""
+    from src.database import AsyncSessionLocal
+
     direction = trade.direction  # "BUY" or "SELL"
     entry = Decimal(str(trade.entry_price))
     sl = Decimal(str(trade.sl_price))
@@ -367,6 +370,7 @@ async def _close_trade(
     """Close a trade: set status=CLOSED, compute blended P&L, upsert strategy_stats, call BreakerManager."""
     from sqlalchemy import select, update
     from sqlalchemy.dialects.postgresql import insert as pg_insert
+    from src.database import AsyncSessionLocal
     from src.models.strategy_stats import StrategyStatsORM
 
     # D-06: Blended P&L
@@ -463,6 +467,110 @@ async def _close_trade(
         )
 
 
+async def daily_summary() -> None:
+    """Send daily summary Telegram notification at 00:00 UTC (NOTIF-04, D-19).
+
+    Queries DB for: signals sent today, trades closed by close_reason, daily P&L,
+    MTD P&L, circuit breaker state, execution mode, and per-strategy stats.
+    """
+    from sqlalchemy import func, select
+
+    from src.config import get_settings
+    from src.database import AsyncSessionLocal
+    from src.models.signal import ApprovedSignalORM
+    from src.models.strategy_stats import StrategyStatsORM
+    from src.models.trade import TradeORM
+    from src.monitoring.telegram_bot import DailySummaryPayload
+    from src.risk.breaker import BreakerManager
+
+    try:
+        settings = get_settings()
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        today_date = datetime.now(timezone.utc).date()
+        mtd_start = today_date.replace(day=1)
+
+        async with AsyncSessionLocal() as session:
+            # Signals sent today
+            signals_sent_result = await session.execute(
+                select(func.count(ApprovedSignalORM.id)).where(
+                    ApprovedSignalORM.execution_status == "SENT",
+                    func.date(ApprovedSignalORM.created_at) == today_date,
+                )
+            )
+            signals_sent = signals_sent_result.scalar_one() or 0
+
+            # Trades closed today by close_reason
+            trades_result = await session.execute(
+                select(TradeORM.close_reason, func.count(TradeORM.id))
+                .where(
+                    TradeORM.closed_at.isnot(None),
+                    func.date(TradeORM.closed_at) == today_date,
+                )
+                .group_by(TradeORM.close_reason)
+            )
+            trades_by_reason: dict[str, int] = {}
+            for reason, count in trades_result.all():
+                if reason is not None:
+                    trades_by_reason[reason] = count
+
+            # Daily P&L
+            daily_pnl_result = await session.execute(
+                select(func.sum(TradeORM.pnl_pct)).where(
+                    TradeORM.closed_at.isnot(None),
+                    func.date(TradeORM.closed_at) == today_date,
+                )
+            )
+            daily_pnl = float(daily_pnl_result.scalar_one() or 0)
+
+            # MTD P&L
+            mtd_pnl_result = await session.execute(
+                select(func.sum(TradeORM.pnl_pct)).where(
+                    TradeORM.closed_at.isnot(None),
+                    func.date(TradeORM.closed_at) >= mtd_start,
+                )
+            )
+            mtd_pnl = float(mtd_pnl_result.scalar_one() or 0)
+
+            # Strategy stats
+            stats_result = await session.execute(
+                select(StrategyStatsORM).order_by(StrategyStatsORM.win_rate.desc())
+            )
+            strategy_stats = [
+                {
+                    "strategy": row.strategy,
+                    "win_rate": float(row.win_rate),
+                    "profit_factor": float(row.profit_factor),
+                }
+                for row in stats_result.scalars().all()
+            ]
+
+        # Circuit breaker state
+        breaker = _breaker_manager or BreakerManager()
+        cb_tripped = await breaker.is_tripped()
+        consecutive_stops = await breaker.get_consecutive_stops()
+
+        payload = DailySummaryPayload(
+            date=today_str,
+            signals_sent=signals_sent,
+            trades_by_reason=trades_by_reason,
+            daily_pnl_pct=daily_pnl,
+            mtd_pnl_pct=mtd_pnl,
+            cb_tripped=cb_tripped,
+            consecutive_stops=consecutive_stops,
+            execution_mode=settings.execution_mode.value.upper(),
+            strategy_stats=strategy_stats,
+        )
+
+        if _telegram_bot is not None:
+            await _telegram_bot.send_daily_summary(payload)
+            log.info("jobs.daily_summary.complete", date=today_str, signals=signals_sent)
+        else:
+            log.warning("jobs.daily_summary.no_bot", date=today_str)
+
+    except Exception as exc:
+        log.error("jobs.daily_summary.failed", error=str(exc))
+
+
 def create_scheduler() -> AsyncIOScheduler:
     """Create and configure the APScheduler instance with all 4 candle jobs.
 
@@ -536,6 +644,15 @@ def create_scheduler() -> AsyncIOScheduler:
         trigger=IntervalTrigger(minutes=15),
         id="monitor_trades",
         name="Monitor open theoretical trades every 15 minutes",
+        max_instances=1,
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        daily_summary,
+        trigger=CronTrigger(hour=0, minute=0, timezone="UTC"),
+        id="daily_summary",
+        name="Send daily Telegram summary at 00:00 UTC",
         max_instances=1,
         replace_existing=True,
     )
