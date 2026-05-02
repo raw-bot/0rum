@@ -17,8 +17,10 @@ from src.models.signal_data import (
     StrategyName,
     Timeframe,
 )
+from decimal import Decimal
+
 from src.pipeline.runner import PipelineRunner
-from src.risk.events import RiskDecision
+from src.risk.events import PositionSizing, RiskDecision
 
 
 def make_signal(direction=Direction.BUY, confidence=0.75) -> CandidateSignal:
@@ -122,7 +124,18 @@ async def test_risk_acceptance_path_creates_approved_orm():
 
         mock_rgr = MagicMock()
         mock_rgr.evaluate = AsyncMock(
-            return_value=RiskDecision(passed=True, reason=None, concentration_reduced=False)
+            return_value=RiskDecision(
+                passed=True,
+                reason=None,
+                concentration_reduced=False,
+                sizing=PositionSizing(
+                    risk_pct=0.01,
+                    risk_amount_usd=Decimal("100.00"),
+                    size_lots=Decimal("0.10"),
+                    vol_factor=1.0,
+                    concentration_reduced=False,
+                ),
+            )
         )
         mock_rgr_cls.return_value = mock_rgr
 
