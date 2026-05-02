@@ -1,6 +1,9 @@
 """APScheduler job definitions for candle refresh across 4 timeframes."""
 
 import asyncio
+from decimal import Decimal
+from datetime import datetime, timezone
+from typing import Any
 
 import structlog
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -8,6 +11,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from src.config import get_settings
+from src.database import AsyncSessionLocal
 from src.ingestion.candle_fetcher import CandleFetcher
 from src.ingestion.gap_detector import GapDetector
 
@@ -21,6 +25,18 @@ _last_candle_fetch: dict[str, str | None] = {
     "H4": None,
     "D1": None,
 }
+
+# Injected service singletons — set by main.py at startup after Bot initialization.
+# Tests can inject mocks via _set_monitor_services().
+_telegram_bot: "Any | None" = None
+_breaker_manager: "Any | None" = None
+
+
+def _set_monitor_services(telegram_bot: "Any", breaker_manager: "Any") -> None:
+    """Inject monitoring service singletons. Called once at app startup."""
+    global _telegram_bot, _breaker_manager
+    _telegram_bot = telegram_bot
+    _breaker_manager = breaker_manager
 
 
 def get_last_candle_fetch() -> dict[str, str | None]:
@@ -112,7 +128,6 @@ async def run_pipeline() -> None:
     from src.pipeline.runner import PipelineRunner
     from src.models.candle import Candle
     from sqlalchemy import select
-    from src.database import AsyncSessionLocal
 
     try:
         # Step 1: Run all 4 strategies
@@ -147,6 +162,305 @@ async def run_pipeline() -> None:
 
     except Exception as exc:
         log.error("jobs.pipeline.failed", error=str(exc))
+
+
+async def monitor_trades() -> None:
+    """Monitor open theoretical trades every 15 min — check price levels and update status.
+
+    Per D-01: runs independently of run_pipeline. Evaluates latest completed M15 candle
+    HIGH/LOW range for intra-candle level touches.
+
+    Per D-02: Uses H1 ATR(14) for trailing stop distance (1.0 × ATR(H1)).
+    Per D-03: Trailing stop ratchets — only updates when strictly better.
+    Per D-04: After TP1_HIT, both TP2 and trailing stop are active simultaneously.
+    Per D-05: SL wins pre-TP1; trailing stop wins post-TP1 on tie.
+    Per D-07: BreakerManager.record_stop() called inline after SL close.
+    Per D-08: BreakerManager.record_win() called when pnl_pct > 0 on blended close.
+    Per D-17: strategy_stats upsert in same transaction as TradeORM status change.
+    """
+    from sqlalchemy import select
+    from src.backtesting.regime_detector import RegimeDetector
+    from src.models.candle import Candle
+    from src.models.signal import ApprovedSignalORM, CandidateSignalORM
+    from src.models.trade import TradeORM
+
+    try:
+        async with AsyncSessionLocal() as session:
+            # 1. Fetch latest completed M15 candle
+            m15_stmt = (
+                select(Candle)
+                .where(
+                    Candle.instrument == "XAUUSD",
+                    Candle.timeframe == "M15",
+                    Candle.complete.is_(True),
+                )
+                .order_by(Candle.timestamp.desc())
+                .limit(1)
+            )
+            m15_result = await session.execute(m15_stmt)
+            latest_m15 = m15_result.scalar_one_or_none()
+            if latest_m15 is None:
+                log.info("jobs.monitor_trades.no_candle")
+                return
+
+            candle_high = Decimal(str(latest_m15.high))
+            candle_low = Decimal(str(latest_m15.low))
+
+            # 2. Fetch last 20 H1 candles for ATR computation
+            h1_stmt = (
+                select(Candle)
+                .where(
+                    Candle.instrument == "XAUUSD",
+                    Candle.timeframe == "H1",
+                    Candle.complete.is_(True),
+                )
+                .order_by(Candle.timestamp.desc())
+                .limit(20)
+            )
+            h1_result = await session.execute(h1_stmt)
+            h1_rows = list(reversed(h1_result.scalars().all()))
+            atr_h1 = Decimal("0")
+            if len(h1_rows) >= 14:
+                atr_val = RegimeDetector()._calculate_atr(h1_rows, period=14)
+                atr_h1 = Decimal(str(atr_val))
+
+            # 3. Fetch all open trades with strategy name via JOIN (D-18)
+            trades_stmt = (
+                select(TradeORM, CandidateSignalORM.strategy)
+                .join(ApprovedSignalORM, TradeORM.approved_signal_id == ApprovedSignalORM.id)
+                .join(
+                    CandidateSignalORM,
+                    ApprovedSignalORM.candidate_signal_id == CandidateSignalORM.id,
+                )
+                .where(TradeORM.status.in_(["OPEN", "TP1_HIT"]))
+            )
+            trades_result = await session.execute(trades_stmt)
+            open_trades = trades_result.all()  # list of (TradeORM, strategy_str) rows
+
+        if not open_trades:
+            log.info("jobs.monitor_trades.no_open_trades")
+            return
+
+        # 4. Process each trade
+        for trade_row, strategy_name in open_trades:
+            await _process_trade(
+                trade=trade_row,
+                strategy_name=strategy_name,
+                candle_high=candle_high,
+                candle_low=candle_low,
+                atr_h1=atr_h1,
+            )
+
+        log.info("jobs.monitor_trades.complete", checked=len(open_trades))
+
+    except Exception as exc:
+        log.error("jobs.monitor_trades.failed", error=str(exc))
+
+
+async def _process_trade(
+    trade: "Any",
+    strategy_name: str,
+    candle_high: Decimal,
+    candle_low: Decimal,
+    atr_h1: Decimal,
+) -> None:
+    """Evaluate one trade against the latest M15 candle; update DB if status changes."""
+    direction = trade.direction  # "BUY" or "SELL"
+    entry = Decimal(str(trade.entry_price))
+    sl = Decimal(str(trade.sl_price))
+    tp1 = Decimal(str(trade.tp1_price))
+    tp2 = Decimal(str(trade.tp2_price)) if trade.tp2_price is not None else None
+    direction_sign = Decimal("1") if direction == "BUY" else Decimal("-1")
+
+    # Direction-aware touch logic
+    def sl_touched() -> bool:
+        return candle_low <= sl if direction == "BUY" else candle_high >= sl
+
+    def tp1_touched() -> bool:
+        return candle_high >= tp1 if direction == "BUY" else candle_low <= tp1
+
+    def trail_touched() -> bool:
+        if trade.trailing_stop_price is None:
+            return False
+        trail = Decimal(str(trade.trailing_stop_price))
+        return candle_low <= trail if direction == "BUY" else candle_high >= trail
+
+    def tp2_touched() -> bool:
+        if tp2 is None:
+            return False
+        return candle_high >= tp2 if direction == "BUY" else candle_low <= tp2
+
+    if trade.status == "OPEN":
+        sl_hit = sl_touched()
+        tp1_hit = tp1_touched()
+
+        if sl_hit:  # D-05: SL wins on tie (sl_hit covers both sl_hit and sl_hit+tp1_hit)
+            await _close_trade(trade, strategy_name, "SL", sl, entry, tp1, direction_sign)
+        elif tp1_hit:
+            # Transition to TP1_HIT, initialize trailing stop
+            async with AsyncSessionLocal() as session:
+                async with session.begin():
+                    trade.status = "TP1_HIT"
+                    # Initialize trailing stop at TP1 price ± ATR(H1)
+                    if atr_h1 > Decimal("0"):
+                        if direction == "BUY":
+                            trade.trailing_stop_price = tp1 - atr_h1
+                        else:
+                            trade.trailing_stop_price = tp1 + atr_h1
+                    session.add(trade)
+            log.info(
+                "monitor.tp1_hit",
+                trade_id=str(trade.id),
+                strategy=strategy_name,
+                direction=direction,
+            )
+            if _telegram_bot is not None:
+                await _telegram_bot.send_lifecycle_notification(
+                    trade_id=str(trade.id),
+                    strategy=strategy_name,
+                    direction=direction,
+                    close_reason="TP1",
+                    exit_price=tp1,
+                    pnl_pct=None,
+                )
+
+    elif trade.status == "TP1_HIT":
+        # Update trailing stop ratchet first
+        if atr_h1 > Decimal("0"):
+            if direction == "BUY":
+                # Trail follows candle high
+                new_trail = candle_high - atr_h1
+                stored = Decimal(str(trade.trailing_stop_price)) if trade.trailing_stop_price else None
+                if stored is None or new_trail > stored:
+                    async with AsyncSessionLocal() as session:
+                        async with session.begin():
+                            trade.trailing_stop_price = new_trail
+                            session.add(trade)
+            else:
+                new_trail = candle_low + atr_h1
+                stored = Decimal(str(trade.trailing_stop_price)) if trade.trailing_stop_price else None
+                if stored is None or new_trail < stored:
+                    async with AsyncSessionLocal() as session:
+                        async with session.begin():
+                            trade.trailing_stop_price = new_trail
+                            session.add(trade)
+
+        trail_hit = trail_touched()
+        tp2_hit = tp2_touched()
+
+        if trail_hit:  # D-05: trailing stop wins on tie
+            exit_price = Decimal(str(trade.trailing_stop_price)) if trade.trailing_stop_price else sl
+            await _close_trade(trade, strategy_name, "TRAIL", exit_price, entry, tp1, direction_sign)
+        elif tp2_hit and tp2 is not None:
+            await _close_trade(trade, strategy_name, "TP2", tp2, entry, tp1, direction_sign)
+
+
+async def _close_trade(
+    trade: "Any",
+    strategy_name: str,
+    close_reason: str,
+    exit_price: Decimal,
+    entry_price: Decimal,
+    tp1_price: Decimal,
+    direction_sign: Decimal,
+) -> None:
+    """Close a trade: set status=CLOSED, compute blended P&L, upsert strategy_stats, call BreakerManager."""
+    from sqlalchemy import select, update
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+    from src.models.strategy_stats import StrategyStatsORM
+
+    # D-06: Blended P&L
+    tp1_pnl = (tp1_price - entry_price) / entry_price * direction_sign
+    final_pnl = (exit_price - entry_price) / entry_price * direction_sign
+    blended_pnl_pct = Decimal("0.5") * tp1_pnl + Decimal("0.5") * final_pnl
+
+    is_win = blended_pnl_pct > Decimal("0")
+
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            # Update trade status
+            trade.status = "CLOSED"
+            trade.close_reason = close_reason
+            trade.pnl_pct = blended_pnl_pct
+            trade.closed_at = datetime.now(timezone.utc)
+            session.add(trade)
+
+            # D-17: Upsert strategy_stats in same transaction
+            profit_part = blended_pnl_pct if is_win else Decimal("0")
+            loss_part = abs(blended_pnl_pct) if not is_win else Decimal("0")
+
+            upsert_stmt = pg_insert(StrategyStatsORM).values(
+                strategy=strategy_name,
+                trade_count=1,
+                wins=1 if is_win else 0,
+                losses=0 if is_win else 1,
+                gross_profit_pct=profit_part,
+                gross_loss_pct=loss_part,
+                total_pnl_pct=blended_pnl_pct,
+                win_rate=Decimal("1") if is_win else Decimal("0"),
+                profit_factor=Decimal("0"),
+                updated_at=datetime.now(timezone.utc),
+            ).on_conflict_do_update(
+                index_elements=["strategy"],
+                set_={
+                    "trade_count": StrategyStatsORM.trade_count + 1,
+                    "wins": StrategyStatsORM.wins + (1 if is_win else 0),
+                    "losses": StrategyStatsORM.losses + (0 if is_win else 1),
+                    "gross_profit_pct": StrategyStatsORM.gross_profit_pct + profit_part,
+                    "gross_loss_pct": StrategyStatsORM.gross_loss_pct + loss_part,
+                    "total_pnl_pct": StrategyStatsORM.total_pnl_pct + blended_pnl_pct,
+                    "updated_at": datetime.now(timezone.utc),
+                },
+            )
+            await session.execute(upsert_stmt)
+
+            # Recompute win_rate and profit_factor in same transaction after upsert
+            stats_row = await session.execute(
+                select(StrategyStatsORM).where(StrategyStatsORM.strategy == strategy_name)
+            )
+            stats = stats_row.scalar_one_or_none()
+            if stats is not None and stats.trade_count > 0:
+                new_win_rate = Decimal(str(stats.wins)) / Decimal(str(stats.trade_count))
+                if stats.gross_loss_pct > Decimal("0"):
+                    new_pf = stats.gross_profit_pct / stats.gross_loss_pct
+                else:
+                    # Sentinel: no losses yet
+                    new_pf = Decimal("0") if stats.wins == 0 else Decimal("999.9999")
+                await session.execute(
+                    update(StrategyStatsORM)
+                    .where(StrategyStatsORM.strategy == strategy_name)
+                    .values(win_rate=new_win_rate, profit_factor=new_pf)
+                )
+
+    log.info(
+        "monitor.trade_closed",
+        trade_id=str(trade.id),
+        strategy=strategy_name,
+        close_reason=close_reason,
+        pnl_pct=str(blended_pnl_pct),
+    )
+
+    # D-07: BreakerManager.record_stop() inline after SL close
+    # D-08: BreakerManager.record_win() when blended_pnl_pct > 0
+    from src.risk.breaker import BreakerManager
+    breaker = _breaker_manager or BreakerManager()
+    if close_reason == "SL":
+        alert = await breaker.record_stop(trade_id=trade.id, strategy=strategy_name)
+        if alert is not None and _telegram_bot is not None:
+            await _telegram_bot.send_circuit_breaker_alert(alert)
+    if is_win:
+        await breaker.record_win()
+
+    # NOTIF-02: Send lifecycle notification
+    if _telegram_bot is not None:
+        await _telegram_bot.send_lifecycle_notification(
+            trade_id=str(trade.id),
+            strategy=strategy_name,
+            direction=trade.direction,
+            close_reason=close_reason,
+            exit_price=exit_price,
+            pnl_pct=blended_pnl_pct,
+        )
 
 
 def create_scheduler() -> AsyncIOScheduler:
@@ -213,6 +527,15 @@ def create_scheduler() -> AsyncIOScheduler:
         trigger=IntervalTrigger(hours=settings.optimizer_interval_hours),
         id="run_optimizer",
         name="Run walk-forward optimizer every 24h",
+        max_instances=1,
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        monitor_trades,
+        trigger=IntervalTrigger(minutes=15),
+        id="monitor_trades",
+        name="Monitor open theoretical trades every 15 minutes",
         max_instances=1,
         replace_existing=True,
     )

@@ -5,6 +5,7 @@ All DB sessions are mocked — no live DB or Redis required.
 """
 
 import uuid
+from contextlib import asynccontextmanager
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -35,31 +36,47 @@ def make_trade(
     return trade
 
 
+def make_session_factory():
+    """Return a mock AsyncSessionLocal context manager factory.
+
+    Supports nested 'async with session.begin()' pattern used by _process_trade/_close_trade.
+    The session.execute returns a result whose scalar_one_or_none() returns None
+    (simulates empty strategy_stats for the win_rate recompute path).
+    """
+    # Build a mock result that returns None for scalar_one_or_none
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
+
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(return_value=mock_result)
+    mock_session.add = MagicMock()
+
+    # session.begin() must return an async context manager
+    @asynccontextmanager
+    async def _begin_cm():
+        yield None
+
+    mock_session.begin = MagicMock(side_effect=lambda: _begin_cm())
+
+    @asynccontextmanager
+    async def _session_cm():
+        yield mock_session
+
+    mock_factory = MagicMock(side_effect=lambda: _session_cm())
+    return mock_factory
+
+
 @pytest.mark.asyncio
 async def test_open_buy_sl_touched_closes_as_sl():
     """OPEN BUY: candle_low <= sl_price → trade closes as SL."""
     trade = make_trade(status="OPEN", direction="BUY", sl=2325.20, entry=2340.50, tp1=2358.80)
 
-    with patch("src.scheduler.jobs.AsyncSessionLocal") as mock_session_factory:
-        mock_session = AsyncMock()
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=None)
-        mock_begin = AsyncMock()
-        mock_begin.__aenter__ = AsyncMock(return_value=None)
-        mock_begin.__aexit__ = AsyncMock(return_value=None)
-        mock_session.begin.return_value = mock_begin
-        mock_session.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None)))
-        mock_session_factory.return_value = mock_ctx
+    mock_breaker = AsyncMock()
+    mock_breaker.record_stop = AsyncMock(return_value=None)
+    mock_breaker.record_win = AsyncMock()
 
-        with patch("src.scheduler.jobs._breaker_manager") as mock_breaker:
-            mock_breaker_instance = AsyncMock()
-            mock_breaker_instance.record_stop = AsyncMock(return_value=None)
-            mock_breaker_instance.record_win = AsyncMock()
-            mock_breaker.__bool__ = lambda self: True
-            mock_breaker.record_stop = AsyncMock(return_value=None)
-            mock_breaker.record_win = AsyncMock()
-
+    with patch("src.scheduler.jobs.AsyncSessionLocal", make_session_factory()):
+        with patch("src.scheduler.jobs._breaker_manager", mock_breaker):
             from src.scheduler.jobs import _process_trade
             await _process_trade(
                 trade=trade,
@@ -78,17 +95,7 @@ async def test_open_buy_tp1_touched_transitions_to_tp1_hit():
     """OPEN BUY: candle_high >= tp1_price → status becomes TP1_HIT."""
     trade = make_trade(status="OPEN", direction="BUY", sl=2325.20, entry=2340.50, tp1=2358.80)
 
-    with patch("src.scheduler.jobs.AsyncSessionLocal") as mock_session_factory:
-        mock_session = AsyncMock()
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=None)
-        mock_begin = AsyncMock()
-        mock_begin.__aenter__ = AsyncMock(return_value=None)
-        mock_begin.__aexit__ = AsyncMock(return_value=None)
-        mock_session.begin.return_value = mock_begin
-        mock_session_factory.return_value = mock_ctx
-
+    with patch("src.scheduler.jobs.AsyncSessionLocal", make_session_factory()):
         from src.scheduler.jobs import _process_trade
         await _process_trade(
             trade=trade,
@@ -106,22 +113,12 @@ async def test_open_buy_both_touched_sl_wins():
     """OPEN BUY: both SL and TP1 in same candle → SL wins (D-05 conservative)."""
     trade = make_trade(status="OPEN", direction="BUY", sl=2325.20, entry=2340.50, tp1=2358.80)
 
-    with patch("src.scheduler.jobs.AsyncSessionLocal") as mock_session_factory:
-        mock_session = AsyncMock()
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=None)
-        mock_begin = AsyncMock()
-        mock_begin.__aenter__ = AsyncMock(return_value=None)
-        mock_begin.__aexit__ = AsyncMock(return_value=None)
-        mock_session.begin.return_value = mock_begin
-        mock_session.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None)))
-        mock_session_factory.return_value = mock_ctx
+    mock_breaker = AsyncMock()
+    mock_breaker.record_stop = AsyncMock(return_value=None)
+    mock_breaker.record_win = AsyncMock()
 
-        with patch("src.scheduler.jobs._breaker_manager") as mock_breaker:
-            mock_breaker.record_stop = AsyncMock(return_value=None)
-            mock_breaker.record_win = AsyncMock()
-
+    with patch("src.scheduler.jobs.AsyncSessionLocal", make_session_factory()):
+        with patch("src.scheduler.jobs._breaker_manager", mock_breaker):
             from src.scheduler.jobs import _process_trade
             await _process_trade(
                 trade=trade,
@@ -149,22 +146,12 @@ async def test_tp1_hit_trail_touched_closes_as_trail():
         trailing_stop_price=2350.00,
     )
 
-    with patch("src.scheduler.jobs.AsyncSessionLocal") as mock_session_factory:
-        mock_session = AsyncMock()
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=None)
-        mock_begin = AsyncMock()
-        mock_begin.__aenter__ = AsyncMock(return_value=None)
-        mock_begin.__aexit__ = AsyncMock(return_value=None)
-        mock_session.begin.return_value = mock_begin
-        mock_session.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None)))
-        mock_session_factory.return_value = mock_ctx
+    mock_breaker = AsyncMock()
+    mock_breaker.record_stop = AsyncMock(return_value=None)
+    mock_breaker.record_win = AsyncMock()
 
-        with patch("src.scheduler.jobs._breaker_manager") as mock_breaker:
-            mock_breaker.record_stop = AsyncMock(return_value=None)
-            mock_breaker.record_win = AsyncMock()
-
+    with patch("src.scheduler.jobs.AsyncSessionLocal", make_session_factory()):
+        with patch("src.scheduler.jobs._breaker_manager", mock_breaker):
             from src.scheduler.jobs import _process_trade
             await _process_trade(
                 trade=trade,
@@ -180,7 +167,14 @@ async def test_tp1_hit_trail_touched_closes_as_trail():
 
 @pytest.mark.asyncio
 async def test_tp1_hit_tp2_touched_closes_as_tp2():
-    """TP1_HIT: candle_high >= tp2_price (no trail touch) → closes as TP2."""
+    """TP1_HIT: candle_high >= tp2_price (no trail touch) → closes as TP2.
+
+    Setup: candle_high=2380, candle_low=2378, atr=1.0.
+    Ratcheted trail = 2380 - 1 = 2379. candle_low=2378 <= 2379 → trail would be touched.
+
+    To avoid trail: use candle_low=2378.50, atr=2. Ratchet = 2380 - 2 = 2378. candle_low=2378.50 > 2378 → no trail touch.
+    TP2=2377.10 < candle_high=2380 → TP2 touched.
+    """
     trade = make_trade(
         status="TP1_HIT",
         direction="BUY",
@@ -188,32 +182,25 @@ async def test_tp1_hit_tp2_touched_closes_as_tp2():
         entry=2340.50,
         tp1=2358.80,
         tp2=2377.10,
-        trailing_stop_price=2352.00,  # trailing stop well below low
+        trailing_stop_price=2370.00,  # initial trailing stop below candle range
     )
 
-    with patch("src.scheduler.jobs.AsyncSessionLocal") as mock_session_factory:
-        mock_session = AsyncMock()
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=None)
-        mock_begin = AsyncMock()
-        mock_begin.__aenter__ = AsyncMock(return_value=None)
-        mock_begin.__aexit__ = AsyncMock(return_value=None)
-        mock_session.begin.return_value = mock_begin
-        mock_session.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None)))
-        mock_session_factory.return_value = mock_ctx
+    mock_breaker = AsyncMock()
+    mock_breaker.record_stop = AsyncMock(return_value=None)
+    mock_breaker.record_win = AsyncMock()
 
-        with patch("src.scheduler.jobs._breaker_manager") as mock_breaker:
-            mock_breaker.record_stop = AsyncMock(return_value=None)
-            mock_breaker.record_win = AsyncMock()
-
+    with patch("src.scheduler.jobs.AsyncSessionLocal", make_session_factory()):
+        with patch("src.scheduler.jobs._breaker_manager", mock_breaker):
             from src.scheduler.jobs import _process_trade
             await _process_trade(
                 trade=trade,
                 strategy_name="liquidity_sweep",
-                candle_high=Decimal("2380.00"),  # above TP2 2377.10
-                candle_low=Decimal("2360.00"),   # above trailing stop 2352 (no trail touch)
-                atr_h1=Decimal("10.00"),
+                # candle_high=2380, atr=2 → ratcheted trail = 2378
+                # candle_low=2378.50 > 2378 → no trail touch
+                # candle_high=2380 > tp2=2377.10 → TP2 touched
+                candle_high=Decimal("2380.00"),
+                candle_low=Decimal("2378.50"),
+                atr_h1=Decimal("2.00"),
             )
 
     assert trade.status == "CLOSED"
@@ -233,22 +220,12 @@ async def test_tp1_hit_both_touched_trail_wins():
         trailing_stop_price=2350.00,
     )
 
-    with patch("src.scheduler.jobs.AsyncSessionLocal") as mock_session_factory:
-        mock_session = AsyncMock()
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=None)
-        mock_begin = AsyncMock()
-        mock_begin.__aenter__ = AsyncMock(return_value=None)
-        mock_begin.__aexit__ = AsyncMock(return_value=None)
-        mock_session.begin.return_value = mock_begin
-        mock_session.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None)))
-        mock_session_factory.return_value = mock_ctx
+    mock_breaker = AsyncMock()
+    mock_breaker.record_stop = AsyncMock(return_value=None)
+    mock_breaker.record_win = AsyncMock()
 
-        with patch("src.scheduler.jobs._breaker_manager") as mock_breaker:
-            mock_breaker.record_stop = AsyncMock(return_value=None)
-            mock_breaker.record_win = AsyncMock()
-
+    with patch("src.scheduler.jobs.AsyncSessionLocal", make_session_factory()):
+        with patch("src.scheduler.jobs._breaker_manager", mock_breaker):
             from src.scheduler.jobs import _process_trade
             await _process_trade(
                 trade=trade,
@@ -277,35 +254,25 @@ async def test_trail_ratchets_only_upward_for_buy():
         trailing_stop_price=2350.00,
     )
 
-    with patch("src.scheduler.jobs.AsyncSessionLocal") as mock_session_factory:
-        mock_session = AsyncMock()
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=None)
-        mock_begin = AsyncMock()
-        mock_begin.__aenter__ = AsyncMock(return_value=None)
-        mock_begin.__aexit__ = AsyncMock(return_value=None)
-        mock_session.begin.return_value = mock_begin
-        mock_session_factory.return_value = mock_ctx
-
+    with patch("src.scheduler.jobs.AsyncSessionLocal", make_session_factory()):
         from src.scheduler.jobs import _process_trade
 
-        # First call: candle_high=2355.00 → new_trail = 2355 - 10 = 2345.00 (worse, should NOT update)
+        # First call: candle_high=2355.00, atr=10 → new_trail = 2355 - 10 = 2345.00 (worse, should NOT update)
         trade.trailing_stop_price = Decimal("2350.00")
         await _process_trade(
             trade=trade,
             strategy_name="liquidity_sweep",
-            candle_high=Decimal("2355.00"),  # 2355 - 10 = 2345 (worse)
+            candle_high=Decimal("2355.00"),  # 2355 - 10 = 2345 (worse than 2350)
             candle_low=Decimal("2353.00"),   # above trail 2350 — no trail touch
             atr_h1=Decimal("10.00"),
         )
         # trailing_stop_price should remain 2350 (not updated to worse 2345)
         assert trade.trailing_stop_price == Decimal("2350.00")
 
-        # Reset status after no-change run (trade wasn't closed)
+        # Reset status for second call
         trade.status = "TP1_HIT"
 
-        # Second call: candle_high=2363.00 → new_trail = 2363 - 10 = 2353.00 (better)
+        # Second call: candle_high=2363.00, atr=10 → new_trail = 2363 - 10 = 2353.00 (better)
         await _process_trade(
             trade=trade,
             strategy_name="liquidity_sweep",
@@ -322,22 +289,11 @@ async def test_sl_close_calls_record_stop():
     """SL close must call BreakerManager.record_stop() inline (D-07)."""
     trade = make_trade(status="OPEN", direction="BUY", sl=2325.20, entry=2340.50, tp1=2358.80)
 
-    with patch("src.scheduler.jobs.AsyncSessionLocal") as mock_session_factory:
-        mock_session = AsyncMock()
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=None)
-        mock_begin = AsyncMock()
-        mock_begin.__aenter__ = AsyncMock(return_value=None)
-        mock_begin.__aexit__ = AsyncMock(return_value=None)
-        mock_session.begin.return_value = mock_begin
-        mock_session.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None)))
-        mock_session_factory.return_value = mock_ctx
+    mock_breaker = AsyncMock()
+    mock_breaker.record_stop = AsyncMock(return_value=None)
+    mock_breaker.record_win = AsyncMock()
 
-        mock_breaker = AsyncMock()
-        mock_breaker.record_stop = AsyncMock(return_value=None)
-        mock_breaker.record_win = AsyncMock()
-
+    with patch("src.scheduler.jobs.AsyncSessionLocal", make_session_factory()):
         with patch("src.scheduler.jobs._breaker_manager", mock_breaker):
             from src.scheduler.jobs import _process_trade
             await _process_trade(
@@ -353,8 +309,10 @@ async def test_sl_close_calls_record_stop():
 
 @pytest.mark.asyncio
 async def test_win_close_calls_record_win():
-    """Win close (pnl_pct > 0) must call BreakerManager.record_win() inline (D-08)."""
-    # TP2 close gives blended pnl > 0 when both tp1 and exit are above entry
+    """Win close (pnl_pct > 0) must call BreakerManager.record_win() inline (D-08).
+
+    Use TP2 close (same no-trail-touch setup as test_tp1_hit_tp2_touched_closes_as_tp2).
+    """
     trade = make_trade(
         status="TP1_HIT",
         direction="BUY",
@@ -362,33 +320,22 @@ async def test_win_close_calls_record_win():
         entry=2340.50,
         tp1=2358.80,
         tp2=2377.10,
-        trailing_stop_price=2352.00,
+        trailing_stop_price=2370.00,
     )
 
-    with patch("src.scheduler.jobs.AsyncSessionLocal") as mock_session_factory:
-        mock_session = AsyncMock()
-        mock_ctx = AsyncMock()
-        mock_ctx.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_ctx.__aexit__ = AsyncMock(return_value=None)
-        mock_begin = AsyncMock()
-        mock_begin.__aenter__ = AsyncMock(return_value=None)
-        mock_begin.__aexit__ = AsyncMock(return_value=None)
-        mock_session.begin.return_value = mock_begin
-        mock_session.execute = AsyncMock(return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=None)))
-        mock_session_factory.return_value = mock_ctx
+    mock_breaker = AsyncMock()
+    mock_breaker.record_stop = AsyncMock(return_value=None)
+    mock_breaker.record_win = AsyncMock()
 
-        mock_breaker = AsyncMock()
-        mock_breaker.record_stop = AsyncMock(return_value=None)
-        mock_breaker.record_win = AsyncMock()
-
+    with patch("src.scheduler.jobs.AsyncSessionLocal", make_session_factory()):
         with patch("src.scheduler.jobs._breaker_manager", mock_breaker):
             from src.scheduler.jobs import _process_trade
             await _process_trade(
                 trade=trade,
                 strategy_name="liquidity_sweep",
                 candle_high=Decimal("2380.00"),  # above TP2 2377.10
-                candle_low=Decimal("2360.00"),   # above trail 2352 → no trail touch
-                atr_h1=Decimal("10.00"),
+                candle_low=Decimal("2378.50"),   # ratcheted trail = 2380-2=2378, 2378.50 > 2378 → no trail touch
+                atr_h1=Decimal("2.00"),
             )
 
     mock_breaker.record_win.assert_called_once()
