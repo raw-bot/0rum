@@ -92,3 +92,8 @@ class BreakerManager:
     async def record_win(self) -> None:
         await self._redis.set(CB_COUNTER, 0)
         log.info("risk.circuit_breaker.counter_reset", reason="winning_trade")
+
+    async def get_consecutive_stops(self) -> int:
+        """Return current consecutive stop count from Redis."""
+        val = await self._redis.get(CB_COUNTER)
+        return int(val) if val is not None else 0
