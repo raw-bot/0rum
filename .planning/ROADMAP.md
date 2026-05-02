@@ -155,7 +155,7 @@ Plans:
 
 Plans:
 - [x] 07-01-PLAN.md — DB migration (trailing_stop_price, strategy_stats) + ORM + test scaffolds
-- [ ] 07-02-PLAN.md — Telegram delivery layer (SignalSender, TelegramBot) + unit tests
+- [x] 07-02-PLAN.md — Telegram delivery layer (SignalSender, TelegramBot) + unit tests
 - [ ] 07-03-PLAN.md — ExecutionRouter + PipelineRunner D-13/D-14/D-15 changes + tests
 - [ ] 07-04-PLAN.md — monitor_trades job + daily_summary job + strategy_stats upsert + scheduler registration
 - [ ] 07-05-PLAN.md — /api/dashboard + /dashboard template + main.py wiring + /health fix + human verification
