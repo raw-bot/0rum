@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>0rum Dashboard</title>
+<style>
+:root {
+  --bg:          #0d0f11;
+  --surface:     #161a1e;
+  --accent:      #00c896;
+  --destructive: #e05252;
+  --warning:     #d4a017;
+  --muted:       #5a6272;
+  --border:      #252a31;
+  --text:        #d8dce3;
+  --text-2:      #8a939f;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  margin: 0;
+  padding: 24px 32px;
+}
+
+.data-val {
+  font-family: "SF Mono", "Fira Code", "Courier New", monospace;
+  font-weight: 600;
+}
+
+.section-heading {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Header Bar */
+.header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 8px 16px;
+  margin-bottom: 16px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bot-name {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.exec-mode-badge {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 8px 12px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.exec-mode-badge.signal {
+  background: #1a2d26;
+  color: var(--accent);
+  border: 1px solid rgba(0, 200, 150, 0.4);
+}
+
+.exec-mode-badge.auto {
+  background: #2d1a1a;
+  color: var(--destructive);
+  border: 1px solid rgba(224, 82, 82, 0.4);
+}
+
+.cb-badge {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 8px 12px;
+  border-radius: 4px;
+  background: #2d1a1a;
+  color: var(--destructive);
+  border: 1px solid rgba(224, 82, 82, 0.4);
+  display: none;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.last-updated {
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.refresh-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 6px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.refresh-btn:hover {
+  background: #1e2329;
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Status Row */
+.status-row {
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.status-cell {
+  flex: 1;
+  padding: 16px;
+  text-align: center;
+  border-right: 1px solid var(--border);
+}
+
+.status-cell:last-child {
+  border-right: none;
+}
+
+.status-cell-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+.status-dot.online {
+  background: var(--accent);
+}
+
+.status-dot.offline {
+  background: var(--destructive);
+}
+
+.status-label-text {
+  vertical-align: middle;
+  font-size: 13px;
+}
+
+/* Two-column grid */
+.two-col-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* Card */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 16px;
+}
+
+.card-full {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 8px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+tr {
+  height: 28px;
+}
+
+tbody tr:nth-child(odd) {
+  background: var(--surface);
+}
+
+tbody tr:nth-child(even) {
+  background: var(--bg);
+}
+
+/* Status badges */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.badge-open {
+  color: var(--text-2);
+  background: transparent;
+}
+
+.badge-tp1 {
+  color: var(--warning);
+  background: rgba(212, 160, 23, 0.15);
+}
+
+.badge-sent {
+  color: var(--accent);
+  background: rgba(0, 200, 150, 0.15);
+}
+
+.badge-pending {
+  color: var(--muted);
+  background: transparent;
+}
+
+.badge-failed {
+  color: var(--destructive);
+  background: rgba(224, 82, 82, 0.15);
+}
+
+/* Direction colors */
+.direction-buy { color: var(--accent); }
+.direction-sell { color: var(--destructive); }
+
+/* P&L colors */
+.pnl-pos { color: var(--accent); }
+.pnl-neg { color: var(--destructive); }
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 24px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Error banner */
+#error-banner {
+  display: none;
+}
+
+/* Loading state */
+.loading-text {
+  text-align: center;
+  padding: 16px;
+  color: var(--text-2);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .two-col-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="header-bar" data-section="header">
+  <div class="header-left">
+    <span class="bot-name">0rum</span>
+    <span id="exec-mode-badge" class="exec-mode-badge signal">SIGNAL MODE</span>
+    <span id="cb-badge" class="cb-badge">CIRCUIT BREAKER TRIPPED</span>
+  </div>
+  <div class="header-right">
+    <span id="auto-refresh-label" class="last-updated">Auto-refresh: 30s</span>
+    <span id="last-updated" class="last-updated">Loading...</span>
+    <button id="refresh-btn" class="refresh-btn">Refresh</button>
+  </div>
+</div>
+
+<div id="error-banner"></div>
+
+<div data-section="status" class="status-row">
+  <div class="status-cell">
+    <div class="status-cell-label">DATABASE</div>
+    <div id="db-status">
+      <span class="status-dot offline" id="db-dot"></span>
+      <span class="status-label-text" id="db-label">OFFLINE</span>
+    </div>
+  </div>
+  <div class="status-cell">
+    <div class="status-cell-label">REDIS</div>
+    <div id="redis-status">
+      <span class="status-dot offline" id="redis-dot"></span>
+      <span class="status-label-text" id="redis-label">OFFLINE</span>
+    </div>
+  </div>
+  <div class="status-cell">
+    <div class="status-cell-label">STRATEGIES</div>
+    <div class="data-val" id="strategies-count">0</div>
+  </div>
+  <div class="status-cell">
+    <div class="status-cell-label">DAILY P&L</div>
+    <div class="data-val" id="daily-pnl">0.00%</div>
+  </div>
+</div>
+
+<div class="two-col-grid">
+  <div class="card">
+    <div class="section-heading">OPEN TRADES</div>
+    <div id="open-trades-container">
+      <div class="loading-text" id="open-trades-loading">Loading...</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-heading">STRATEGY PERFORMANCE</div>
+    <div id="strategy-stats-container">
+      <div class="loading-text" id="strategy-stats-loading">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<div class="card-full">
+  <div class="section-heading">LATEST SIGNALS — LAST 20</div>
+  <div id="latest-signals-container">
+    <div class="loading-text" id="latest-signals-loading">Loading...</div>
+  </div>
+</div>
+
+<script>
+const REFRESH_INTERVAL = 30000;
+let refreshTimer = null;
+
+async function fetchDashboard() {
+  const btn = document.getElementById('refresh-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Refreshing...'; }
+  try {
+    const resp = await fetch('/api/dashboard');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    renderDashboard(data);
+    document.getElementById('last-updated').textContent =
+      'Last updated ' + new Date().toISOString().substring(11, 19) + ' UTC';
+    hideError();
+  } catch (e) {
+    showError();
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Refresh'; }
+  }
+}
+
+function renderDashboard(data) {
+  renderHeader(data);
+  renderStatusRow(data);
+  renderOpenTrades(data.open_trades || []);
+  renderStrategyStats(data.strategy_stats || []);
+  renderLatestSignals(data.latest_signals || []);
+}
+
+function renderHeader(data) {
+  const badge = document.getElementById('exec-mode-badge');
+  const mode = (data.execution_mode || 'signal').toUpperCase();
+  badge.textContent = mode + ' MODE';
+  badge.className = 'exec-mode-badge ' + (data.execution_mode === 'auto' ? 'auto' : 'signal');
+
+  const cbBadge = document.getElementById('cb-badge');
+  if (data.circuit_breaker && data.circuit_breaker.tripped) {
+    cbBadge.style.display = 'inline-block';
+  } else {
+    cbBadge.style.display = 'none';
+  }
+}
+
+function renderStatusRow(data) {
+  const health = data.health || {};
+
+  // DB
+  const dbDot = document.getElementById('db-dot');
+  const dbLabel = document.getElementById('db-label');
+  dbDot.className = 'status-dot ' + (health.db ? 'online' : 'offline');
+  dbLabel.textContent = health.db ? 'ONLINE' : 'OFFLINE';
+
+  // Redis
+  const redisDot = document.getElementById('redis-dot');
+  const redisLabel = document.getElementById('redis-label');
+  redisDot.className = 'status-dot ' + (health.redis ? 'online' : 'offline');
+  redisLabel.textContent = health.redis ? 'ONLINE' : 'OFFLINE';
+
+  // Strategies
+  document.getElementById('strategies-count').textContent = health.strategies_active || 0;
+
+  // Daily P&L
+  const pnlEl = document.getElementById('daily-pnl');
+  const pnl = data.daily_pnl_pct || 0;
+  const pnlStr = (pnl >= 0 ? '+' : '') + (pnl * 100).toFixed(2) + '%';
+  pnlEl.textContent = pnlStr;
+  pnlEl.className = 'data-val ' + (pnl >= 0 ? 'pnl-pos' : 'pnl-neg');
+}
+
+function renderOpenTrades(trades) {
+  const container = document.getElementById('open-trades-container');
+  const loading = document.getElementById('open-trades-loading');
+  if (loading) loading.style.display = 'none';
+
+  if (!trades || trades.length === 0) {
+    container.innerHTML = '<div class="empty-state">No open theoretical trades</div>';
+    return;
+  }
+
+  let html = '<table><thead><tr><th scope="col">Dir</th><th scope="col">Strategy</th><th scope="col">Entry</th><th scope="col">Current SL</th><th scope="col">TP1</th><th scope="col">Size</th><th scope="col">Status</th><th scope="col">Age</th></tr></thead><tbody>';
+  for (const t of trades) {
+    const dirClass = t.direction === 'BUY' ? 'direction-buy' : 'direction-sell';
+    const statusClass = t.status === 'TP1_HIT' ? 'badge badge-tp1' : 'badge badge-open';
+    const statusLabel = t.status === 'TP1_HIT' ? 'TP1 HIT' : 'OPEN';
+    const age = computeAge(t.opened_at);
+    html += '<tr>' +
+      '<td class="' + dirClass + ' ' + (t.direction === 'BUY' ? 'direction-buy' : 'direction-sell') + '">' + t.direction + '</td>' +
+      '<td>' + t.strategy + '</td>' +
+      '<td class="data-val">' + t.entry_price.toFixed(2) + '</td>' +
+      '<td class="data-val">' + t.sl_price.toFixed(2) + '</td>' +
+      '<td class="data-val">' + t.tp1_price.toFixed(2) + '</td>' +
+      '<td class="data-val">' + t.size_lots.toFixed(2) + '</td>' +
+      '<td><span class="' + statusClass + '">' + statusLabel + '</span></td>' +
+      '<td style="color:var(--text-2)">' + age + '</td>' +
+      '</tr>';
+  }
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function renderStrategyStats(stats) {
+  const container = document.getElementById('strategy-stats-container');
+  const loading = document.getElementById('strategy-stats-loading');
+  if (loading) loading.style.display = 'none';
+
+  if (!stats || stats.length === 0) {
+    container.innerHTML = '<div class="empty-state">No strategy stats yet</div>';
+    return;
+  }
+
+  let html = '<table><thead><tr><th scope="col">Strategy</th><th scope="col">Trades</th><th scope="col">Win Rate</th><th scope="col">Profit Factor</th><th scope="col">Total P&amp;L</th></tr></thead><tbody>';
+  for (const s of stats) {
+    const pfClass = s.profit_factor >= 1.0 ? 'pnl-pos' : 'pnl-neg';
+    const pnlClass = s.total_pnl_pct >= 0 ? 'pnl-pos' : 'pnl-neg';
+    html += '<tr>' +
+      '<td>' + s.strategy + '</td>' +
+      '<td>' + s.trade_count + '</td>' +
+      '<td class="data-val">' + (s.win_rate * 100).toFixed(1) + '%</td>' +
+      '<td class="data-val ' + pfClass + '">' + s.profit_factor.toFixed(2) + '</td>' +
+      '<td class="data-val ' + pnlClass + '">' + (s.total_pnl_pct >= 0 ? '+' : '') + s.total_pnl_pct.toFixed(2) + '%</td>' +
+      '</tr>';
+  }
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function renderLatestSignals(signals) {
+  const container = document.getElementById('latest-signals-container');
+  const loading = document.getElementById('latest-signals-loading');
+  if (loading) loading.style.display = 'none';
+
+  if (!signals || signals.length === 0) {
+    container.innerHTML = '<div class="empty-state">No signals recorded yet</div>';
+    return;
+  }
+
+  let html = '<table><thead><tr><th scope="col">Time</th><th scope="col">Strategy</th><th scope="col">Dir</th><th scope="col">Entry</th><th scope="col">SL</th><th scope="col">TP1</th><th scope="col">TP2</th><th scope="col">Conf</th><th scope="col">Size</th><th scope="col">Status</th></tr></thead><tbody>';
+  for (const sig of signals) {
+    const dirClass = sig.direction === 'BUY' ? 'direction-buy' : 'direction-sell';
+    let statusClass = 'badge badge-pending';
+    if (sig.execution_status === 'SENT') statusClass = 'badge badge-sent';
+    else if (sig.execution_status === 'FAILED') statusClass = 'badge badge-failed';
+    const tp2Str = sig.tp2_price !== null && sig.tp2_price !== undefined ? sig.tp2_price.toFixed(2) : '--';
+    const sizeStr = sig.size_lots !== null && sig.size_lots !== undefined ? sig.size_lots.toFixed(2) : '--';
+    const timeStr = sig.created_at ? sig.created_at.substring(11, 19) : '--';
+    html += '<tr>' +
+      '<td style="color:var(--text-2)">' + timeStr + '</td>' +
+      '<td>' + sig.strategy + '</td>' +
+      '<td class="' + dirClass + '">' + sig.direction + '</td>' +
+      '<td class="data-val">' + sig.entry_price.toFixed(2) + '</td>' +
+      '<td class="data-val">' + sig.sl_price.toFixed(2) + '</td>' +
+      '<td class="data-val">' + sig.tp1_price.toFixed(2) + '</td>' +
+      '<td class="data-val">' + tp2Str + '</td>' +
+      '<td class="data-val">' + (sig.confidence * 100).toFixed(0) + '%</td>' +
+      '<td class="data-val">' + sizeStr + '</td>' +
+      '<td><span class="' + statusClass + '">' + sig.execution_status + '</span></td>' +
+      '</tr>';
+  }
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function computeAge(isoString) {
+  if (!isoString) return '--';
+  const opened = new Date(isoString);
+  const now = new Date();
+  const diffMs = now - opened;
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 60) return diffMins + 'm';
+  const hours = Math.floor(diffMins / 60);
+  const mins = diffMins % 60;
+  return hours + 'h ' + mins + 'm';
+}
+
+function showError() {
+  let banner = document.getElementById('error-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'error-banner';
+    banner.style.cssText = 'background:var(--surface);color:var(--destructive);padding:8px 32px;';
+    banner.textContent = 'Dashboard data unavailable — check API connection';
+    document.body.insertBefore(banner, document.body.firstChild.nextSibling);
+  }
+  banner.style.display = 'block';
+}
+
+function hideError() {
+  const banner = document.getElementById('error-banner');
+  if (banner) banner.style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('refresh-btn').addEventListener('click', fetchDashboard);
+  fetchDashboard();
+  refreshTimer = setInterval(fetchDashboard, REFRESH_INTERVAL);
+});
+</script>
+</body>
+</html>
