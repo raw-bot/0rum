@@ -29,6 +29,7 @@ _last_candle_fetch: dict[str, str | None] = {
 # Tests can inject mocks via _set_monitor_services().
 _telegram_bot: "Any | None" = None
 _breaker_manager: "Any | None" = None
+_pipeline_runner: "Any | None" = None
 
 
 def _set_monitor_services(telegram_bot: "Any", breaker_manager: "Any") -> None:
@@ -36,6 +37,12 @@ def _set_monitor_services(telegram_bot: "Any", breaker_manager: "Any") -> None:
     global _telegram_bot, _breaker_manager
     _telegram_bot = telegram_bot
     _breaker_manager = breaker_manager
+
+
+def _set_pipeline_runner(runner: "Any") -> None:
+    """Inject PipelineRunner singleton with wired router. Called once at app startup."""
+    global _pipeline_runner
+    _pipeline_runner = runner
 
 
 def get_last_candle_fetch() -> dict[str, str | None]:
@@ -124,7 +131,6 @@ async def run_pipeline() -> None:
       3. PipelineRunner.run(candidates, h1_candles) → list[ApprovedSignalORM]
     """
     from src.strategies.runner import StrategyRunner
-    from src.pipeline.runner import PipelineRunner
     from src.models.candle import Candle
     from src.database import AsyncSessionLocal
     from sqlalchemy import select
@@ -156,8 +162,10 @@ async def run_pipeline() -> None:
 
         log.info("jobs.pipeline.h1_fetched", count=len(h1_candles))
 
-        # Step 3: Run full pipeline
-        approved = await PipelineRunner().run(candidates, h1_candles)
+        # Step 3: Run full pipeline — use injected runner if available (D-15).
+        from src.pipeline.runner import PipelineRunner
+        pipeline = _pipeline_runner or PipelineRunner()
+        approved = await pipeline.run(candidates=candidates, h1_candles=h1_candles)
         log.info("jobs.pipeline.done", approved_count=len(approved))
 
     except Exception as exc:

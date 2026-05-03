@@ -5,13 +5,14 @@ import time
 import redis.asyncio as aioredis
 import structlog
 from fastapi import APIRouter, Depends
-from sqlalchemy import text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import get_settings
 from src.database import get_db
 from src.risk.breaker import BreakerManager
 from src.risk.gates import get_daily_pnl_pct, get_open_positions
+from src.models.optimizer_result import OptimizerResultORM
 from src.scheduler.jobs import get_last_candle_fetch
 
 logger = structlog.get_logger(__name__)
@@ -70,6 +71,17 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> dict:
         open_positions_val = 0
         daily_pnl_pct_val = 0.0
 
+    # Live strategies_active query (D-20)
+    try:
+        stmt = select(func.count()).select_from(OptimizerResultORM).where(
+            OptimizerResultORM.is_active.is_(True)
+        )
+        count_result = await db.execute(stmt)
+        strategies_active_val = count_result.scalar_one()
+    except Exception as exc:
+        logger.warning("health.strategies_active.failed", error=str(exc))
+        strategies_active_val = 0
+
     logger.info(
         "health.checked",
         status=overall_status,
@@ -86,7 +98,7 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> dict:
         "daily_pnl_pct": daily_pnl_pct_val,
         "signals_today": 0,
         "last_candle_fetch": get_last_candle_fetch(),
-        "strategies_active": 4,
+        "strategies_active": strategies_active_val,
         "redis_connected": redis_connected,
         "postgres_connected": postgres_connected,
     }
