@@ -158,7 +158,7 @@ Plans:
 - [x] 07-02-PLAN.md — Telegram delivery layer (SignalSender, TelegramBot) + unit tests
 - [x] 07-03-PLAN.md — ExecutionRouter + PipelineRunner D-13/D-14/D-15 changes + tests
 - [x] 07-04-PLAN.md — monitor_trades job + daily_summary job + strategy_stats upsert + scheduler registration
-- [ ] 07-05-PLAN.md — /api/dashboard + /dashboard template + main.py wiring + /health fix + human verification
+- [x] 07-05-PLAN.md — /api/dashboard + /dashboard template + main.py wiring + /health fix + human verification
 **UI hint**: yes
 
 ### Phase 8: Auto Mode
