@@ -447,29 +447,30 @@ function renderOpenTrades(trades) {
   if (loading) loading.style.display = 'none';
 
   if (!trades || trades.length === 0) {
-    container.innerHTML = '<div class="empty-state">No open theoretical trades</div>';
+    renderEmptyState(container, 'No open theoretical trades');
     return;
   }
 
-  let html = '<table><thead><tr><th scope="col">Dir</th><th scope="col">Strategy</th><th scope="col">Entry</th><th scope="col">Current SL</th><th scope="col">TP1</th><th scope="col">Size</th><th scope="col">Status</th><th scope="col">Age</th></tr></thead><tbody>';
+  const table = createTable(['Dir', 'Strategy', 'Entry', 'Current SL', 'TP1', 'Size', 'Status', 'Age']);
+  const tbody = table.querySelector('tbody');
   for (const t of trades) {
     const dirClass = t.direction === 'BUY' ? 'direction-buy' : 'direction-sell';
     const statusClass = t.status === 'TP1_HIT' ? 'badge badge-tp1' : 'badge badge-open';
     const statusLabel = t.status === 'TP1_HIT' ? 'TP1 HIT' : 'OPEN';
     const age = computeAge(t.opened_at);
-    html += '<tr>' +
-      '<td class="' + dirClass + ' ' + (t.direction === 'BUY' ? 'direction-buy' : 'direction-sell') + '">' + t.direction + '</td>' +
-      '<td>' + t.strategy + '</td>' +
-      '<td class="data-val">' + t.entry_price.toFixed(2) + '</td>' +
-      '<td class="data-val">' + t.sl_price.toFixed(2) + '</td>' +
-      '<td class="data-val">' + t.tp1_price.toFixed(2) + '</td>' +
-      '<td class="data-val">' + t.size_lots.toFixed(2) + '</td>' +
-      '<td><span class="' + statusClass + '">' + statusLabel + '</span></td>' +
-      '<td style="color:var(--text-2)">' + age + '</td>' +
-      '</tr>';
+    const tr = document.createElement('tr');
+    appendCell(tr, t.direction, dirClass);
+    appendCell(tr, t.strategy);
+    appendCell(tr, formatNumber(t.entry_price, 2), 'data-val');
+    appendCell(tr, formatNumber(t.sl_price, 2), 'data-val');
+    appendCell(tr, formatNumber(t.tp1_price, 2), 'data-val');
+    appendCell(tr, formatNumber(t.size_lots, 2), 'data-val');
+    appendBadgeCell(tr, statusLabel, statusClass);
+    const ageCell = appendCell(tr, age);
+    ageCell.style.color = 'var(--text-2)';
+    tbody.appendChild(tr);
   }
-  html += '</tbody></table>';
-  container.innerHTML = html;
+  container.replaceChildren(table);
 }
 
 function renderStrategyStats(stats) {
@@ -478,24 +479,24 @@ function renderStrategyStats(stats) {
   if (loading) loading.style.display = 'none';
 
   if (!stats || stats.length === 0) {
-    container.innerHTML = '<div class="empty-state">No strategy stats yet</div>';
+    renderEmptyState(container, 'No strategy stats yet');
     return;
   }
 
-  let html = '<table><thead><tr><th scope="col">Strategy</th><th scope="col">Trades</th><th scope="col">Win Rate</th><th scope="col">Profit Factor</th><th scope="col">Total P&amp;L</th></tr></thead><tbody>';
+  const table = createTable(['Strategy', 'Trades', 'Win Rate', 'Profit Factor', 'Total P&L']);
+  const tbody = table.querySelector('tbody');
   for (const s of stats) {
     const pfClass = s.profit_factor >= 1.0 ? 'pnl-pos' : 'pnl-neg';
     const pnlClass = s.total_pnl_pct >= 0 ? 'pnl-pos' : 'pnl-neg';
-    html += '<tr>' +
-      '<td>' + s.strategy + '</td>' +
-      '<td>' + s.trade_count + '</td>' +
-      '<td class="data-val">' + (s.win_rate * 100).toFixed(1) + '%</td>' +
-      '<td class="data-val ' + pfClass + '">' + s.profit_factor.toFixed(2) + '</td>' +
-      '<td class="data-val ' + pnlClass + '">' + (s.total_pnl_pct >= 0 ? '+' : '') + s.total_pnl_pct.toFixed(2) + '%</td>' +
-      '</tr>';
+    const tr = document.createElement('tr');
+    appendCell(tr, s.strategy);
+    appendCell(tr, s.trade_count);
+    appendCell(tr, formatPercent(s.win_rate, 1), 'data-val');
+    appendCell(tr, formatNumber(s.profit_factor, 2), 'data-val ' + pfClass);
+    appendCell(tr, formatPercent(s.total_pnl_pct, 2, true), 'data-val ' + pnlClass);
+    tbody.appendChild(tr);
   }
-  html += '</tbody></table>';
-  container.innerHTML = html;
+  container.replaceChildren(table);
 }
 
 function renderLatestSignals(signals) {
@@ -504,34 +505,88 @@ function renderLatestSignals(signals) {
   if (loading) loading.style.display = 'none';
 
   if (!signals || signals.length === 0) {
-    container.innerHTML = '<div class="empty-state">No signals recorded yet</div>';
+    renderEmptyState(container, 'No signals recorded yet');
     return;
   }
 
-  let html = '<table><thead><tr><th scope="col">Time</th><th scope="col">Strategy</th><th scope="col">Dir</th><th scope="col">Entry</th><th scope="col">SL</th><th scope="col">TP1</th><th scope="col">TP2</th><th scope="col">Conf</th><th scope="col">Size</th><th scope="col">Status</th></tr></thead><tbody>';
+  const table = createTable(['Time', 'Strategy', 'Dir', 'Entry', 'SL', 'TP1', 'TP2', 'Conf', 'Size', 'Status']);
+  const tbody = table.querySelector('tbody');
   for (const sig of signals) {
     const dirClass = sig.direction === 'BUY' ? 'direction-buy' : 'direction-sell';
     let statusClass = 'badge badge-pending';
     if (sig.execution_status === 'SENT') statusClass = 'badge badge-sent';
     else if (sig.execution_status === 'FAILED') statusClass = 'badge badge-failed';
-    const tp2Str = sig.tp2_price !== null && sig.tp2_price !== undefined ? sig.tp2_price.toFixed(2) : '--';
-    const sizeStr = sig.size_lots !== null && sig.size_lots !== undefined ? sig.size_lots.toFixed(2) : '--';
+    const tp2Str = sig.tp2_price !== null && sig.tp2_price !== undefined ? formatNumber(sig.tp2_price, 2) : '--';
+    const sizeStr = sig.size_lots !== null && sig.size_lots !== undefined ? formatNumber(sig.size_lots, 2) : '--';
     const timeStr = sig.created_at ? sig.created_at.substring(11, 19) : '--';
-    html += '<tr>' +
-      '<td style="color:var(--text-2)">' + timeStr + '</td>' +
-      '<td>' + sig.strategy + '</td>' +
-      '<td class="' + dirClass + '">' + sig.direction + '</td>' +
-      '<td class="data-val">' + sig.entry_price.toFixed(2) + '</td>' +
-      '<td class="data-val">' + sig.sl_price.toFixed(2) + '</td>' +
-      '<td class="data-val">' + sig.tp1_price.toFixed(2) + '</td>' +
-      '<td class="data-val">' + tp2Str + '</td>' +
-      '<td class="data-val">' + (sig.confidence * 100).toFixed(0) + '%</td>' +
-      '<td class="data-val">' + sizeStr + '</td>' +
-      '<td><span class="' + statusClass + '">' + sig.execution_status + '</span></td>' +
-      '</tr>';
+    const tr = document.createElement('tr');
+    const timeCell = appendCell(tr, timeStr);
+    timeCell.style.color = 'var(--text-2)';
+    appendCell(tr, sig.strategy);
+    appendCell(tr, sig.direction, dirClass);
+    appendCell(tr, formatNumber(sig.entry_price, 2), 'data-val');
+    appendCell(tr, formatNumber(sig.sl_price, 2), 'data-val');
+    appendCell(tr, formatNumber(sig.tp1_price, 2), 'data-val');
+    appendCell(tr, tp2Str, 'data-val');
+    appendCell(tr, formatPercent(sig.confidence, 0), 'data-val');
+    appendCell(tr, sizeStr, 'data-val');
+    appendBadgeCell(tr, sig.execution_status, statusClass);
+    tbody.appendChild(tr);
   }
-  html += '</tbody></table>';
-  container.innerHTML = html;
+  container.replaceChildren(table);
+}
+
+function renderEmptyState(container, message) {
+  const empty = document.createElement('div');
+  empty.className = 'empty-state';
+  empty.textContent = message;
+  container.replaceChildren(empty);
+}
+
+function createTable(headers) {
+  const table = document.createElement('table');
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  for (const header of headers) {
+    const th = document.createElement('th');
+    th.scope = 'col';
+    th.textContent = header;
+    headRow.appendChild(th);
+  }
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+  table.appendChild(document.createElement('tbody'));
+  return table;
+}
+
+function appendCell(row, value, className) {
+  const cell = document.createElement('td');
+  if (className) cell.className = className;
+  cell.textContent = value === null || value === undefined ? '--' : String(value);
+  row.appendChild(cell);
+  return cell;
+}
+
+function appendBadgeCell(row, value, className) {
+  const cell = document.createElement('td');
+  const badge = document.createElement('span');
+  badge.className = className;
+  badge.textContent = value === null || value === undefined ? '--' : String(value);
+  cell.appendChild(badge);
+  row.appendChild(cell);
+  return cell;
+}
+
+function formatNumber(value, digits) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(digits) : '--';
+}
+
+function formatPercent(value, digits, signed) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '--';
+  const sign = signed && number >= 0 ? '+' : '';
+  return sign + (number * 100).toFixed(digits) + '%';
 }
 
 function computeAge(isoString) {

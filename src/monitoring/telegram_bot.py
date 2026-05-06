@@ -46,6 +46,11 @@ _CLOSE_REASON_EMOJI = {
 }
 
 
+def _format_pct(value: Decimal | float) -> str:
+    """Format stored fractional P&L as a signed percentage."""
+    return f"{float(value) * 100:+.2f}%"
+
+
 @dataclass
 class DailySummaryPayload:
     """Payload for the daily summary notification (D-19, AGENTS.md §14.3).
@@ -132,7 +137,7 @@ class TelegramBot:
         emoji = _CLOSE_REASON_EMOJI.get(close_reason, "ℹ️")
         strategy_safe = html.escape(strategy)
         price_str = f"{float(exit_price):.2f}" if exit_price is not None else "N/A"
-        pnl_str = f"{float(pnl_pct):+.2f}%" if pnl_pct is not None else ""
+        pnl_str = _format_pct(pnl_pct) if pnl_pct is not None else ""
 
         text = (
             f"{emoji} <b>{display}</b> — {strategy_safe} {direction} XAUUSD"
@@ -185,8 +190,8 @@ class TelegramBot:
             f"Trades: <code>{trades_opened}</code> opened | "
             f"<code>{tp1_count}</code> TP1 | <code>{tp2_count}</code> TP2 | "
             f"<code>{sl_count}</code> stopped | <code>{trail_count}</code> trail\n"
-            f"P&amp;L: <code>{payload.daily_pnl_pct:+.2f}%</code> (daily) | "
-            f"<code>{payload.mtd_pnl_pct:+.2f}%</code> (MTD)\n"
+            f"P&amp;L: <code>{_format_pct(payload.daily_pnl_pct)}</code> (daily) | "
+            f"<code>{_format_pct(payload.mtd_pnl_pct)}</code> (MTD)\n"
             f"Circuit Breaker: {cb_status}\n"
             f"Mode: {html.escape(payload.execution_mode)}\n"
             f"━━━━━━━━━━━━━━━\n"

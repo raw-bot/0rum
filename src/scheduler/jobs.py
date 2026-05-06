@@ -50,6 +50,15 @@ def get_last_candle_fetch() -> dict[str, str | None]:
     return dict(_last_candle_fetch)
 
 
+def _as_utc_aware(dt: datetime | None) -> datetime | None:
+    """Normalize DB datetimes for safe ordering comparisons."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 async def _refresh_timeframe(timeframe: str) -> None:
     """Fetch latest candles for one timeframe, run gap detection, update last_fetch."""
     from src.config import MarketDataProvider
@@ -214,6 +223,7 @@ async def monitor_trades() -> None:
 
             candle_high = Decimal(str(latest_m15.high))
             candle_low = Decimal(str(latest_m15.low))
+            candle_timestamp = _as_utc_aware(latest_m15.timestamp)
 
             # 2. Fetch last 20 H1 candles for ATR computation
             h1_stmt = (
@@ -252,6 +262,19 @@ async def monitor_trades() -> None:
 
         # 4. Process each trade
         for trade_row, strategy_name in open_trades:
+            trade_opened_at = _as_utc_aware(getattr(trade_row, "opened_at", None))
+            if (
+                candle_timestamp is not None
+                and trade_opened_at is not None
+                and candle_timestamp <= trade_opened_at
+            ):
+                log.info(
+                    "jobs.monitor_trades.skipped_pre_open_candle",
+                    trade_id=str(trade_row.id),
+                    candle_timestamp=candle_timestamp.isoformat(),
+                    opened_at=trade_opened_at.isoformat(),
+                )
+                continue
             await _process_trade(
                 trade=trade_row,
                 strategy_name=strategy_name,
@@ -381,10 +404,13 @@ async def _close_trade(
     from src.database import AsyncSessionLocal
     from src.models.strategy_stats import StrategyStatsORM
 
-    # D-06: Blended P&L
+    # D-06: Blended P&L after TP1; direct SL closes use the full-position loss.
     tp1_pnl = (tp1_price - entry_price) / entry_price * direction_sign
     final_pnl = (exit_price - entry_price) / entry_price * direction_sign
-    blended_pnl_pct = Decimal("0.5") * tp1_pnl + Decimal("0.5") * final_pnl
+    if close_reason == "SL":
+        blended_pnl_pct = final_pnl
+    else:
+        blended_pnl_pct = Decimal("0.5") * tp1_pnl + Decimal("0.5") * final_pnl
 
     is_win = blended_pnl_pct > Decimal("0")
 

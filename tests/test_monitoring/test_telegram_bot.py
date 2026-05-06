@@ -108,7 +108,7 @@ async def test_lifecycle_sl_contains_stopped(tbot, mock_bot):
         direction="BUY",
         close_reason="SL",
         exit_price=Decimal("2325.20"),
-        pnl_pct=Decimal("-1.23"),
+        pnl_pct=Decimal("-0.0123"),
     )
     text = mock_bot.send_message.call_args.kwargs["text"]
     assert "STOPPED" in text
@@ -124,7 +124,7 @@ async def test_lifecycle_tp1_contains_tp1_hit(tbot, mock_bot):
         direction="BUY",
         close_reason="TP1",
         exit_price=Decimal("2358.80"),
-        pnl_pct=Decimal("1.56"),
+        pnl_pct=Decimal("0.0156"),
     )
     text = mock_bot.send_message.call_args.kwargs["text"]
     assert "TP1 HIT" in text
@@ -139,7 +139,7 @@ async def test_lifecycle_tp2_contains_tp2_hit(tbot, mock_bot):
         direction="BUY",
         close_reason="TP2",
         exit_price=Decimal("2377.10"),
-        pnl_pct=Decimal("2.87"),
+        pnl_pct=Decimal("0.0287"),
     )
     text = mock_bot.send_message.call_args.kwargs["text"]
     assert "TP2 HIT" in text
@@ -154,10 +154,25 @@ async def test_lifecycle_trail_contains_trail_stop(tbot, mock_bot):
         direction="BUY",
         close_reason="TRAIL",
         exit_price=Decimal("2350.00"),
-        pnl_pct=Decimal("0.62"),
+        pnl_pct=Decimal("0.0062"),
     )
     text = mock_bot.send_message.call_args.kwargs["text"]
     assert "TRAIL STOP" in text
+
+
+@pytest.mark.asyncio
+async def test_lifecycle_formats_fractional_pnl_as_percent(tbot, mock_bot):
+    """pnl_pct is stored as a fraction, so 0.0123 must display as +1.23%."""
+    await tbot.send_lifecycle_notification(
+        trade_id="abc-127",
+        strategy="liquidity_sweep",
+        direction="BUY",
+        close_reason="TRAIL",
+        exit_price=Decimal("2350.00"),
+        pnl_pct=Decimal("0.0123"),
+    )
+    text = mock_bot.send_message.call_args.kwargs["text"]
+    assert "+1.23%" in text
 
 
 # --- Daily summary tests ---
@@ -205,6 +220,29 @@ async def test_daily_summary_catches_exception(mock_bot):
     )
     # Should not raise
     await tbot.send_daily_summary(payload)
+
+
+@pytest.mark.asyncio
+async def test_daily_summary_formats_fractional_pnl_as_percent(tbot, mock_bot):
+    """Daily and MTD P&L values are stored as fractions and displayed as percents."""
+    from src.monitoring.telegram_bot import DailySummaryPayload
+    payload = DailySummaryPayload(
+        date="2026-05-02",
+        signals_sent=2,
+        trades_by_reason={"SL": 1},
+        daily_pnl_pct=0.0123,
+        mtd_pnl_pct=-0.02,
+        cb_tripped=False,
+        consecutive_stops=1,
+        execution_mode="SIGNAL",
+        strategy_stats=[],
+    )
+
+    await tbot.send_daily_summary(payload)
+
+    text = mock_bot.send_message.call_args.kwargs["text"]
+    assert "+1.23%" in text
+    assert "-2.00%" in text
 
 
 @pytest.mark.asyncio

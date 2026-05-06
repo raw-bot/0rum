@@ -16,6 +16,8 @@ EXPECTED_JOB_IDS = {
     "refresh_d1",
     "run_pipeline",
     "run_optimizer",
+    "monitor_trades",
+    "daily_summary",
 }
 
 

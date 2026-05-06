@@ -190,4 +190,11 @@ class TestDashboardPage:
     def test_dashboard_page_th_has_scope_col(self, client):
         """At least one <th> has scope='col'."""
         response = client.get("/dashboard")
-        assert 'scope="col"' in response.text
+        assert "th.scope = 'col'" in response.text
+
+    def test_dashboard_page_does_not_render_api_rows_with_inner_html(self, client):
+        """Dynamic API table rows must be rendered via DOM text nodes, not HTML strings."""
+        response = client.get("/dashboard")
+        body = response.text
+        assert "container.innerHTML = html" not in body
+        assert "textContent" in body

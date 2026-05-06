@@ -1,5 +1,6 @@
 """Health check endpoint — reports postgres and redis connectivity."""
 
+from datetime import datetime, timezone
 import time
 
 import redis.asyncio as aioredis
@@ -13,6 +14,7 @@ from src.database import get_db
 from src.risk.breaker import BreakerManager
 from src.risk.gates import get_daily_pnl_pct, get_open_positions
 from src.models.optimizer_result import OptimizerResultORM
+from src.models.signal import ApprovedSignalORM
 from src.scheduler.jobs import get_last_candle_fetch
 
 logger = structlog.get_logger(__name__)
@@ -82,6 +84,19 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> dict:
         logger.warning("health.strategies_active.failed", error=str(exc))
         strategies_active_val = 0
 
+    # Count signal-mode Telegram deliveries for the current UTC day.
+    try:
+        today = datetime.now(timezone.utc).date()
+        stmt = select(func.count(ApprovedSignalORM.id)).where(
+            ApprovedSignalORM.execution_status == "SENT",
+            func.date(ApprovedSignalORM.created_at) == today,
+        )
+        signals_result = await db.execute(stmt)
+        signals_today_val = int(signals_result.scalar_one() or 0)
+    except Exception as exc:
+        logger.warning("health.signals_today.failed", error=str(exc))
+        signals_today_val = 0
+
     logger.info(
         "health.checked",
         status=overall_status,
@@ -96,7 +111,7 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> dict:
         "circuit_breaker": circuit_breaker_val,
         "open_positions": open_positions_val,
         "daily_pnl_pct": daily_pnl_pct_val,
-        "signals_today": 0,
+        "signals_today": signals_today_val,
         "last_candle_fetch": get_last_candle_fetch(),
         "strategies_active": strategies_active_val,
         "redis_connected": redis_connected,

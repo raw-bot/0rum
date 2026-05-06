@@ -8,6 +8,7 @@ import importlib
 import sys
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -327,6 +328,69 @@ async def test_sl_close_calls_record_stop():
             )
 
     mock_breaker.record_stop.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_direct_sl_close_uses_full_loss_not_blended_tp1_gain():
+    """OPEN trade that hits SL before TP1 records the full SL loss and does not reset breaker."""
+    trade = make_trade(status="OPEN", direction="BUY", sl=90, entry=100, tp1=112)
+
+    mock_breaker = AsyncMock()
+    mock_breaker.record_stop = AsyncMock(return_value=None)
+    mock_breaker.record_win = AsyncMock()
+
+    with patch("src.database.AsyncSessionLocal", make_session_factory()):
+        with patch("src.scheduler.jobs._breaker_manager", mock_breaker):
+            from src.scheduler.jobs import _process_trade
+            await _process_trade(
+                trade=trade,
+                strategy_name="liquidity_sweep",
+                candle_high=Decimal("101.00"),
+                candle_low=Decimal("89.00"),
+                atr_h1=Decimal("10.00"),
+            )
+
+    assert trade.status == "CLOSED"
+    assert trade.close_reason == "SL"
+    assert trade.pnl_pct == Decimal("-0.1")
+    mock_breaker.record_stop.assert_called_once()
+    mock_breaker.record_win.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_monitor_trades_ignores_candle_before_trade_opened():
+    """A trade opened after the latest completed M15 candle cannot be closed by that candle."""
+    from src.scheduler.jobs import monitor_trades
+
+    candle = MagicMock()
+    candle.high = Decimal("2360.00")
+    candle.low = Decimal("2320.00")
+    candle.timestamp = datetime(2026, 5, 6, 10, 0, tzinfo=timezone.utc)
+
+    trade = make_trade(status="OPEN", direction="BUY", sl=2325.20, entry=2340.50, tp1=2358.80)
+    trade.opened_at = datetime(2026, 5, 6, 10, 5, tzinfo=timezone.utc)
+
+    m15_result = MagicMock()
+    m15_result.scalar_one_or_none.return_value = candle
+    h1_result = MagicMock()
+    h1_result.scalars.return_value.all.return_value = []
+    trades_result = MagicMock()
+    trades_result.all.return_value = [(trade, "liquidity_sweep")]
+
+    mock_session = AsyncMock()
+    mock_session.execute = AsyncMock(side_effect=[m15_result, h1_result, trades_result])
+
+    @asynccontextmanager
+    async def _session_cm():
+        yield mock_session
+
+    session_factory = MagicMock(side_effect=lambda: _session_cm())
+
+    with patch("src.database.AsyncSessionLocal", session_factory):
+        with patch("src.scheduler.jobs._process_trade", new_callable=AsyncMock) as process_trade:
+            await monitor_trades()
+
+    process_trade.assert_not_called()
 
 
 @pytest.mark.asyncio
