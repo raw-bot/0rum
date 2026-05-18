@@ -14,9 +14,9 @@ This file is the intended end-state.
 
 ## Provider target
 
-- Target real `XAUUSD` through `IG demo -> live`.
-- Treat Binance `PAXG/USDT` as a temporary proxy for plumbing only.
-- Do not use the Binance proxy as the validation target for later phases.
+- IG path is legacy/inactive (data sufficiency and cooldown constraints).
+- Current active runtime/validation path uses Binance `PAXG/USDT` proxy.
+- Keep provider and execution broker as separate concerns so provider can be swapped later.
 
 ## Target architecture
 
@@ -95,4 +95,4 @@ This file is the intended end-state.
 - Keep FastAPI, PostgreSQL, Redis, Docker Compose, SQLAlchemy async, Pydantic v2, APScheduler, structlog, `httpx`, `scipy`, `numpy`, `pandas`, and `python-telegram-bot` in the project stack.
 - Keep `XAUUSD` as the only asset.
 - Keep risk parameters out of the optimizer.
-- Keep the provider/broker separation introduced by the IG realignment.
+- Keep provider/broker separation so the market-data source can change without rewriting execution.

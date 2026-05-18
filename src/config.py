@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 from enum import Enum
+from functools import lru_cache
 
 from pydantic_settings import BaseSettings
 
@@ -17,7 +18,7 @@ class MarketDataProvider(str, Enum):
     """Supported market-data providers for candle ingestion."""
 
     BINANCE = "binance"
-    IG = "ig"
+    IG = "ig"  # legacy/inactive unless explicitly re-enabled
 
 
 class Settings(BaseSettings):
@@ -28,7 +29,7 @@ class Settings(BaseSettings):
 
     market_data_provider: MarketDataProvider = MarketDataProvider.BINANCE
 
-    # IG demo/provider validation (Phase 4.1+)
+    # IG settings kept for legacy compatibility/debug only.
     ig_api_key: str = ""
     ig_identifier: str = ""
     ig_password: str = ""
@@ -36,7 +37,7 @@ class Settings(BaseSettings):
     ig_api_url: str = "https://demo-api.ig.com/gateway/deal"
     ig_xauusd_epic: str = ""
 
-    # IG-light ingestion limits (avoids bulk historical on demo)
+    # IG-light ingestion limits (used only if IG path is manually re-enabled)
     ig_warmup_bars_m15: int = 300   # ~3 days of M15
     ig_warmup_bars_h1: int = 250    # ~10 days of H1 (EMA200 + margin)
     ig_warmup_bars_h4: int = 80     # ~13 days of H4
@@ -77,6 +78,7 @@ class Settings(BaseSettings):
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 
+@lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Return a cached Settings instance."""
     return Settings()

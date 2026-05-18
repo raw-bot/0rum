@@ -14,6 +14,16 @@ Règles de priorité :
 - **Phase 5 et au-delà** ne doivent pas être validées sur le proxy `PAXG/USDT`
 - en cas de conflit avec une section plus bas qui suppose un ancien provider ou broker, cet addendum l'emporte
 
+## Provider Deprecation Override — 2026-05-18
+
+Le flux **IG demo -> live** est désormais sorti de la trajectoire active du projet.
+
+Règles de priorité :
+- IG est considéré **legacy / inactif** pour le runtime et la validation (data insuffisante + cooldown incompatible)
+- la voie active actuelle pour ingestion/validation reste le proxy `Binance/CCXT PAXG/USDT` tant qu'aucun nouveau provider n'est validé
+- toute section plus bas qui présente IG comme cible prioritaire doit être lue comme historique
+- la séparation `market data provider` / `execution broker` reste obligatoire
+
 ---
 
 ## 1. Identité du projet
@@ -23,7 +33,7 @@ Règles de priorité :
 | Nom | **0rum** (prononcé « orum ») |
 | Origine | 0 → lien avec 0xBot · rum → *aurum* (or en latin) |
 | Asset unique | XAUUSD (Gold / US Dollar) |
-| Provider cible | IG demo → live pour le vrai XAUUSD |
+| Provider cible | Binance/CCXT `PAXG/USDT` (proxy actif actuel) |
 | Objectif | Bot de trading 24/7, signal-only puis auto-execution |
 | Auteur | Non-développeur — tout le code est produit par Codex |
 

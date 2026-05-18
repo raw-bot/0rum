@@ -360,6 +360,69 @@ inside backtesting and walk-forward research.
 If the reference strategy performs similarly to the more complex stack, then the
 real edge may be in gating and execution timing, not strategy sophistication.
 
+### Candidate: ORB XAUUSD session baseline
+
+Record an `ORB_XAUUSD_session_breakout` idea as a research baseline, not as a
+runtime strategy.
+
+The useful hypothesis is not that one video proves an edge. It is that XAUUSD
+session timing, opening range structure, retests, and context filters may be
+measurable sources of signal quality.
+
+The candidate shape:
+
+- instrument: XAUUSD / gold
+- baseline family: opening range breakout (ORB)
+- execution data: M1 research data, not current M15/H1/H4/D1 runtime candles
+- session anchors to compare:
+  - London open
+  - COMEX gold 08:20 ET
+  - US macro data window 08:30 ET
+  - US cash equities open 09:30 ET
+  - London/New York overlap
+- opening range windows: 5, 15, 30, 60 minutes
+- entry variants:
+  - raw breakout
+  - close outside range
+  - breakout plus range retest
+  - breakout plus FVG retest
+- exit variants:
+  - RR 1.0
+  - RR 1.5
+  - RR 2.0
+  - TP1 plus break-even
+  - session close exit
+- filters:
+  - H1/H4 trend filter
+  - ATR percentile
+  - macro no-trade window
+  - max 1 or 2 trades per session
+
+The video-style claim that many variants were tested is not enough evidence.
+Without a protocol, broad variant testing increases overfit risk. Promotion must
+therefore go through the existing validation discipline:
+
+- in-sample / out-of-sample split
+- walk-forward validation
+- Monte Carlo
+- spread and slippage simulation
+- performance by year
+- performance by session anchor
+- sensitivity analysis across range window, entry rule, and exit rule
+
+Decision:
+
+- Keep ORB as a research-sidecar experiment.
+- Do not add it to `src/strategies/` until it passes promotion gates.
+- Use it first as a reference baseline to test whether the current strategy stack
+  is actually better than a simple session breakout.
+- Feed any robust results into Layer 0 / Tradeability Screener design, especially
+  session-aware allow/reduce/block decisions.
+
+This is especially relevant because `breakout_expansion` has not yet proven an
+active passing combo, and current runtime should not accept another unvalidated
+breakout strategy just because it is intuitive.
+
 ## Component 6 - Research Sidecar
 
 ### Why
