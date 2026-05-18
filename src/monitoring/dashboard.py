@@ -146,10 +146,7 @@ async def dashboard_api(db: AsyncSession = Depends(get_db)) -> dict:
         log.warning("dashboard.open_trades_failed", error=str(exc))
     result["open_trades"] = open_trades
 
-    # --- Latest Signals (last 20 ApprovedSignalORM rows, with size_lots from TradeORM) ---
-    # D-23: last 20 approved signals per UI-SPEC Data Source Contract.
-    # size_lots is stored on TradeORM (created atomically with ApprovedSignalORM in Plan 03 D-14).
-    # LEFT JOIN ensures signals without a trade row (edge case) still appear with size_lots=None.
+    # --- Latest Signals (last 20 ApprovedSignalORM rows) ---
     latest_signals = []
     try:
         sigs_stmt = (
@@ -186,6 +183,76 @@ async def dashboard_api(db: AsyncSession = Depends(get_db)) -> dict:
     except Exception as exc:
         log.warning("dashboard.latest_signals_failed", error=str(exc))
     result["latest_signals"] = latest_signals
+
+    # --- Recently Closed Trades ---
+    closed_trades = []
+    try:
+        closed_stmt = (
+            select(TradeORM, CandidateSignalORM.strategy)
+            .join(ApprovedSignalORM, TradeORM.approved_signal_id == ApprovedSignalORM.id)
+            .join(
+                CandidateSignalORM,
+                ApprovedSignalORM.candidate_signal_id == CandidateSignalORM.id,
+            )
+            .where(TradeORM.status.in_(["CLOSED", "STOPPED"]))
+            .order_by(TradeORM.closed_at.desc())
+            .limit(20)
+        )
+        closed_result = await db.execute(closed_stmt)
+        for trade, strategy in closed_result.all():
+            closed_trades.append({
+                "id": str(trade.id),
+                "direction": trade.direction,
+                "strategy": strategy,
+                "entry_price": float(trade.entry_price),
+                "close_reason": trade.close_reason,
+                "pnl_pct": float(trade.pnl_pct) if trade.pnl_pct is not None else None,
+                "opened_at": trade.opened_at.isoformat() if trade.opened_at else None,
+                "closed_at": trade.closed_at.isoformat() if trade.closed_at else None,
+            })
+    except Exception as exc:
+        log.warning("dashboard.closed_trades_failed", error=str(exc))
+    result["closed_trades"] = closed_trades
+
+    # --- Candidate Signal Decisions ---
+    candidate_signals = []
+    try:
+        cand_stmt = (
+            select(CandidateSignalORM)
+            .order_by(CandidateSignalORM.created_at.desc())
+            .limit(50)
+        )
+        cand_result = await db.execute(cand_stmt)
+        for cand in cand_result.scalars().all():
+            candidate_signals.append({
+                "id": str(cand.id),
+                "strategy": cand.strategy,
+                "direction": cand.direction,
+                "entry_price": float(cand.entry_price),
+                "confidence": float(cand.confidence),
+                "timeframe": cand.timeframe,
+                "status": cand.status,
+                "created_at": cand.created_at.isoformat() if cand.created_at else None,
+            })
+    except Exception as exc:
+        log.warning("dashboard.candidate_signals_failed", error=str(exc))
+    result["candidate_signals"] = candidate_signals
+
+    # --- Operational Events ---
+    operational_events = []
+    if not db_ok:
+        operational_events.append({
+            "level": "warning",
+            "event": "database_unreachable",
+            "message": "PostgreSQL is unavailable; dashboard data is degraded.",
+        })
+    if not redis_ok:
+        operational_events.append({
+            "level": "warning",
+            "event": "redis_unreachable",
+            "message": "Redis is unavailable; circuit breaker state is degraded.",
+        })
+    result["operational_events"] = operational_events
 
     # --- Strategy Stats ---
     strategy_stats = []

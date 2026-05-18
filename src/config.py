@@ -48,10 +48,6 @@ class Settings(BaseSettings):
     database_url: str
     redis_url: str = "redis://redis:6379/0"
 
-    # Telegram
-    telegram_bot_token: str
-    telegram_chat_id: str
-
     # Execution
     execution_mode: ExecutionMode = ExecutionMode.SIGNAL
 
@@ -75,8 +71,11 @@ class Settings(BaseSettings):
     lhs_combos: int = 100
     wfe_minimum: float = 0.50
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
-
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+    }
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

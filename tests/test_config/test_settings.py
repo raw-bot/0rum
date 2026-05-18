@@ -36,3 +36,15 @@ def test_theoretical_equity_decimal_arithmetic_works():
     risk_pct = 0.01
     risk_amount = equity * Decimal(str(risk_pct))
     assert risk_amount == Decimal("100.00")
+
+
+def test_settings_do_not_require_telegram(monkeypatch):
+    """Telegram settings are no longer part of the runtime config surface."""
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
+    monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://test:test@localhost/test")
+
+    s = Settings()
+
+    assert not hasattr(s, "telegram_bot_token")
+    assert not hasattr(s, "telegram_chat_id")

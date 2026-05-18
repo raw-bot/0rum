@@ -180,6 +180,28 @@ body {
   font-size: 13px;
 }
 
+/* Operational Events Banner */
+.events-banner {
+  margin-bottom: 16px;
+  display: none;
+}
+
+.event-item {
+  background: #2d1a1a;
+  color: var(--destructive);
+  border: 1px solid rgba(224, 82, 82, 0.4);
+  padding: 8px 16px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.event-item.warning {
+  background: #2d2a1a;
+  color: var(--warning);
+  border: 1px solid rgba(212, 160, 23, 0.4);
+}
+
 /* Two-column grid */
 .two-col-grid {
   display: grid;
@@ -271,6 +293,11 @@ tbody tr:nth-child(even) {
   background: rgba(224, 82, 82, 0.15);
 }
 
+/* Close reason colors */
+.reason-sl { color: var(--destructive); }
+.reason-tp { color: var(--accent); }
+.reason-trail { color: var(--warning); }
+
 /* Direction colors */
 .direction-buy { color: var(--accent); }
 .direction-sell { color: var(--destructive); }
@@ -324,6 +351,8 @@ tbody tr:nth-child(even) {
 
 <div id="error-banner"></div>
 
+<div id="events-container" class="events-banner"></div>
+
 <div data-section="status" class="status-row">
   <div class="status-cell">
     <div class="status-cell-label">DATABASE</div>
@@ -354,6 +383,21 @@ tbody tr:nth-child(even) {
     <div class="section-heading">OPEN TRADES</div>
     <div id="open-trades-container">
       <div class="loading-text" id="open-trades-loading">Loading...</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="section-heading">CLOSED TRADES — LAST 20</div>
+    <div id="closed-trades-container">
+      <div class="loading-text" id="closed-trades-loading">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<div class="two-col-grid">
+  <div class="card">
+    <div class="section-heading">CANDIDATE DECISIONS — LAST 50</div>
+    <div id="candidate-signals-container">
+      <div class="loading-text" id="candidate-signals-loading">Loading...</div>
     </div>
   </div>
   <div class="card">
@@ -396,7 +440,10 @@ async function fetchDashboard() {
 function renderDashboard(data) {
   renderHeader(data);
   renderStatusRow(data);
+  renderOperationalEvents(data.operational_events || []);
   renderOpenTrades(data.open_trades || []);
+  renderClosedTrades(data.closed_trades || []);
+  renderCandidateSignals(data.candidate_signals || []);
   renderStrategyStats(data.strategy_stats || []);
   renderLatestSignals(data.latest_signals || []);
 }
@@ -441,6 +488,23 @@ function renderStatusRow(data) {
   pnlEl.className = 'data-val ' + (pnl >= 0 ? 'pnl-pos' : 'pnl-neg');
 }
 
+function renderOperationalEvents(events) {
+  const container = document.getElementById('events-container');
+  if (!events || events.length === 0) {
+    container.style.display = 'none';
+    return;
+  }
+
+  container.style.display = 'block';
+  const items = events.map(ev => {
+    const el = document.createElement('div');
+    el.className = 'event-item ' + (ev.level || 'error');
+    el.textContent = '⚠ ' + (ev.message || ev.event);
+    return el;
+  });
+  container.replaceChildren(...items);
+}
+
 function renderOpenTrades(trades) {
   const container = document.getElementById('open-trades-container');
   const loading = document.getElementById('open-trades-loading');
@@ -468,6 +532,66 @@ function renderOpenTrades(trades) {
     appendBadgeCell(tr, statusLabel, statusClass);
     const ageCell = appendCell(tr, age);
     ageCell.style.color = 'var(--text-2)';
+    tbody.appendChild(tr);
+  }
+  container.replaceChildren(table);
+}
+
+function renderClosedTrades(trades) {
+  const container = document.getElementById('closed-trades-container');
+  const loading = document.getElementById('closed-trades-loading');
+  if (loading) loading.style.display = 'none';
+
+  if (!trades || trades.length === 0) {
+    renderEmptyState(container, 'No closed trades yet');
+    return;
+  }
+
+  const table = createTable(['Closed', 'Dir', 'Strategy', 'Entry', 'Exit', 'PnL']);
+  const tbody = table.querySelector('tbody');
+  for (const t of trades) {
+    const dirClass = t.direction === 'BUY' ? 'direction-buy' : 'direction-sell';
+    const pnl = t.pnl_pct || 0;
+    const pnlClass = pnl >= 0 ? 'pnl-pos' : 'pnl-neg';
+    const timeStr = t.closed_at ? t.closed_at.substring(11, 16) : '--';
+    
+    const tr = document.createElement('tr');
+    const timeCell = appendCell(tr, timeStr);
+    timeCell.style.color = 'var(--text-2)';
+    appendCell(tr, t.direction, dirClass);
+    appendCell(tr, t.strategy);
+    appendCell(tr, formatNumber(t.entry_price, 2), 'data-val');
+    appendCell(tr, t.close_reason, getReasonClass(t.close_reason));
+    appendCell(tr, formatPercent(pnl, 2, true), 'data-val ' + pnlClass);
+    tbody.appendChild(tr);
+  }
+  container.replaceChildren(table);
+}
+
+function renderCandidateSignals(signals) {
+  const container = document.getElementById('candidate-signals-container');
+  const loading = document.getElementById('candidate-signals-loading');
+  if (loading) loading.style.display = 'none';
+
+  if (!signals || signals.length === 0) {
+    renderEmptyState(container, 'No candidate decisions recorded yet');
+    return;
+  }
+
+  const table = createTable(['Time', 'Strategy', 'Dir', 'Entry', 'Conf', 'Status']);
+  const tbody = table.querySelector('tbody');
+  for (const s of signals) {
+    const dirClass = s.direction === 'BUY' ? 'direction-buy' : 'direction-sell';
+    const timeStr = s.created_at ? s.created_at.substring(11, 16) : '--';
+    
+    const tr = document.createElement('tr');
+    const timeCell = appendCell(tr, timeStr);
+    timeCell.style.color = 'var(--text-2)';
+    appendCell(tr, s.strategy);
+    appendCell(tr, s.direction, dirClass);
+    appendCell(tr, formatNumber(s.entry_price, 2), 'data-val');
+    appendCell(tr, formatPercent(s.confidence, 0), 'data-val');
+    appendBadgeCell(tr, s.status, getCandidateStatusClass(s.status));
     tbody.appendChild(tr);
   }
   container.replaceChildren(table);
@@ -587,6 +711,23 @@ function formatPercent(value, digits, signed) {
   if (!Number.isFinite(number)) return '--';
   const sign = signed && number >= 0 ? '+' : '';
   return sign + (number * 100).toFixed(digits) + '%';
+}
+
+function getReasonClass(reason) {
+  if (!reason) return '';
+  const r = reason.toUpperCase();
+  if (r === 'SL') return 'reason-sl';
+  if (r.startsWith('TP')) return 'reason-tp';
+  if (r === 'TRAIL') return 'reason-trail';
+  return '';
+}
+
+function getCandidateStatusClass(status) {
+  if (!status) return 'badge badge-pending';
+  const s = status.toUpperCase();
+  if (s === 'APPROVED') return 'badge badge-sent';
+  if (s === 'REJECTED') return 'badge badge-failed';
+  return 'badge badge-pending';
 }
 
 function computeAge(isoString) {

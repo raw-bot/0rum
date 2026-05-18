@@ -1,101 +1,91 @@
 ---
 phase: 07-signal-mode-monitoring
-plan: "02"
-subsystem: telegram-delivery
-tags: [telegram, signal-sender, notifications, circuit-breaker, tdd]
+plan: "WEB-ONLY"
+subsystem: web-monitoring
+tags: [web, dashboard, signal-audit, tdd, cleanup]
 dependency_graph:
   requires:
-    - "07-01 (signal mode schema — CandidateSignal, TradeORM)"
-    - "06-02 (CircuitBreakerAlert DTO, BreakerAlertHook type, hooks.py)"
+    - "07-01 (signal mode schema)"
     - "06-05 (risk gates, BreakerManager)"
   provides:
-    - "SignalSender — formats and sends BUY/SELL Telegram signal messages"
-    - "TelegramBot — lifecycle (TP1/TP2/SL/TRAIL), CB alert, daily summary notifications"
-    - "DailySummaryPayload — dataclass for daily scheduler job"
+    - "Local-only ExecutionRouter — records signals to logs"
+    - "Expanded Dashboard API — includes closed trades and decisions"
+    - "Web-Only Operator UI — comprehensive monitoring without Telegram"
   affects:
-    - "src/main.py — will inject Bot singleton and register TelegramBot.send_circuit_breaker_alert as alert hook"
-    - "07-03 and beyond — ExecutionRouter can import SignalSender directly"
+    - "src/main.py — Telegram runtime wiring REMOVED"
+    - "src/config.py — Telegram settings REMOVED"
+    - "src/scheduler/jobs.py — Notification logic REMOVED"
 tech_stack:
   added:
-    - "python-telegram-bot>=21.0 (telegram.Bot, ParseMode.HTML)"
-  patterns:
-    - "Constructor injection for Bot singleton (D-11)"
-    - "structlog event key style: module.event_name (e.g. execution.send_failed)"
-    - "HTML parse mode to avoid MarkdownV2 decimal-price escaping issues"
-    - "Error isolation in _send(): catch Exception, log monitor.telegram_send_failed, never raise"
+    - "Jinja2 (rendering expanded dashboard)"
+  removed:
+    - "python-telegram-bot (abandoned per Monitoring Surface Override)"
 key_files:
-  created:
-    - src/execution/__init__.py
+  modified:
+    - src/config.py
+    - src/main.py
+    - src/execution/executor.py
+    - src/scheduler/jobs.py
+    - src/monitoring/dashboard.py
+    - src/templates/dashboard.html
+    - tests/test_monitoring/test_dashboard.py
+    - tests/test_execution/test_executor.py
+  deleted:
     - src/execution/signal_sender.py
     - src/monitoring/telegram_bot.py
     - tests/test_execution/test_signal_sender.py
     - tests/test_monitoring/test_telegram_bot.py
-  modified: []
 decisions:
-  - "ParseMode.HTML chosen over MarkdownV2 — decimal prices (e.g. 2340.50) require no escaping"
-  - "Bot injected via constructor, never instantiated inside module (D-11 / T-07-02-01)"
-  - "structlog notification= kwarg used instead of event= to avoid keyword conflict in _send()"
-  - "DailySummaryPayload is a dataclass (not Pydantic) — assembled only by the scheduler job, immutability not required at this boundary"
+  - "Telegram abandoned in favor of local web dashboard (2026-05-06 Override)"
+  - "ExecutionRouter logs signals to stdout/audit-log; returns True for state progression"
+  - "Dashboard expanded with 3 new sections: CLOSED TRADES, CANDIDATE DECISIONS, OPERATIONAL EVENTS"
+  - "Purged all 07-02 Telegram artifacts to prevent tech debt regression"
 metrics:
-  duration: "4 minutes"
-  completed_date: "2026-05-02"
-  tasks_completed: 2
-  tasks_total: 2
-  files_created: 5
-  files_modified: 0
+  duration: "15 minutes"
+  completed_date: "2026-05-18"
+  tasks_completed: 7
+  tasks_total: 7
+  files_created: 0
+  files_modified: 8
+  files_deleted: 4
 ---
 
-# Phase 07 Plan 02: Telegram Delivery Layer Summary
+# Phase 07: Web-Only Monitoring Implementation Summary
 
-Implemented the complete Telegram delivery layer — SignalSender (BUY/SELL signal messages) and TelegramBot (lifecycle, circuit-breaker, daily summary notifications) — as pure Telegram I/O modules with injected Bot, no DB dependencies.
+Successfully executed the architectural pivot to web-only monitoring. Telegram has been completely purged from the codebase, and the operator dashboard has been expanded to serve as the primary (and only) monitoring surface.
 
 ## Tasks Completed
 
-| Task | Name | Commit | Files |
-|------|------|--------|-------|
-| 1 | SignalSender — BUY/SELL signal messages | e9bfc1e (RED), 41b4213 (GREEN) | src/execution/__init__.py, src/execution/signal_sender.py, tests/test_execution/test_signal_sender.py |
-| 2 | TelegramBot — lifecycle/CB/daily-summary | dfbaf29 (RED), f4d6a95 (GREEN) | src/monitoring/telegram_bot.py, tests/test_monitoring/test_telegram_bot.py |
+| Task | Name | Details |
+|------|------|---------|
+| 1 | Remove Telegram Config | Purged Settings, .env.example, and pyproject.toml |
+| 2 | Localize Signal Execution | ExecutionRouter updated; SignalSender deleted |
+| 3 | Clean Runtime Wiring | main.py and scheduler jobs stripped of Telegram logic |
+| 4 | Expand Dashboard API | Added closed trades, candidate decisions, and events to JSON |
+| 5 | Update Dashboard UI | New panels and DOM-safe rendering implemented in dashboard.html |
+| 6 | Update Verification Docs | VERIFICATION.md and HUMAN-UAT.md updated for web-only |
+| 7 | Final Verification | All 299 tests pass; no Telegram imports remain |
 
 ## Verification Results
 
-- `pytest tests/test_execution/test_signal_sender.py -x` — 6 passed
-- `pytest tests/test_monitoring/test_telegram_bot.py -x` — 11 passed
-- `grep -c "telegram_bot_token" src/execution/signal_sender.py` — 0 (token never logged)
-- `grep -c "telegram_bot_token" src/monitoring/telegram_bot.py` — 0 (token never logged)
-- `grep -c "ParseMode.HTML" src/execution/signal_sender.py` — 2
+- `pytest tests/test_config/test_settings.py` — 4 passed
+- `pytest tests/test_execution/test_executor.py` — 2 passed
+- `pytest tests/test_monitoring/test_dashboard.py` — 22 passed
+- `rg "telegram" .` — 0 matches in code (historical notes only)
+- Full suite: `299 passed`
 
 ## Deviations from Plan
 
-### Auto-fixed Issues
-
-**1. [Rule 1 - Bug] structlog `event=` kwarg conflict in `_send()`**
-- **Found during:** Task 2 GREEN — test_cb_alert_catches_exception failed
-- **Issue:** `log.error("monitor.telegram_send_failed", event=event_name, ...)` — structlog treats the first positional arg as `event`, so passing `event=` as a kwarg raises `TypeError: got multiple values for argument 'event'`
-- **Fix:** Renamed kwarg from `event=event_name` to `notification=event_name` in `_send()`
-- **Files modified:** src/monitoring/telegram_bot.py
-- **Commit:** f4d6a95
-
-## TDD Gate Compliance
-
-Both tasks followed RED/GREEN/REFACTOR:
-
-1. RED commits: e9bfc1e (SignalSender tests), dfbaf29 (TelegramBot tests)
-2. GREEN commits: 41b4213 (SignalSender impl), f4d6a95 (TelegramBot impl)
-3. REFACTOR: not needed — implementations were clean on first pass
+- **Summary Overwrite:** Replaced the legacy 07-02-SUMMARY (which claimed Telegram success) with this Web-Only summary to ensure PROJECT.md and future agents see the current reality.
+- **Section Headings:** Adjusted `test_dashboard.py` to match ALL-CAPS section headings in `dashboard.html`.
 
 ## Known Stubs
 
-None. Both modules are fully functional Telegram I/O wrappers with no placeholder data.
-
-## Threat Flags
-
-No new trust boundaries beyond those in the plan's threat model. Both modules only write outbound to Telegram API; no new network listeners, auth paths, or schema changes introduced.
+None. The system is fully functional for signal-mode tracking and local web monitoring.
 
 ## Self-Check: PASSED
 
-- src/execution/__init__.py — FOUND
-- src/execution/signal_sender.py — FOUND
-- src/monitoring/telegram_bot.py — FOUND
-- tests/test_execution/test_signal_sender.py — FOUND
-- tests/test_monitoring/test_telegram_bot.py — FOUND
-- Commits e9bfc1e, 41b4213, dfbaf29, f4d6a95 — all present in git log
+- All Telegram code artifacts: DELETED
+- Dashboard UI expanded: VERIFIED
+- No regressions in trade tracking: VERIFIED
+- Planning docs aligned: VERIFIED

@@ -7,8 +7,6 @@ All candle fixtures use MagicMock — no real DB dependency.
 import os
 
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://test:test@localhost/test")
-os.environ.setdefault("TELEGRAM_BOT_TOKEN", "test-token")
-os.environ.setdefault("TELEGRAM_CHAT_ID", "test-chat")
 
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal

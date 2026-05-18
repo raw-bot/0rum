@@ -4,8 +4,6 @@ import asyncio
 import os
 
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://test:test@localhost/test")
-os.environ.setdefault("TELEGRAM_BOT_TOKEN", "test-token")
-os.environ.setdefault("TELEGRAM_CHAT_ID", "test-chat")
 
 from src.scheduler.jobs import create_scheduler, run_optimizer
 
@@ -17,7 +15,6 @@ EXPECTED_JOB_IDS = {
     "run_pipeline",
     "run_optimizer",
     "monitor_trades",
-    "daily_summary",
 }
 
 

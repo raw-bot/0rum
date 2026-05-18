@@ -51,27 +51,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from src.config import MarketDataProvider
     from src.ingestion.candle_fetcher import CandleFetcher
 
-    # Bot initialization (D-11) — MUST precede scheduler start
-    from telegram import Bot
-    bot = Bot(token=settings.telegram_bot_token)
-    await bot.initialize()
-    logger.info("app.telegram_bot_initialized")
-
     # Service instantiation and wiring (D-11, D-12)
-    from src.execution.signal_sender import SignalSender
     from src.execution.executor import ExecutionRouter
-    from src.monitoring.telegram_bot import TelegramBot
-    from src.risk.hooks import register_alert_hook
-    from src.scheduler.jobs import _set_monitor_services, _set_pipeline_runner
-
-    signal_sender = SignalSender(bot=bot)
-    telegram_bot_inst = TelegramBot(bot=bot)
-    register_alert_hook(telegram_bot_inst.send_circuit_breaker_alert)
-    executor = ExecutionRouter(signal_sender=signal_sender)
-    _set_monitor_services(telegram_bot=telegram_bot_inst, breaker_manager=None)
+    from src.scheduler.jobs import _set_pipeline_runner
 
     # PipelineRunner wiring (inject router singleton)
     from src.pipeline.runner import PipelineRunner
+    executor = ExecutionRouter()
     runner = PipelineRunner(router=executor)
     _set_pipeline_runner(runner)
     logger.info("app.execution_services_wired")
@@ -99,8 +85,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     scheduler.shutdown(wait=False)
     logger.info("app.scheduler_shutdown")
-    await bot.shutdown()
-    logger.info("app.telegram_bot_shutdown")
     logger.info("app.shutdown")
 
 
