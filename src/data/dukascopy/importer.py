@@ -13,8 +13,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from src.backtesting.historical_loader import (
     SUPPORTED_TIMEFRAMES,
     bulk_insert_candles,
+    dataframe_to_candle_records,
 )
-from src.backtesting.research_loader import dataframe_to_research_records
 from src.data.dukascopy.qa import load_cached_ohlcv
 from src.database import AsyncSessionLocal
 
@@ -76,10 +76,10 @@ async def import_dukascopy_ohlcv_cache(
             end_utc,
             timeframe,
         )
-        records = dataframe_to_research_records(
+        records = dataframe_to_candle_records(
             _indexed_ohlcv(df),
-            instrument=instrument,
             timeframe=timeframe,
+            instrument=instrument,
         )
         inserted_rows = 0
         if not dry_run:

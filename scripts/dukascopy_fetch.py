@@ -22,7 +22,6 @@ from src.data.dukascopy import (  # noqa: E402
     build_batch_plan,
     build_dukascopy_bi5_url,
     build_qa_report,
-    import_dukascopy_ohlcv_cache,
 )
 
 
@@ -235,18 +234,23 @@ async def run_qa(args: argparse.Namespace) -> None:
 
 async def run_import_postgres(args: argparse.Namespace) -> None:
     """Import cached Dukascopy OHLCV rows into the candles table."""
+    from src.data.dukascopy.importer import import_dukascopy_ohlcv_cache
+
     start = parse_utc_datetime(args.start)
     end = parse_utc_datetime(args.end)
-    reports = await import_dukascopy_ohlcv_cache(
-        cache_dir=Path(args.cache_dir),
-        symbol=args.symbol,
-        start=start,
-        end=end,
-        timeframes=tuple(args.timeframes),
-        instrument="XAUUSD",
-        dry_run=args.dry_run,
-        batch_size=args.batch_size,
-    )
+    try:
+        reports = await import_dukascopy_ohlcv_cache(
+            cache_dir=Path(args.cache_dir),
+            symbol=args.symbol,
+            start=start,
+            end=end,
+            timeframes=tuple(args.timeframes),
+            instrument="XAUUSD",
+            dry_run=args.dry_run,
+            batch_size=args.batch_size,
+        )
+    except ValueError as exc:
+        raise RuntimeError(str(exc)) from exc
 
     print("Dukascopy Postgres import")
     print(f"symbol={args.symbol.upper()}")
