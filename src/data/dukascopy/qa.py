@@ -135,7 +135,9 @@ def _is_weekend_close(missing: pd.DatetimeIndex) -> bool:
     )
 
 
-def _is_expected_market_pause(missing: pd.DatetimeIndex) -> bool:
+def _is_expected_market_pause(missing: pd.DatetimeIndex, timeframe: str) -> bool:
+    if timeframe != "M15":
+        return False
     if len(missing) != 4:
         return False
 
@@ -146,10 +148,10 @@ def _is_expected_market_pause(missing: pd.DatetimeIndex) -> bool:
     return same_day and near_session_end and not _is_weekend_close(missing)
 
 
-def _classify_gap(missing: pd.DatetimeIndex) -> GapClassification:
+def _classify_gap(missing: pd.DatetimeIndex, timeframe: str) -> GapClassification:
     if _is_weekend_close(missing):
         return GapClassification.WEEKEND_CLOSE
-    if _is_expected_market_pause(missing):
+    if _is_expected_market_pause(missing, timeframe):
         return GapClassification.EXPECTED_MARKET_PAUSE
     return GapClassification.SUSPICIOUS_GAP
 
@@ -191,7 +193,7 @@ def _detect_gaps(
                 start=group[0].to_pydatetime(),
                 end=(group[-1] + pd.Timedelta(freq)).to_pydatetime(),
                 missing_candles=len(group),
-                classification=_classify_gap(group),
+                classification=_classify_gap(group, timeframe),
             )
         )
     return tuple(gaps)

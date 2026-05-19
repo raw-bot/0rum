@@ -98,6 +98,24 @@ def test_qa_classifies_may_dst_shifted_end_session_pause(tmp_path):
     assert report.gaps[0].classification == GapClassification.EXPECTED_MARKET_PAUSE
 
 
+def test_qa_classifies_four_h1_session_end_candles_as_suspicious(tmp_path):
+    start = datetime(2020, 1, 2, 18, tzinfo=UTC)
+    end = datetime(2020, 1, 3, 2, tzinfo=UTC)
+    present = [
+        "2020-01-02T18:00:00Z",
+        "2020-01-02T19:00:00Z",
+        "2020-01-03T00:00:00Z",
+        "2020-01-03T01:00:00Z",
+    ]
+    _write_ohlcv(ohlcv_cache_path(tmp_path, "XAUUSD", start, end, "H1"), present)
+
+    report = build_qa_report(cache_dir=tmp_path, symbol="XAUUSD", start=start, end=end, timeframe="H1")
+
+    assert len(report.gaps) == 1
+    assert report.gaps[0].missing_candles == 4
+    assert report.gaps[0].classification == GapClassification.SUSPICIOUS_GAP
+
+
 def test_qa_classifies_weekend_close(tmp_path):
     start = datetime(2020, 1, 3, 20, tzinfo=UTC)
     end = datetime(2020, 1, 6, 2, tzinfo=UTC)
