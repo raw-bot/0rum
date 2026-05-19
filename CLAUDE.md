@@ -29,6 +29,7 @@ Implemented in `src/`:
 - execution module (`src/execution/`) for signal mode
 - Telegram monitoring module (`src/monitoring/telegram_bot.py`)
 - live `/health` wiring (postgres, redis, risk, signals, active strategies)
+- Dukascopy research ingestion helpers for public `.bi5` planning, guarded batch fetches, cache QA, and Postgres import.
 
 The repo currently covers the foundation through Phase 5 backtesting/validation plumbing, not the full target system described in `AGENTS.md`.
 
@@ -67,6 +68,9 @@ The repo currently covers the foundation through Phase 5 backtesting/validation 
 - IG demo/live path is currently out of scope (legacy/inactive).
 - Active runtime/validation path currently uses Binance `PAXG/USDT` proxy.
 - Provider and execution broker stay decoupled so a future provider swap stays low-friction.
+- Dukascopy public `.bi5` is validated for `XAUUSD` research/backtest ingestion with price scale `/1000`; it is not a runtime live provider.
+- Stooq is not part of the current XAUUSD research path.
+- Capital.com and cTrader remain candidates for future `paper_live` or execution research, separate from historical data.
 - Phase 5 validation is backed by local HistData XAUUSD M1 archives resampled into M15/H1/H4/D1.
 - Latest real optimizer rerun persisted one active strategy: `liquidity_sweep` with WFE `1.8478`, PF `2.5744`, 108 OOS trades.
 - `trend_continuation` and `ema_momentum` failed Monte Carlo; `breakout_expansion` had no passing combo. Runtime skips these unvalidated strategies until an optimizer run activates them.
@@ -134,6 +138,10 @@ The repo currently covers the foundation through Phase 5 backtesting/validation 
 
 - `uvicorn src.main:app --host 0.0.0.0 --port 8000`
 - `pytest`
+- `./.venv/bin/python scripts/dukascopy_fetch.py batch-plan --symbol XAUUSD --start 2020-01-01T00:00:00Z --end 2020-02-01T00:00:00Z --batch-days 5 --max-days 31`
+- `./.venv/bin/python scripts/dukascopy_fetch.py batch-fetch --symbol XAUUSD --start 2020-01-01T00:00:00Z --end 2020-02-01T00:00:00Z --batch-days 5 --max-days 31 --timeframes M15 H1 H4 D1 --progress`
+- `./.venv/bin/python scripts/dukascopy_fetch.py qa --symbol XAUUSD --start 2020-01-01T00:00:00Z --end 2020-02-01T00:00:00Z --timeframe M15`
+- `./.venv/bin/python scripts/dukascopy_fetch.py import-postgres --symbol XAUUSD --start 2020-01-01T00:00:00Z --end 2020-02-01T00:00:00Z --timeframes M15 H1 H4 D1 --dry-run`
 - Legacy IG diagnostics: `python scripts/ig_demo_probe.py`
 - Legacy IG diagnostics: `python scripts/ig_demo_probe.py --search gold`
 - Legacy IG diagnostics: `python scripts/ig_demo_probe.py --count 3`
