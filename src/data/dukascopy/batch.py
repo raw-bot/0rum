@@ -23,6 +23,7 @@ class DukascopyBatch:
     expected_hours: int
     cached_raw_files: int
     missing_raw_files: int
+    ohlcv_paths: dict[str, Path]
     complete_ohlcv_timeframes: tuple[str, ...]
 
 
@@ -35,7 +36,8 @@ class DukascopyBatchPlan:
     end: datetime
     batch_days: int
     max_days: int | None
-    timeframes: tuple[str, ...]
+    total_days: float
+    dry_run: bool
     batches: tuple[DukascopyBatch, ...]
     total_expected_hours: int
     total_cached_raw_files: int
@@ -70,9 +72,10 @@ def _build_one_batch(
 ) -> DukascopyBatch:
     hours = iter_utc_hours(start, end)
     cached_raw_files = sum(1 for hour in hours if raw_bi5_cache_path(cache_dir, symbol, hour).exists())
-    complete_ohlcv_timeframes = tuple(
-        timeframe for timeframe in timeframes if ohlcv_cache_path(cache_dir, symbol, start, end, timeframe).exists()
-    )
+    ohlcv_paths = {
+        timeframe: ohlcv_cache_path(cache_dir, symbol, start, end, timeframe) for timeframe in timeframes
+    }
+    complete_ohlcv_timeframes = tuple(timeframe for timeframe, path in ohlcv_paths.items() if path.exists())
 
     return DukascopyBatch(
         symbol=symbol,
@@ -81,6 +84,7 @@ def _build_one_batch(
         expected_hours=len(hours),
         cached_raw_files=cached_raw_files,
         missing_raw_files=len(hours) - cached_raw_files,
+        ohlcv_paths=ohlcv_paths,
         complete_ohlcv_timeframes=complete_ohlcv_timeframes,
     )
 
@@ -94,6 +98,7 @@ def build_batch_plan(
     cache_dir: Path,
     max_days: int | None = None,
     timeframes: tuple[str, ...] = DEFAULT_TIMEFRAMES,
+    dry_run: bool = True,
 ) -> DukascopyBatchPlan:
     """Build a guarded half-open UTC batch plan for Dukascopy research data."""
     if batch_days <= 0:
@@ -104,7 +109,7 @@ def build_batch_plan(
     symbol_norm = normalize_symbol(symbol)
     start_utc = _as_utc(start)
     end_utc = _as_utc(end)
-    _validate_range(start_utc, end_utc, max_days=max_days)
+    total_days = _validate_range(start_utc, end_utc, max_days=max_days)
 
     batch_delta = timedelta(days=batch_days)
     batches: list[DukascopyBatch] = []
@@ -128,7 +133,8 @@ def build_batch_plan(
         end=end_utc,
         batch_days=batch_days,
         max_days=max_days,
-        timeframes=timeframes,
+        total_days=total_days,
+        dry_run=dry_run,
         batches=tuple(batches),
         total_expected_hours=sum(batch.expected_hours for batch in batches),
         total_cached_raw_files=sum(batch.cached_raw_files for batch in batches),

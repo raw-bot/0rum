@@ -25,6 +25,9 @@ def test_build_batch_plan_splits_half_open_utc_ranges(tmp_path):
     )
 
     assert plan.symbol == "XAUUSD"
+    assert plan.total_days == 10.0
+    assert plan.dry_run is True
+    assert not hasattr(plan, "timeframes")
     assert plan.total_expected_hours == 240
     assert [batch.expected_hours for batch in plan.batches] == [120, 120]
     assert [batch.start for batch in plan.batches] == [
@@ -35,6 +38,10 @@ def test_build_batch_plan_splits_half_open_utc_ranges(tmp_path):
         datetime(2020, 1, 6, tzinfo=UTC),
         datetime(2020, 1, 11, tzinfo=UTC),
     ]
+    assert plan.batches[0].ohlcv_paths == {
+        "M15": ohlcv_cache_path(tmp_path, "XAUUSD", plan.batches[0].start, plan.batches[0].end, "M15"),
+        "H1": ohlcv_cache_path(tmp_path, "XAUUSD", plan.batches[0].start, plan.batches[0].end, "H1"),
+    }
 
 
 def test_build_batch_plan_counts_cached_and_missing_raw_files(tmp_path):
@@ -61,12 +68,16 @@ def test_build_batch_plan_counts_cached_and_missing_raw_files(tmp_path):
         max_days=1,
         cache_dir=tmp_path,
         timeframes=("M15", "H1"),
+        dry_run=False,
     )
 
     batch = plan.batches[0]
+    assert plan.dry_run is False
     assert batch.expected_hours == 3
     assert batch.cached_raw_files == 2
     assert batch.missing_raw_files == 1
+    assert batch.ohlcv_paths["M15"] == ohlcv_cache_path(tmp_path, "XAUUSD", start, end, "M15")
+    assert batch.ohlcv_paths["H1"] == ohlcv_cache_path(tmp_path, "XAUUSD", start, end, "H1")
     assert batch.complete_ohlcv_timeframes == ("M15",)
     assert plan.total_cached_raw_files == 2
     assert plan.total_missing_raw_files == 1
