@@ -18,7 +18,6 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.data.dukascopy import (  # noqa: E402
-    DukascopyQAReport,
     DukascopyTickDownloader,
     build_batch_plan,
     build_dukascopy_bi5_url,
@@ -46,19 +45,18 @@ def format_plan(plan) -> list[str]:
         f"end={plan.end.isoformat()}",
         f"batch_days={plan.batch_days}",
         f"max_days={plan.max_days}",
-        f"total_days={plan.total_days}",
+        f"total_days={plan.total_days:.2f}",
         f"total_expected_hours={plan.total_expected_hours}",
         f"total_cached_raw_files={plan.total_cached_raw_files}",
         f"total_missing_raw_files={plan.total_missing_raw_files}",
         f"dry_run={plan.dry_run}",
     ]
     for index, batch in enumerate(plan.batches, start=1):
-        complete_ohlcv = ",".join(batch.complete_ohlcv_timeframes)
+        complete_ohlcv = ",".join(batch.complete_ohlcv_timeframes) or "-"
         lines.append(
             " ".join(
                 [
                     f"batch={index}",
-                    f"index={index}",
                     f"start={batch.start.isoformat()}",
                     f"end={batch.end.isoformat()}",
                     f"expected_hours={batch.expected_hours}",
@@ -80,8 +78,8 @@ def format_qa_report(report) -> list[str]:
         f"end={report.end.isoformat()}",
         f"timeframe={report.timeframe}",
         f"tick_rows={report.tick_rows}",
-        f"first_timestamp={report.first_timestamp.isoformat() if report.first_timestamp else None}",
-        f"last_timestamp={report.last_timestamp.isoformat() if report.last_timestamp else None}",
+        f"first_timestamp={report.first_timestamp.isoformat() if report.first_timestamp else '-'}",
+        f"last_timestamp={report.last_timestamp.isoformat() if report.last_timestamp else '-'}",
         f"invalid_ohlc_count={report.invalid_ohlc_count}",
     ]
     for timeframe, rows in report.candle_rows_by_timeframe.items():
@@ -217,29 +215,13 @@ async def run_qa(args: argparse.Namespace) -> None:
     """Print a QA report for cached Dukascopy research data."""
     start = parse_utc_datetime(args.start)
     end = parse_utc_datetime(args.end)
-    try:
-        report = build_qa_report(
-            cache_dir=Path(args.cache_dir),
-            symbol=args.symbol,
-            start=start,
-            end=end,
-            timeframe=args.timeframe,
-        )
-    except ValueError as exc:
-        if "time data" not in str(exc):
-            raise
-        report = DukascopyQAReport(
-            symbol=args.symbol.upper().replace("/", ""),
-            start=start,
-            end=end,
-            timeframe=args.timeframe,
-            tick_rows=0,
-            candle_rows_by_timeframe={args.timeframe: 0},
-            first_timestamp=None,
-            last_timestamp=None,
-            invalid_ohlc_count=0,
-            gaps=(),
-        )
+    report = build_qa_report(
+        cache_dir=Path(args.cache_dir),
+        symbol=args.symbol,
+        start=start,
+        end=end,
+        timeframe=args.timeframe,
+    )
     for line in format_qa_report(report):
         print(line)
 
