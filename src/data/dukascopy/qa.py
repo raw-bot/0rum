@@ -61,7 +61,7 @@ def _cached_files(cache_dir: Path, symbol: str, kind: str, suffix: str) -> list[
     return sorted(path for path in root.rglob(f"*{suffix}") if path.is_file())
 
 
-def _read_cached_csvs(paths: list[Path]) -> pd.DataFrame:
+def _read_cached_csvs(paths: list[Path], *, dedupe: str) -> pd.DataFrame:
     frames: list[pd.DataFrame] = []
     for path in paths:
         frame = pd.read_csv(path)
@@ -74,7 +74,12 @@ def _read_cached_csvs(paths: list[Path]) -> pd.DataFrame:
         return pd.DataFrame()
 
     combined = pd.concat(frames, ignore_index=True)
-    combined = combined.drop_duplicates(subset=["timestamp"], keep="last")
+    if dedupe == "timestamp":
+        combined = combined.drop_duplicates(subset=["timestamp"], keep="last")
+    elif dedupe == "row":
+        combined = combined.drop_duplicates(keep="last")
+    else:
+        raise ValueError(f"Unsupported cached CSV dedupe mode: {dedupe}")
     return combined.sort_values("timestamp").reset_index(drop=True)
 
 
@@ -85,7 +90,7 @@ def _filter_range(frame: pd.DataFrame, start: datetime, end: datetime) -> pd.Dat
 
 
 def _load_ticks(cache_dir: Path, symbol: str, start: datetime, end: datetime) -> pd.DataFrame:
-    ticks = _read_cached_csvs(_cached_files(cache_dir, symbol, "ticks", "_ticks.csv"))
+    ticks = _read_cached_csvs(_cached_files(cache_dir, symbol, "ticks", "_ticks.csv"), dedupe="row")
     return _filter_range(ticks, start, end)
 
 
@@ -99,7 +104,10 @@ def load_cached_ohlcv(
     """Load UTC-filtered cached OHLCV CSV rows for one symbol and timeframe."""
     start_utc = _as_utc(start)
     end_utc = _as_utc(end)
-    candles = _read_cached_csvs(_cached_files(cache_dir, symbol, "ohlcv", f"_{timeframe}.csv"))
+    candles = _read_cached_csvs(
+        _cached_files(cache_dir, symbol, "ohlcv", f"_{timeframe}.csv"),
+        dedupe="timestamp",
+    )
     return _filter_range(candles, start_utc, end_utc)
 
 
@@ -130,8 +138,7 @@ def _is_weekend_close(missing: pd.DatetimeIndex) -> bool:
     last = missing[-1]
     return (
         _has_weekend_timestamp(missing)
-        or (first.weekday() == 4 and first.hour >= 20)
-        or (last.weekday() == 0 and last.hour <= 2)
+        or (first.weekday() == 4 and first.hour >= 20 and last.weekday() == 0 and last.hour <= 2)
     )
 
 
@@ -178,12 +185,14 @@ def _detect_gaps(
 ) -> tuple[DukascopyGap, ...]:
     if timeframe not in TIMEFRAME_FREQ:
         raise ValueError(f"Unsupported Dukascopy QA timeframe: {timeframe}")
-    if candles.empty:
-        return ()
-
     freq = TIMEFRAME_FREQ[timeframe]
     expected = pd.date_range(start, end, freq=freq, inclusive="left")
-    present = pd.DatetimeIndex(pd.to_datetime(candles["timestamp"], utc=True).drop_duplicates())
+    if expected.empty:
+        return ()
+    if candles.empty:
+        present = pd.DatetimeIndex([], tz=expected.tz)
+    else:
+        present = pd.DatetimeIndex(pd.to_datetime(candles["timestamp"], utc=True).drop_duplicates())
     missing = expected.difference(present)
 
     gaps: list[DukascopyGap] = []

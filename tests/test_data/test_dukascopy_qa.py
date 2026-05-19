@@ -19,16 +19,14 @@ def _write_ohlcv(path, timestamps):
     path.write_text("\n".join(rows) + "\n", encoding="utf-8")
 
 
-def _write_ticks(path):
+def _write_ticks(path, rows=None):
     path.parent.mkdir(parents=True, exist_ok=True)
+    tick_rows = rows or [
+        "2020-01-02T09:00:00Z,2000,2001,1,1",
+        "2020-01-02T09:00:01Z,2000.5,2001.5,1,1",
+    ]
     path.write_text(
-        "\n".join(
-            [
-                "timestamp,bid,ask,bid_volume,ask_volume",
-                "2020-01-02T09:00:00Z,2000,2001,1,1",
-                "2020-01-02T09:00:01Z,2000.5,2001.5,1,1",
-            ]
-        )
+        "\n".join(["timestamp,bid,ask,bid_volume,ask_volume", *tick_rows])
         + "\n",
         encoding="utf-8",
     )
@@ -68,6 +66,56 @@ def test_qa_report_counts_ticks_candles_and_invalid_ohlc(tmp_path):
     assert report.last_timestamp == datetime(2020, 1, 2, 9, 45, tzinfo=UTC)
     assert report.invalid_ohlc_count == 1
     assert report.gaps == ()
+
+
+def test_qa_report_counts_distinct_ticks_with_same_timestamp(tmp_path):
+    start = datetime(2020, 1, 2, 9, tzinfo=UTC)
+    end = datetime(2020, 1, 2, 10, tzinfo=UTC)
+    _write_ticks(
+        ticks_cache_path(tmp_path, "XAUUSD", start, end),
+        rows=[
+            "2020-01-02T09:00:00Z,2000,2001,1,1",
+            "2020-01-02T09:00:00Z,2000.5,2001.5,2,2",
+            "2020-01-02T09:00:00Z,2000.5,2001.5,2,2",
+        ],
+    )
+    _write_ohlcv(
+        ohlcv_cache_path(tmp_path, "XAUUSD", start, end, "M15"),
+        [
+            "2020-01-02T09:00:00Z",
+            "2020-01-02T09:15:00Z",
+            "2020-01-02T09:30:00Z",
+            "2020-01-02T09:45:00Z",
+        ],
+    )
+
+    report = build_qa_report(
+        cache_dir=tmp_path,
+        symbol="XAUUSD",
+        start=start,
+        end=end,
+        timeframe="M15",
+    )
+
+    assert report.tick_rows == 2
+
+
+def test_qa_report_marks_empty_cache_range_as_suspicious_gap(tmp_path):
+    start = datetime(2020, 1, 2, 9, tzinfo=UTC)
+    end = datetime(2020, 1, 2, 10, tzinfo=UTC)
+
+    report = build_qa_report(
+        cache_dir=tmp_path,
+        symbol="XAUUSD",
+        start=start,
+        end=end,
+        timeframe="M15",
+    )
+
+    assert report.candle_rows_by_timeframe == {"M15": 0}
+    assert len(report.gaps) == 1
+    assert report.gaps[0].missing_candles == 4
+    assert report.gaps[0].classification == GapClassification.SUSPICIOUS_GAP
 
 
 def test_qa_classifies_january_end_session_pause_without_fixed_hour(tmp_path):
@@ -129,6 +177,19 @@ def test_qa_classifies_weekend_close(tmp_path):
     report = build_qa_report(cache_dir=tmp_path, symbol="XAUUSD", start=start, end=end, timeframe="M15")
 
     assert report.gaps[0].classification == GapClassification.WEEKEND_CLOSE
+
+
+def test_qa_classifies_short_friday_evening_gap_as_suspicious(tmp_path):
+    start = datetime(2020, 1, 3, 20, tzinfo=UTC)
+    end = datetime(2020, 1, 3, 21, tzinfo=UTC)
+    present = ["2020-01-03T20:00:00Z"]
+    _write_ohlcv(ohlcv_cache_path(tmp_path, "XAUUSD", start, end, "M15"), present)
+
+    report = build_qa_report(cache_dir=tmp_path, symbol="XAUUSD", start=start, end=end, timeframe="M15")
+
+    assert len(report.gaps) == 1
+    assert report.gaps[0].missing_candles == 3
+    assert report.gaps[0].classification == GapClassification.SUSPICIOUS_GAP
 
 
 def test_qa_classifies_mid_session_missing_candles_as_suspicious(tmp_path):
