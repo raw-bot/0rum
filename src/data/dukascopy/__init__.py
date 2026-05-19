@@ -12,6 +12,7 @@ from src.data.dukascopy.bi5 import (
     resample_ticks_to_ohlcv,
     ticks_cache_path,
 )
+from src.data.dukascopy.importer import DukascopyImportReport, import_dukascopy_ohlcv_cache
 from src.data.dukascopy.qa import (
     DukascopyGap,
     DukascopyQAReport,
@@ -25,6 +26,7 @@ __all__ = [
     "DukascopyBatchPlan",
     "DukascopyDownloadSummary",
     "DukascopyGap",
+    "DukascopyImportReport",
     "DukascopyQAReport",
     "DukascopyTickDownloader",
     "GapClassification",
@@ -33,6 +35,7 @@ __all__ = [
     "build_qa_report",
     "decompress_bi5",
     "load_cached_ohlcv",
+    "import_dukascopy_ohlcv_cache",
     "ohlcv_cache_path",
     "parse_tick_bi5",
     "raw_bi5_cache_path",

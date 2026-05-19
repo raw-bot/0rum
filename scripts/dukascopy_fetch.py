@@ -22,6 +22,7 @@ from src.data.dukascopy import (  # noqa: E402
     build_batch_plan,
     build_dukascopy_bi5_url,
     build_qa_report,
+    import_dukascopy_ohlcv_cache,
 )
 
 
@@ -232,6 +233,39 @@ async def run_qa(args: argparse.Namespace) -> None:
         print(line)
 
 
+async def run_import_postgres(args: argparse.Namespace) -> None:
+    """Import cached Dukascopy OHLCV rows into the candles table."""
+    start = parse_utc_datetime(args.start)
+    end = parse_utc_datetime(args.end)
+    reports = await import_dukascopy_ohlcv_cache(
+        cache_dir=Path(args.cache_dir),
+        symbol=args.symbol,
+        start=start,
+        end=end,
+        timeframes=tuple(args.timeframes),
+        instrument="XAUUSD",
+        dry_run=args.dry_run,
+        batch_size=args.batch_size,
+    )
+
+    print("Dukascopy Postgres import")
+    print(f"symbol={args.symbol.upper()}")
+    print("instrument=XAUUSD")
+    print(f"dry_run={args.dry_run}")
+    for timeframe in args.timeframes:
+        report = reports[timeframe]
+        print(
+            " ".join(
+                [
+                    f"timeframe={report.timeframe}",
+                    f"source_rows={report.source_rows}",
+                    f"built_rows={report.built_rows}",
+                    f"inserted_rows={report.inserted_rows}",
+                ]
+            )
+        )
+
+
 async def run_range(args: argparse.Namespace) -> None:
     """Fetch a bounded range and write ticks + OHLCV CSV files."""
     start = parse_utc_datetime(args.start)
@@ -331,6 +365,18 @@ def main() -> None:
     qa.add_argument("--timeframe", default="M15")
     qa.add_argument("--cache-dir", default=str(DEFAULT_CACHE_DIR))
 
+    import_postgres = subparsers.add_parser(
+        "import-postgres",
+        help="Import cached Dukascopy OHLCV into PostgreSQL candles.",
+    )
+    import_postgres.add_argument("--symbol", default="XAUUSD")
+    import_postgres.add_argument("--start", required=True, help="UTC ISO datetime, e.g. 2026-05-18T09:00:00Z.")
+    import_postgres.add_argument("--end", required=True, help="UTC ISO datetime, e.g. 2026-05-19T09:00:00Z.")
+    import_postgres.add_argument("--timeframes", nargs="+", default=["M15", "H1", "H4", "D1"])
+    import_postgres.add_argument("--cache-dir", default=str(DEFAULT_CACHE_DIR))
+    import_postgres.add_argument("--batch-size", type=int, default=5000)
+    import_postgres.add_argument("--dry-run", action="store_true")
+
     args = parser.parse_args()
     try:
         if args.command == "probe":
@@ -343,6 +389,8 @@ def main() -> None:
             asyncio.run(run_batch_fetch(args))
         elif args.command == "qa":
             asyncio.run(run_qa(args))
+        elif args.command == "import-postgres":
+            asyncio.run(run_import_postgres(args))
     except RuntimeError as exc:
         parser.exit(1, f"error: {exc}\n")
 
