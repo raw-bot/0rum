@@ -15,6 +15,7 @@ from src.backtesting.historical_loader import (
     bulk_insert_candles,
     dataframe_to_candle_records,
 )
+from src.data.dukascopy.bi5 import normalize_symbol
 from src.data.dukascopy.qa import load_cached_ohlcv
 from src.database import AsyncSessionLocal
 
@@ -40,6 +41,11 @@ def _validate_timeframe(timeframe: str) -> None:
         raise ValueError(f"Unsupported Dukascopy import timeframe: {timeframe}")
 
 
+def _validate_xauusd(*, symbol: str, instrument: str) -> None:
+    if normalize_symbol(symbol) != "XAUUSD" or normalize_symbol(instrument) != "XAUUSD":
+        raise ValueError("Dukascopy import supports only XAUUSD")
+
+
 def _indexed_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return df.copy()
@@ -61,6 +67,7 @@ async def import_dukascopy_ohlcv_cache(
     session_factory: async_sessionmaker = AsyncSessionLocal,
 ) -> dict[str, DukascopyImportReport]:
     """Import cached Dukascopy OHLCV CSVs into the research candles table."""
+    _validate_xauusd(symbol=symbol, instrument=instrument)
     for timeframe in timeframes:
         _validate_timeframe(timeframe)
 

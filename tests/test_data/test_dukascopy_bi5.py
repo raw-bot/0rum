@@ -29,6 +29,29 @@ def test_build_dukascopy_bi5_url_uses_zero_based_month():
     assert url == "https://datafeed.dukascopy.com/datafeed/XAUUSD/2026/04/18/09h_ticks.bi5"
 
 
+def test_public_datetime_helpers_treat_naive_datetimes_as_utc():
+    """Public helpers should not reinterpret naive datetimes in local time."""
+    naive_hour = datetime(2026, 5, 18, 9)
+    naive_end = datetime(2026, 5, 18, 10)
+    cache_dir = Path("/tmp/dukascopy-cache")
+
+    assert build_dukascopy_bi5_url("XAUUSD", naive_hour).endswith(
+        "/XAUUSD/2026/04/18/09h_ticks.bi5"
+    )
+    assert iter_utc_hours(naive_hour, naive_end) == [
+        datetime(2026, 5, 18, 9, tzinfo=UTC)
+    ]
+    assert raw_bi5_cache_path(cache_dir, "XAUUSD", naive_hour) == Path(
+        "/tmp/dukascopy-cache/raw/XAUUSD/2026/05/18/09h_ticks.bi5"
+    )
+    assert ticks_cache_path(cache_dir, "XAUUSD", naive_hour, naive_end) == Path(
+        "/tmp/dukascopy-cache/ticks/XAUUSD/20260518T0900_20260518T1000_ticks.csv"
+    )
+    assert ohlcv_cache_path(cache_dir, "XAUUSD", naive_hour, naive_end, "M15") == Path(
+        "/tmp/dukascopy-cache/ohlcv/XAUUSD/20260518T0900_20260518T1000_M15.csv"
+    )
+
+
 def test_decompress_and_parse_tick_bi5_payload():
     """Tick rows are parsed from big-endian Dukascopy binary records."""
     hour = datetime(2026, 5, 18, 9, tzinfo=UTC)

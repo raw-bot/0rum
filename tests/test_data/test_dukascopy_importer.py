@@ -130,3 +130,15 @@ async def test_import_rejects_unsupported_timeframe(tmp_path: Path):
             end=datetime(2026, 5, 18, 10, tzinfo=UTC),
             timeframes=("M5",),
         )
+
+
+@pytest.mark.asyncio
+async def test_import_rejects_non_xauusd_symbol(tmp_path: Path):
+    with pytest.raises(ValueError, match="Dukascopy import supports only XAUUSD"):
+        await import_dukascopy_ohlcv_cache(
+            cache_dir=tmp_path,
+            symbol="XAGUSD",
+            start=datetime(2026, 5, 18, 9, tzinfo=UTC),
+            end=datetime(2026, 5, 18, 10, tzinfo=UTC),
+            timeframes=("M15",),
+        )

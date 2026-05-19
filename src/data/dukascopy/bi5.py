@@ -50,6 +50,13 @@ def normalize_symbol(symbol: str) -> str:
     return symbol.upper().replace("/", "").replace(":", "")
 
 
+def _as_utc(value: datetime) -> datetime:
+    """Treat naive datetimes as UTC and normalize aware datetimes to UTC."""
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
 def price_scale_for_symbol(symbol: str, price_scale: int | None = None) -> int:
     """Return integer price divisor used by Dukascopy tick prices."""
     if price_scale is not None:
@@ -67,7 +74,7 @@ def build_dukascopy_bi5_url(
 
     Dukascopy datafeed paths use zero-based months: January is `00`.
     """
-    utc_hour = hour_start.astimezone(UTC)
+    utc_hour = _as_utc(hour_start)
     month_zero_based = utc_hour.month - 1
     return (
         f"{base_url.rstrip('/')}/{normalize_symbol(symbol)}/"
@@ -78,8 +85,8 @@ def build_dukascopy_bi5_url(
 
 def iter_utc_hours(start: datetime, end: datetime) -> list[datetime]:
     """Return UTC hour starts for `[start, end)`."""
-    start_utc = start.astimezone(UTC).replace(minute=0, second=0, microsecond=0)
-    end_utc = end.astimezone(UTC)
+    start_utc = _as_utc(start).replace(minute=0, second=0, microsecond=0)
+    end_utc = _as_utc(end)
     hours: list[datetime] = []
     cursor = start_utc
     while cursor < end_utc:
@@ -115,7 +122,7 @@ def parse_tick_bi5(
         )
 
     scale = price_scale_for_symbol(symbol, price_scale)
-    hour_utc = hour_start.astimezone(UTC).replace(minute=0, second=0, microsecond=0)
+    hour_utc = _as_utc(hour_start).replace(minute=0, second=0, microsecond=0)
     rows: list[dict[str, object]] = []
     for offset in range(0, len(payload), TICK_STRUCT.size):
         ms_offset, ask_raw, bid_raw, ask_volume, bid_volume = TICK_STRUCT.unpack_from(payload, offset)
@@ -160,7 +167,7 @@ def resample_ticks_to_ohlcv(ticks: pd.DataFrame, timeframe: str) -> pd.DataFrame
 
 
 def _date_path(root: Path, symbol: str, hour_start: datetime) -> Path:
-    hour_utc = hour_start.astimezone(UTC)
+    hour_utc = _as_utc(hour_start)
     return (
         root
         / "raw"
@@ -184,7 +191,7 @@ def ticks_cache_path(cache_dir: Path, symbol: str, start: datetime, end: datetim
         cache_dir
         / "ticks"
         / symbol_norm
-        / f"{start.astimezone(UTC):%Y%m%dT%H%M}_{end.astimezone(UTC):%Y%m%dT%H%M}_ticks.csv"
+        / f"{_as_utc(start):%Y%m%dT%H%M}_{_as_utc(end):%Y%m%dT%H%M}_ticks.csv"
     )
 
 
@@ -195,7 +202,7 @@ def ohlcv_cache_path(cache_dir: Path, symbol: str, start: datetime, end: datetim
         cache_dir
         / "ohlcv"
         / symbol_norm
-        / f"{start.astimezone(UTC):%Y%m%dT%H%M}_{end.astimezone(UTC):%Y%m%dT%H%M}_{timeframe}.csv"
+        / f"{_as_utc(start):%Y%m%dT%H%M}_{_as_utc(end):%Y%m%dT%H%M}_{timeframe}.csv"
     )
 
 
@@ -272,7 +279,9 @@ class DukascopyTickDownloader:
             if progress_callback is not None:
                 progress_callback(index, len(hours), hour_start, len(frame))
         ticks = pd.concat(hourly_frames).sort_index() if hourly_frames else pd.DataFrame()
-        ticks = ticks[(ticks.index >= start.astimezone(UTC)) & (ticks.index < end.astimezone(UTC))]
+        start_utc = _as_utc(start)
+        end_utc = _as_utc(end)
+        ticks = ticks[(ticks.index >= start_utc) & (ticks.index < end_utc)]
 
         ticks_path = ticks_cache_path(self.cache_dir, symbol_norm, start, end)
         ticks_path.parent.mkdir(parents=True, exist_ok=True)
@@ -288,8 +297,8 @@ class DukascopyTickDownloader:
 
         return DukascopyDownloadSummary(
             symbol=symbol_norm,
-            start=start.astimezone(UTC),
-            end=end.astimezone(UTC),
+            start=start_utc,
+            end=end_utc,
             raw_files=len(hours),
             tick_rows=len(ticks),
             cache_dir=self.cache_dir,

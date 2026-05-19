@@ -27,12 +27,6 @@ Do not use:
 - paid data subscriptions
 - live-trading conclusions
 
-Local CSV helper:
-
-```bash
-./.venv/bin/python scripts/research_csv_loader.py qa path/to/ohlcv.csv --timeframes D1
-```
-
 Dukascopy helper:
 
 ```bash
