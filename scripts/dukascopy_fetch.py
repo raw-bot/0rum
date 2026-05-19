@@ -134,16 +134,19 @@ async def run_batch_plan(args: argparse.Namespace) -> None:
     """Print a guarded dry-run batch plan."""
     start = parse_utc_datetime(args.start)
     end = parse_utc_datetime(args.end)
-    plan = build_batch_plan(
-        symbol=args.symbol,
-        start=start,
-        end=end,
-        batch_days=args.batch_days,
-        max_days=args.max_days,
-        cache_dir=Path(args.cache_dir),
-        timeframes=tuple(args.timeframes),
-        dry_run=True,
-    )
+    try:
+        plan = build_batch_plan(
+            symbol=args.symbol,
+            start=start,
+            end=end,
+            batch_days=args.batch_days,
+            max_days=args.max_days,
+            cache_dir=Path(args.cache_dir),
+            timeframes=tuple(args.timeframes),
+            dry_run=True,
+        )
+    except ValueError as exc:
+        raise RuntimeError(str(exc)) from exc
     for line in format_plan(plan):
         print(line)
 
@@ -155,16 +158,19 @@ async def run_batch_fetch(args: argparse.Namespace) -> None:
 
     start = parse_utc_datetime(args.start)
     end = parse_utc_datetime(args.end)
-    plan = build_batch_plan(
-        symbol=args.symbol,
-        start=start,
-        end=end,
-        batch_days=args.batch_days,
-        max_days=args.max_days,
-        cache_dir=Path(args.cache_dir),
-        timeframes=tuple(args.timeframes),
-        dry_run=args.dry_run,
-    )
+    try:
+        plan = build_batch_plan(
+            symbol=args.symbol,
+            start=start,
+            end=end,
+            batch_days=args.batch_days,
+            max_days=args.max_days,
+            cache_dir=Path(args.cache_dir),
+            timeframes=tuple(args.timeframes),
+            dry_run=args.dry_run,
+        )
+    except ValueError as exc:
+        raise RuntimeError(str(exc)) from exc
     for line in format_plan(plan):
         print(line)
     if args.dry_run:
