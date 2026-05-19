@@ -37,11 +37,11 @@ class DukascopyBatchPlan:
     batch_days: int
     max_days: int | None
     total_days: float
-    dry_run: bool
-    batches: tuple[DukascopyBatch, ...]
     total_expected_hours: int
     total_cached_raw_files: int
     total_missing_raw_files: int
+    dry_run: bool
+    batches: tuple[DukascopyBatch, ...]
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -96,8 +96,8 @@ def build_batch_plan(
     end: datetime,
     batch_days: int,
     cache_dir: Path,
-    max_days: int | None = None,
     timeframes: tuple[str, ...] = DEFAULT_TIMEFRAMES,
+    max_days: int | None = None,
     dry_run: bool = True,
 ) -> DukascopyBatchPlan:
     """Build a guarded half-open UTC batch plan for Dukascopy research data."""
@@ -134,9 +134,9 @@ def build_batch_plan(
         batch_days=batch_days,
         max_days=max_days,
         total_days=total_days,
-        dry_run=dry_run,
-        batches=tuple(batches),
         total_expected_hours=sum(batch.expected_hours for batch in batches),
         total_cached_raw_files=sum(batch.cached_raw_files for batch in batches),
         total_missing_raw_files=sum(batch.missing_raw_files for batch in batches),
+        dry_run=dry_run,
+        batches=tuple(batches),
     )
