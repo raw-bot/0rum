@@ -3,27 +3,13 @@
 > **Spec technique complète du trading bot autonome XAUUSD.**
 > Ce fichier est la source unique de vérité. Codex doit pouvoir construire le système entier à partir de ce document seul.
 
-## Realignment Override — 2026-04-10
-
-Les anciennes références broker/provider dans ce document sont désormais **legacy** et ne doivent plus piloter l'implémentation courante.
+## Provider Truth Override — 2026-05-20
 
 Règles de priorité :
-- `market data provider` et `execution broker` sont **deux concerns séparés**
-- la cible historique **IG demo → live** ne pilote plus l'implémentation courante
-- l'implémentation Binance/CCXT `PAXG/USDT` de la Phase 2 reste **tolérée uniquement pour la plomberie et la Phase 4 provider-agnostic**
-- **Phase 5 et au-delà** ne doivent pas être validées sur le proxy `PAXG/USDT`
-- en cas de conflit avec une section plus bas qui suppose un ancien provider ou broker, cet addendum l'emporte
-
-## Provider Deprecation Override — 2026-05-18
-
-Le flux **IG demo -> live** est désormais sorti de la trajectoire active du projet.
-
-Règles de priorité :
-- IG est considéré **legacy / inactif** pour le runtime et la validation (data insuffisante + cooldown incompatible)
 - la voie runtime actuelle reste le proxy `Binance/CCXT PAXG/USDT` uniquement pour la plomberie
 - la source active research/backtest validée pour le vrai `XAUUSD` est **Dukascopy public `.bi5`**
 - Dukascopy ne doit pas être traité comme provider live/runtime
-- toute section plus bas qui présente IG comme cible prioritaire doit être lue comme historique
+- toute section plus bas qui présente un autre provider comme cible active doit être lue comme historique
 - la séparation `market data provider` / `execution broker` reste obligatoire
 
 ## Monitoring Surface Override — 2026-05-20
@@ -191,14 +177,6 @@ jinja2 (dashboard web local)
 # === MARKET DATA PROVIDER ===
 MARKET_DATA_PROVIDER=binance
 
-# === IG DEMO ===
-IG_API_KEY=your-ig-api-key
-IG_IDENTIFIER=your-ig-demo-identifier
-IG_PASSWORD=your-ig-demo-password
-IG_ACCOUNT_ID=your-ig-demo-account-id
-IG_API_URL=https://demo-api.ig.com/gateway/deal
-IG_XAUUSD_EPIC=CS.D.CFEGOLD.CFE.IP
-
 # === DATABASE ===
 DATABASE_URL=postgresql+asyncpg://orum:orum@postgres:5432/orum
 REDIS_URL=redis://redis:6379/0
@@ -238,14 +216,6 @@ class ExecutionMode(str, Enum):
 
 class Settings(BaseSettings):
     market_data_provider: str = "binance"
-
-    # IG legacy/debug only
-    ig_api_key: str = ""
-    ig_identifier: str = ""
-    ig_password: str = ""
-    ig_account_id: str = ""
-    ig_api_url: str = "https://demo-api.ig.com/gateway/deal"
-    ig_xauusd_epic: str = ""
 
     # Database
     database_url: str
@@ -1088,7 +1058,6 @@ Mode: SIGNAL
 - La source research/backtest prioritaire pour le vrai `XAUUSD` est **Dukascopy public `.bi5`**
 - `market data provider` et `execution broker` doivent rester découplés dans l'architecture
 - Le proxy `Binance/CCXT PAXG/USDT` ne doit pas être utilisé pour valider la qualité stratégique en Phase 5+
-- IG demo/live est legacy/inactif
 - Toute future intégration broker doit préserver les timeframes `M15`, `H1`, `H4`, `D1`, le stockage uniforme dans `candles`, et l'abstraction `ExecutionRouter`
 
 ---

@@ -2,7 +2,7 @@
 
 ## Overview
 
-0rum builds a 24/7 autonomous XAUUSD trading bot in eight natural delivery phases, each one unblocking the next. The critical path runs from infrastructure through data ingestion, strategies, signal pipeline, backtesting validation, and risk gates — all of which must be complete and proven before a single signal leaves the system. Signal mode ships first (Phase 7) so strategy quality can be validated for a minimum of four weeks against real market conditions before auto-execution is ever enabled (Phase 8). Current provider strategy: Phase 4 may continue on the existing candle contract, but Phase 5 and beyond must use a real XAUUSD-aligned provider feed; IG demo → live is the current target.
+0rum builds a 24/7 autonomous XAUUSD trading bot in eight natural delivery phases, each one unblocking the next. The critical path runs from infrastructure through data ingestion, strategies, signal pipeline, backtesting validation, and risk gates — all of which must be complete and proven before a single signal leaves the system. Signal mode ships first (Phase 7) so strategy quality can be validated for a minimum of four weeks against real market conditions before auto-execution is ever enabled (Phase 8). Current provider strategy: Binance/PAXG remains runtime plumbing only, while Phase 5 and later research/backtest validation use Dukascopy public `.bi5` XAUUSD data.
 
 ## Phases
 
@@ -90,27 +90,27 @@ Plans:
 - [x] 04-02-PLAN.md — Ranker (composite score + alignment map) + quota gate + PipelineRunner coordinator (in-memory → atomic DB write)
 - [x] 04-03-PLAN.md — APScheduler 15-min pipeline job (StrategyRunner → PipelineRunner inline) + unit tests for all pipeline modules
 
-### Phase 4.1: IG-Light Ingestion Hardening (INSERTED)
-**Goal**: Make IG-backed XAUUSD ingestion safe for continuous operation by replacing bulk startup backfill with bounded warm-up, incremental refresh, and limited gap recovery.
+### Phase 4.1: Runtime Ingestion Hardening (INSERTED)
+**Goal**: Make runtime ingestion safe for continuous operation by keeping startup backfill, incremental refresh, and gap recovery bounded.
 **Depends on**: Phase 4
 **Requirements**: DATA-01, DATA-02
 **Success Criteria** (what must be TRUE):
-  1. Startup with IG no longer triggers the 6-month automatic backfill.
+  1. Startup ingestion no longer triggers unbounded provider requests.
   2. Empty or cold databases are warmed with bounded per-timeframe candle windows only.
   3. Scheduled refresh jobs request only a small recent overlap window per timeframe.
-  4. Gap recovery is bounded and refuses oversized historical repairs on IG.
-  5. Default IG-light settings remain within the historical data budget envelope for continuous weekly operation.
-  6. Ingestion tests prove no automatic IG path issues a bulk historical request.
+  4. Gap recovery is bounded and refuses oversized historical repairs.
+  5. Default runtime settings remain within the request budget envelope for continuous weekly operation.
+  6. Ingestion tests prove no automatic runtime path issues a bulk historical request.
 **Plans**: 3 plans
 
 Plans:
-- [x] 04.1-01 — `CandleFetcher.warm_up_timeframe` / `warm_up_all`: single bounded fetch per TF, no date-range walk
-- [x] 04.1-02 — `main.py` provider branch (IG → warm_up_all, Binance → backfill_all) + `GapDetector` max_gap_bars guard + bounded to_time on fill
-- [x] 04.1-03 — `scheduler/jobs.py` wires ig_max_gap_bars + ingestion test suite extended (5 new tests, 1 corrected)
+- [x] 04.1-01 — Runtime startup ingestion guardrails: bounded fetch windows, no unbounded date-range walk
+- [x] 04.1-02 — `main.py` startup ingestion + `GapDetector` max_gap_bars guard + bounded fill behavior
+- [x] 04.1-03 — `scheduler/jobs.py` wires gap guardrails + ingestion test suite extended
 
 ### Phase 5: Backtesting & Validation
 **Goal**: Every strategy has walk-forward validated parameters with WFE > 50% before any signal can be generated from them
-**Provider Gate**: Do not validate this phase on the Binance/PAXG proxy. IG and OANDA are no longer active candidates. Phase 5 historical validation uses HistData XAUUSD M1 as an offline bootstrap source; runtime XAUUSD provider selection is deferred before Phase 7.
+**Provider Gate**: Do not validate this phase on the Binance/PAXG proxy. Phase 5 historical validation uses Dukascopy public `.bi5` XAUUSD data; runtime provider and execution broker selection remain separate.
 **Depends on**: Phase 2, Phase 3
 **Requirements**: OPTIM-01, OPTIM-02, OPTIM-03, OPTIM-04, OPTIM-05
 **Success Criteria** (what must be TRUE):
@@ -126,7 +126,7 @@ Plans:
 - [x] 05-01-PLAN.md — Walk-forward core (walk_forward.py, monte_carlo.py) + full unit test suite (window construction, WFE calc, multi-window gate, P95/P5 gates)
 - [x] 05-02-PLAN.md — Optimizer core (optimizer.py: LHS sampling, sliding-window backtester, WFE gate, DB write) + unit tests
 - [x] 05-03-PLAN.md — Scheduler wiring (run_optimizer() 24h job in jobs.py) + scheduler wiring tests
-- [x] 05-04-PLAN.md — Historical data provider validation gate (IG insufficient; HistData offline bootstrap selected)
+- [x] 05-04-PLAN.md — Historical data provider validation gate (Dukascopy research/backtest selected)
 - [x] 05-05-PLAN.md — Full statistical validation run + integration tests + Phase 5 sign-off
 
 ### Phase 6: Risk Management
@@ -183,8 +183,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 2. Data Ingestion | 3/3 | Complete | 2026-04-08 |
 | 3. Strategy Engine | 4/4 | Complete | 2026-04-09 |
 | 4. Signal Pipeline | 3/3 | Complete | 2026-04-22 |
-| 4.1. IG-Light Ingestion Hardening | 3/3 | Complete | 2026-04-22 |
-| 5. Backtesting & Validation | 5/5 | Complete (HistData-backed run persisted `liquidity_sweep`; unvalidated strategies skipped at runtime) | 2026-04-26 |
+| 4.1. retired provider-Light Ingestion Hardening | 3/3 | Complete | 2026-04-22 |
+| 5. Backtesting & Validation | 5/5 | Complete (retired bootstrap archive-backed run persisted `liquidity_sweep`; unvalidated strategies skipped at runtime) | 2026-04-26 |
 | 6. Risk Management | 9/9 | Complete | 2026-04-28 |
 | 7. Signal Mode & Monitoring | 1/5 | In Progress | - |
 | 8. Auto Mode | 0/? | Not started | - |

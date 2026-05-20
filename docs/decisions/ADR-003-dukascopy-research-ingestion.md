@@ -36,7 +36,6 @@ The ingestion workflow is:
 
 - Do not install or depend on JForex.
 - Do not require a Dukascopy account or API key.
-- Do not use Stooq for this XAUUSD research path.
 - Do not treat Dukascopy as runtime live validation.
 - Do not route orders through this ingestion path.
 
@@ -54,4 +53,4 @@ Initial classification policy:
 
 0rum can build multi-year research datasets progressively and resume safely from cache. The system remains cheap-validation-first: `research` before `paper_live`, and `paper_live` before `production_candidate`.
 
-Capital.com and cTrader remain possible future candidates for paper/live or execution research. They are separate from the Dukascopy historical ingestion decision.
+Execution broker selection remains separate from the Dukascopy historical ingestion decision.

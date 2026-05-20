@@ -27,7 +27,7 @@ metrics:
 
 # Phase 05 Plan 05: Full Statistical Validation Run — Summary
 
-**One-liner:** WalkForwardOptimizer integration tests and the HistData-backed real run now verify the Phase 5 optimizer path, with only validated strategies allowed through StrategyRunner after optimizer history exists.
+**One-liner:** WalkForwardOptimizer integration tests and the retired bootstrap archive-backed real run now verify the Phase 5 optimizer path, with only validated strategies allowed through StrategyRunner after optimizer history exists.
 
 **Status: COMPLETE.**
 
@@ -70,7 +70,7 @@ Full suite is green with no regressions.
 
 ## Task 2: Human Verification Checkpoint — COMPLETE
 
-Task 2 was completed against the local HistData-backed PostgreSQL database.
+Task 2 was completed against the local retired bootstrap archive-backed PostgreSQL database.
 
 ### Final Verification — 2026-04-26
 

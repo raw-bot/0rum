@@ -35,7 +35,7 @@ def test_parse_candle_valid():
     assert candle.instrument == "XAUUSD"
     assert candle.timeframe == "M15"
     assert candle.open == Decimal("2000.0")
-    assert candle.complete is True  # Binance historical candles are always complete
+    assert candle.complete is True  # Historical provider candles are treated as complete
 
 
 def test_parse_candle_missing_ohlc_returns_none():
@@ -85,7 +85,6 @@ async def test_aclose_propagates_to_market_client():
 
     mock_client.aclose.assert_awaited_once()
 
-
 @pytest.mark.asyncio
 async def test_context_manager_closes_client_on_exit():
     """async with CandleFetcher() closes the client when the block exits."""
@@ -97,55 +96,3 @@ async def test_context_manager_closes_client_on_exit():
         pass
 
     mock_client.aclose.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_warm_up_timeframe_issues_single_count_fetch():
-    """warm_up_timeframe issues exactly one get_candles call using count, no date range."""
-    fetcher = CandleFetcher.__new__(CandleFetcher)
-    fetcher.settings = make_settings()
-    mock_client = AsyncMock()
-    mock_client.get_candles = AsyncMock(return_value=[])
-    fetcher.client = mock_client
-
-    await fetcher.warm_up_timeframe(instrument="XAUUSD", timeframe="M15")
-
-    mock_client.get_candles.assert_awaited_once()
-    kwargs = mock_client.get_candles.call_args.kwargs
-    assert kwargs.get("from_time") is None
-    assert kwargs.get("to_time") is None
-    assert kwargs.get("count", 1) > 0
-
-
-@pytest.mark.asyncio
-async def test_warm_up_all_makes_exactly_four_bounded_fetches():
-    """warm_up_all issues exactly 4 get_candles calls (one per timeframe), no date ranges."""
-    fetcher = CandleFetcher.__new__(CandleFetcher)
-    fetcher.settings = make_settings()
-    mock_client = AsyncMock()
-    mock_client.get_candles = AsyncMock(return_value=[])
-    fetcher.client = mock_client
-
-    await fetcher.warm_up_all()
-
-    assert mock_client.get_candles.call_count == 4
-    for call in mock_client.get_candles.call_args_list:
-        kwargs = call.kwargs
-        assert kwargs.get("from_time") is None
-        assert kwargs.get("to_time") is None
-
-
-@pytest.mark.asyncio
-async def test_warm_up_all_continues_after_timeframe_error():
-    """warm_up_all logs the error and continues to remaining timeframes on failure."""
-    fetcher = CandleFetcher.__new__(CandleFetcher)
-    fetcher.settings = make_settings()
-    mock_client = AsyncMock()
-    mock_client.get_candles = AsyncMock(
-        side_effect=[RuntimeError("provider down"), [], [], []]
-    )
-    fetcher.client = mock_client
-
-    await fetcher.warm_up_all()
-
-    assert mock_client.get_candles.call_count == 4

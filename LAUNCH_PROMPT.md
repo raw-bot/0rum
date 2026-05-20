@@ -6,9 +6,8 @@
 
 > **Statut 2026-05-20** : ce fichier est historique. Pour l'état courant, lire d'abord
 > `CLAUDE.md`. La surface active est le dashboard web local, sans canal externe.
-> IG est legacy/inactif. Dukascopy public `.bi5` est la source research/backtest
-> XAUUSD validée. Binance/PAXG reste un proxy de plomberie runtime, pas une source
-> de validation stratégique.
+> Binance/PAXG reste le proxy de plomberie runtime. Dukascopy public `.bi5` est la
+> source research/backtest XAUUSD validée. Le broker d'exécution reste un choix séparé.
 
 ---
 
@@ -84,7 +83,7 @@ Exécute la Phase 2 — Data Ingestion :
 1. Crée src/ingestion/market_client.py (section 8.1)
    - Client async pour le provider de marché retenu
    - Garder Binance/PAXG comme proxy de plomberie runtime si nécessaire
-   - Ne pas réactiver IG sans décision explicite
+   - Ne pas ajouter d'autre provider sans décision explicite
    - Pour la recherche/backtest XAUUSD, utiliser Dukascopy public `.bi5`
    - Garder le mapping interne des timeframes M15 / H1 / H4 / D1
    - Rate limiting respecté côté provider

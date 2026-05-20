@@ -48,7 +48,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         database_url=settings.database_url.split("@")[-1],  # hide credentials
     )
 
-    from src.config import MarketDataProvider
     from src.ingestion.candle_fetcher import CandleFetcher
 
     # Service instantiation and wiring (D-11, D-12)
@@ -64,10 +63,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     async def _run_startup_ingestion() -> None:
         async with CandleFetcher(settings=settings) as fetcher:
-            if settings.market_data_provider == MarketDataProvider.IG:
-                await fetcher.warm_up_all()
-            else:
-                await fetcher.backfill_all()
+            await fetcher.backfill_all()
 
     asyncio.create_task(_run_startup_ingestion())
     logger.info(

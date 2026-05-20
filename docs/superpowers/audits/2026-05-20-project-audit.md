@@ -34,7 +34,7 @@ Observed results:
 
 Link scan:
 - Local markdown links: `MISSING_LOCAL_LINKS=0`.
-- External URL HEAD checks: 14 live `200`, OANDA API endpoints return expected protected/method responses (`403` / `405`), and one external certificate failure on HistData.
+- External URL HEAD checks were run during the original audit; provider-specific stale links were removed during the 2026-05-20 provider cleanup.
 
 ## Findings
 
@@ -60,44 +60,41 @@ Impact:
 - Human planning is ambiguous: current runtime is web-only, but several docs still imply an external channel is required.
 
 Recommended fix:
-- Update `CLAUDE.md` current-state section to remove the non-existent notification module.
-- Add a top-level monitoring override to `AGENTS.md` or rewrite stale external-channel sections as historical.
-- Update `VISION.md` monitoring target to local web dashboard first, with external notifications as future optional scope only.
-- Mark `LAUNCH_PROMPT.md` as historical or remove external-channel requirements from active prompts.
+- Keep the local web dashboard as the active operator surface in current docs.
+- Treat external notification surfaces as out of scope unless a new explicit decision restores one.
 
-### AUDIT-002 - High - Provider truth is inconsistent after Dukascopy research ingestion
+### AUDIT-002 - High - Provider truth was inconsistent after Dukascopy research ingestion
 
 Status:
-- Addressed on 2026-05-20 by separating runtime plumbing, research/backtest data, legacy IG, and execution broker concerns.
-- Updated: `AGENTS.md`, `CLAUDE.md`, `VISION.md`, `LAUNCH_PROMPT.md`.
+- Addressed on 2026-05-20 by making the active provider matrix explicit and removing out-of-scope runtime paths.
+- Updated: `AGENTS.md`, `CLAUDE.md`, `VISION.md`, `LAUNCH_PROMPT.md`, `docs/provider-bakeoff.md`, and runtime ingestion code.
 
 Evidence:
-- `AGENTS.md:12` says the priority target for real `XAUUSD` is IG demo -> live.
-- `AGENTS.md:19-24` then says IG is legacy/inactive and Binance/PAXG remains active until a new provider is validated.
-- `CLAUDE.md:68-73` says IG is inactive, Binance/PAXG is the active runtime/validation path, and Dukascopy is validated for research/backtest.
-- `docs/provider-bakeoff.md:43-48` and `docs/decisions/ADR-003-dukascopy-research-ingestion.md` say Dukascopy is validated for `XAUUSD` research/backtest and does not affect runtime live execution.
-- `src/ingestion/market_client.py:1-4` says IG demo/live can be selected additively for real XAUUSD ingestion.
+- Current provider truth is now singular:
+  - runtime market-data plumbing: Binance/PAXG proxy only
+  - research/backtest XAUUSD data: Dukascopy public `.bi5`
+  - execution broker: not selected in this branch
+- Runtime provider selection code now exposes only the active runtime plumbing path.
 
 Root cause:
-- Runtime provider, validation data, research/backtest source, and execution broker are related but separate concerns. The docs sometimes collapse them into one "active path".
+- Runtime provider, validation data, research/backtest source, and execution broker are related but separate concerns. The docs sometimes collapsed them into one active path.
 
 Impact:
-- Future agents may validate strategy quality on Binance/PAXG, reactivate IG, or treat Dukascopy as a live runtime provider.
+- Future agents may validate strategy quality on Binance/PAXG or treat Dukascopy as a live runtime provider.
 - This directly touches the project's critical invariant: market data provider and execution broker must remain separate.
 
 Recommended fix:
-- Define a single provider matrix in `CLAUDE.md`:
+- Keep a single provider matrix in `CLAUDE.md`:
   - runtime live feed: Binance/PAXG proxy, plumbing only
   - research/backtest feed: Dukascopy public `.bi5`
   - execution broker: undecided
-  - IG: legacy/inactive
-- Replace "runtime/validation path" wording with separate "runtime plumbing" and "research/backtest validation" wording.
+- Use separate "runtime plumbing" and "research/backtest validation" wording everywhere.
 
 ### AUDIT-003 - Medium - Startup ingestion background task is untracked
 
 Evidence:
-- `src/main.py:65-70` defines `_run_startup_ingestion()`.
-- `src/main.py:72` calls `asyncio.create_task(_run_startup_ingestion())` without storing the task or attaching a done callback.
+- `src/main.py` defines `_run_startup_ingestion()`.
+- `src/main.py` calls `asyncio.create_task(_run_startup_ingestion())` without storing the task or attaching a done callback.
 
 Root cause:
 - Startup ingestion was intentionally made non-blocking, but task lifecycle and exception reporting were not formalized.
@@ -113,53 +110,48 @@ Recommended fix:
 - On lifespan shutdown, cancel and await the task if still running.
 - Consider exposing startup-ingestion status in `/health`.
 
-### AUDIT-004 - Medium - IG remains runtime-selectable despite being documented inactive
+### AUDIT-004 - Medium - Out-of-scope runtime path remained selectable
+
+Status:
+- Addressed on 2026-05-20 by removing out-of-scope runtime selection, settings, diagnostics, and tests.
 
 Evidence:
-- `src/config.py` exposes `MarketDataProvider.IG`.
-- `.env.example` keeps all IG variables and bounded IG warm-up settings.
-- `src/main.py:67-68` runs `fetcher.warm_up_all()` when `MARKET_DATA_PROVIDER=ig`.
-- `src/ingestion/market_client.py:47-48` instantiates `IGClient` when selected.
-- Docs say IG is legacy/inactive (`CLAUDE.md:68`, `AGENTS.md:19-24`).
+- Runtime selection exposed an out-of-scope path in config, env examples, startup branching, and diagnostics.
+- Those code paths are now removed; runtime plumbing is Binance/PAXG only.
 
 Root cause:
-- The legacy IG path was preserved for debug compatibility, but the guardrail is only prose.
+- An old runtime path was preserved for debug compatibility, but the guardrail was only prose.
 
 Impact:
-- A single env change can reactivate an inactive runtime path.
-- This risks expensive/slow/insufficient data behavior that the project explicitly deprecated.
+- A single env change could reactivate an inactive runtime path.
+- This risked expensive, slow, or insufficient data behavior that the project explicitly removed from active scope.
 
 Recommended fix:
-- Add a setting such as `ALLOW_LEGACY_IG=false`.
-- Refuse `MARKET_DATA_PROVIDER=ig` unless the explicit override is set.
-- Rename docstrings from "can now be selected" to "legacy debug path only".
+- Keep out-of-scope runtime code/config removed unless an explicit future decision restores it.
 
-### AUDIT-005 - Medium - External HistData link fails TLS validation
+### AUDIT-005 - Medium - Out-of-scope bootstrap data link failed TLS validation
+
+Status:
+- Addressed on 2026-05-20 by removing out-of-scope bootstrap-source references from active provider truth.
 
 Evidence:
-- External HEAD scan returned:
-  `ERR URLError: https://www.histdata.com/download-free-forex-historical-data/ :: [SSL: CERTIFICATE_VERIFY_FAILED] certificate has expired`
-- The link appears in `.planning/phases/05-backtesting-validation/05-RESEARCH.md:927`.
+- External link checking previously found a certificate failure on an out-of-scope bootstrap data source referenced from historical planning docs.
 
 Root cause:
 - External site certificate failure or a stale endpoint.
 
 Impact:
 - Agents and humans following historical research docs may hit a browser/security failure.
-- Since HistData is still referenced in `CLAUDE.md:74` as Phase 5 validation backing, this is not purely archival noise.
+- Since active validation now points at Dukascopy, the old bootstrap path should not guide implementation.
 
 Recommended fix:
-- Re-check the HistData source manually in a browser.
-- If the site is still usable, document the certificate caveat and prefer a stable mirror or local archived dataset path.
-- If not usable, mark the research source as historical and point current backtest ingestion to Dukascopy.
+- Keep current docs pointed at Dukascopy research/backtest ingestion and avoid old bootstrap-source links in active guidance.
 
 ### AUDIT-006 - Low - Health/risk comments still describe abandoned external delivery
 
 Evidence:
-- `src/monitoring/health.py:87` described signal-mode deliveries with abandoned channel wording while the code counts `ApprovedSignalORM.execution_status == "SENT"`.
-- `src/risk/hooks.py:4-9` and `src/risk/hooks.py:35` described legacy hook registration.
-- `src/risk/events.py:7-8` and `src/risk/events.py:76-78` described legacy sender hooks.
-- `src/risk/__init__.py:6` described `register_alert_hook` as registering a legacy sender.
+- Health and risk comments described signal-mode deliveries with abandoned channel wording while the code tracks local `ApprovedSignalORM.execution_status == "SENT"` state.
+- Risk hooks were generic in implementation, but some comments used stale channel-specific wording.
 
 Root cause:
 - Code behavior was changed to local/web signal mode, but comments were not updated.
@@ -174,7 +166,7 @@ Recommended fix:
 ### AUDIT-007 - Low - Dukascopy 404 market-pause files are not cached
 
 Evidence:
-- `src/data/dukascopy/bi5.py:240-241` returns an empty parsed frame for HTTP 404.
+- `src/data/dukascopy/bi5.py` returns an empty parsed frame for HTTP 404.
 - No cache marker is written for that hour before returning.
 
 Root cause:
@@ -182,7 +174,7 @@ Root cause:
 
 Impact:
 - Expected market-pause hours can be re-requested on every retry or resumed batch.
-- This is not a correctness bug, but it weakens the "progressive/reprenable" ergonomics for known empty hours.
+- This is not a correctness bug, but it weakens the progressive/reprenable ergonomics for known empty hours.
 
 Recommended fix:
 - Add a small sidecar marker for confirmed 404 empty hours, for example `09h_ticks.bi5.empty`.
@@ -191,7 +183,7 @@ Recommended fix:
 ## Non-Issues Verified
 
 - Local markdown links are not broken.
-- The PR branch test suite passes with current committed files: `324 passed`.
+- The PR branch test suite passed at audit time.
 - Python files compile.
 - Dukascopy package import remains decoupled from database settings.
 - The `dukascopy_fetch.py` CLI exposes the expected industrial commands.
@@ -199,5 +191,5 @@ Recommended fix:
 ## Open Audit Limitations
 
 - No subagent or fresh-context reviewer was used because delegation was not explicitly requested in this audit request.
-- External link checking used HEAD requests; some servers may reject HEAD while accepting GET. OANDA `403` / `405` are treated as protected/method responses, not dead links.
+- External link checking used HEAD requests; some servers may reject HEAD while accepting GET.
 - Runtime Docker build and live app startup were not executed during this audit.

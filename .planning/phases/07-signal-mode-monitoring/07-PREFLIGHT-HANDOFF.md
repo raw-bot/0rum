@@ -48,10 +48,10 @@ No blocking contradictions found in the plan dependency graph.
 
 The current code still supports Binance/PAXG as runtime ingestion plumbing, but Phase 5+ validation is protected by the existing design:
 
-- `src/backtesting/historical_loader.py` is explicitly offline HistData bootstrap only, not a runtime provider.
+- `src/backtesting/historical_loader.py` is explicitly offline retired bootstrap archive bootstrap only, not a runtime provider.
 - `src/backtesting/optimizer.py` reads complete `XAUUSD` candles from DB and runs `_check_sufficient_data()` before activation.
 - `src/strategies/runner.py` skips unvalidated strategies once optimizer history exists; it only uses midpoint params before any optimizer result exists.
-- Current roadmap/state record HistData-backed Phase 5 validation and prohibit Binance/PAXG validation.
+- Current roadmap/state record retired bootstrap archive-backed Phase 5 validation and prohibit Binance/PAXG validation.
 
 Residual risk:
 
@@ -65,7 +65,7 @@ Observed large/local artifacts:
 - `.kilocode/`, `.kiro/`: symlink wrappers to local skills, now ignored.
 - `.gitnexus/` (~44M): already ignored.
 - `optimizer_run.log` (~37M): already ignored by `*.log`.
-- `data/histdata/` (~9.9M): already ignored.
+- `data/retired_bootstrap_archive/` (~9.9M): already ignored.
 - `uv.lock` (~416K): still untracked by design; decide separately whether this project wants to commit the lockfile.
 
 No cleanup/delete was performed.

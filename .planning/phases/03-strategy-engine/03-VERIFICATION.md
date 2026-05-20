@@ -8,7 +8,7 @@ overrides_applied: 0
 
 # Phase 3: Strategy Engine Verification Report
 
-**Phase Goal:** Implement the 4 trading strategies (AbstractStrategy base + LiquiditySweepStrategy, TrendContinuationStrategy, BreakoutExpansionStrategy, EmaMomentumStrategy) so each can generate CandidateSignals from OANDA candle data.
+**Phase Goal:** Implement the 4 trading strategies (AbstractStrategy base + LiquiditySweepStrategy, TrendContinuationStrategy, BreakoutExpansionStrategy, EmaMomentumStrategy) so each can generate CandidateSignals from OANDA_RETIRED candle data.
 **Verified:** 2026-04-09T16:00:00Z
 **Status:** PASSED
 **Re-verification:** No — initial verification

@@ -35,9 +35,9 @@
 
 **Data Strategy Constraints (what NOT to assume):**
 - Binance/PAXG is NOT acceptable for Phase 5 optimization or validation
-- IG warm-up bars alone are NOT sufficient for a 6-month training window
-- IG historical API MAY support larger requests but not validated at optimizer scale
-- Do NOT assume IG can automatically supply 6m/2m windows without rate-limit assessment
+- retired-provider warm-up bars alone are NOT sufficient for a 6-month training window
+- retired-provider historical API MAY support larger requests but not validated at optimizer scale
+- Do NOT assume retired provider can automatically supply 6m/2m windows without rate-limit assessment
 
 **Architecture Constraints:**
 - Provider/execution separation MUST be preserved
@@ -47,10 +47,10 @@
 
 **Decision Gate: Data Strategy (NOT locked — must be exposed):**
 
-Chemin A — Bootstrap sur DB locale accumulée progressivement via IG-light:
+Chemin A — Bootstrap sur DB locale accumulée progressivement via retired-provider:
 - Build framework now; optimizer runs but produces no WFE-valid results until enough data accumulates
 - Activation gate: optimizer only activates params once sufficient historical data exists
-- Time-to-full-validation: several months of IG-light accumulation
+- Time-to-full-validation: several months of retired-provider accumulation
 
 Chemin B — Validation complète dès le premier run avec provider historique séparé:
 - Requires integrating a separate XAUUSD historical provider
@@ -96,9 +96,9 @@ Chemin B — Validation complète dès le premier run avec provider historique s
 
 Phase 5 delivers the walk-forward optimizer (LHS × 100), WFE gate, multi-window test (2/3 OOS), Monte Carlo (1000 sims), and 24h APScheduler job. All framework mechanics are implementable immediately using libraries already in the stack (scipy 1.17.1, numpy, pandas). The framework is architecturally clean: fully async for DB access, sync for pure computation, strictly separated from ingestion.
 
-The central blocker for full statistical validation is data availability. Research confirms that Chemin A (IG-light accumulation) requires 7-12 months of continuous operation before any timeframe reaches the minimum candle count for a 3-window evaluation. Chemin B is viable via two primary free sources: **HistData.com** (XAUUSD M1 data, resamplable to H1/H4/D1, no API key, covers years of history) and **Stooq.com** (D1 XAUUSD CSV, daily data only, long history). Neither provides H1 data via a programmatic API with no key — HistData requires a manual download step, but that is a one-time operation suitable for bootstrapping.
+The central blocker for full statistical validation is data availability. Research confirms that Chemin A (retired-provider accumulation) requires 7-12 months of continuous operation before any timeframe reaches the minimum candle count for a 3-window evaluation. Chemin B is viable via two primary free sources: **retired bootstrap archive** (XAUUSD M1 data, resamplable to H1/H4/D1, no API key, covers years of history) and **retired daily CSV source** (D1 XAUUSD CSV, daily data only, long history). Neither provides H1 data via a programmatic API with no key — retired bootstrap archive requires a manual download step, but that is a one-time operation suitable for bootstrapping.
 
-**Primary recommendation:** Build the full framework in Wave 1 (optimizer, walk_forward, monte_carlo modules), wire the 24h scheduler job, and implement an explicit data-guard that prevents param activation when insufficient candles are present. In Wave 2, expose the Chemin A vs. Chemin B decision gate with a concrete action item: either wait for IG accumulation (not recommended — 7+ months) or perform a one-time HistData.com M1 download, resample it, and bulk-insert into the `candles` table (recommended for immediate OPTIM-01 through OPTIM-05 verification).
+**Primary recommendation:** Build the full framework in Wave 1 (optimizer, walk_forward, monte_carlo modules), wire the 24h scheduler job, and implement an explicit data-guard that prevents param activation when insufficient candles are present. In Wave 2, expose the Chemin A vs. Chemin B decision gate with a concrete action item: either wait for retired provider accumulation (not recommended — 7+ months) or perform a one-time retired bootstrap archive M1 download, resample it, and bulk-insert into the `candles` table (recommended for immediate OPTIM-01 through OPTIM-05 verification).
 
 ---
 
@@ -134,18 +134,18 @@ This section drives the Chemin A vs. Chemin B decision gate. All numbers are ver
 
 For 3-window walk-forward (12 calendar months of data): [VERIFIED: computed in-session]
 
-| Timeframe | 1-window minimum | 3-window minimum | IG warmup (current) | Days to 3-win from zero |
+| Timeframe | 1-window minimum | 3-window minimum | retired provider warmup (current) | Days to 3-win from zero |
 |-----------|-----------------|------------------|---------------------|------------------------|
 | D1 | 171 | 257 | 60 | ~192 trading days (~9.1 months) |
 | H4 | 1,028 | 1,542 | 80 | ~245 trading days (~11.7 months) |
 | H1 | 4,114 | 6,171 | 250 | ~242 trading days (~11.5 months) |
 | M15 | 16,457 | 24,685 | 300 | ~255 trading days (~12.1 months) |
 
-**Conclusion:** Chemin A cannot yield any WFE-valid activation for approximately 7-12 months of IG daily operation. This is not viable for completing Phase 5 requirements.
+**Conclusion:** Chemin A cannot yield any WFE-valid activation for approximately 7-12 months of retired provider daily operation. This is not viable for completing Phase 5 requirements.
 
 ### External Data Provider Assessment
 
-**HistData.com — XAUUSD M1 data** [MEDIUM confidence — verified via WebSearch, not direct fetch]
+**retired bootstrap archive — XAUUSD M1 data** [MEDIUM confidence — verified via WebSearch, not direct fetch]
 - Coverage: XAUUSD M1 (1-minute bars) organized by year/month
 - Date range: Multiple years of history available (source confirms long-running provider)
 - Cost: Free, no API key required
@@ -155,11 +155,11 @@ For 3-window walk-forward (12 calendar months of data): [VERIFIED: computed in-s
 - **Key advantage:** M1 data can be resampled to any higher timeframe (H1, H4, D1) using `pandas.resample().agg({'open':'first','high':'max','low':'min','close':'last','volume':'sum'})`
 - **Key risk:** Manual download per year/month batch; requires a one-time human action; no auto-refresh
 
-**Stooq.com — XAUUSD D1 data** [MEDIUM confidence — confirmed via WebSearch]
+**retired daily CSV source — XAUUSD D1 data** [MEDIUM confidence — confirmed via WebSearch]
 - Coverage: XAUUSD daily (D1) data, 20+ years of history
-- Date range: Configurable start/end date via URL `stooq.com/q/d/?s=xauusd`
+- Date range: Configurable start/end date via URL `retired_daily_csv_source.com/q/d/?s=xauusd`
 - Cost: Free, no API key required
-- Access: CSV download via URL — programmable with `requests` or `pandas_datareader.StooqDailyReader`
+- Access: CSV download via URL — programmable with `requests` or `pandas_datareader.retired daily CSV sourceDailyReader`
 - **Key limitation:** D1 only — cannot supply H1 or H4 data
 - **Use case:** Best for validating D1-timeframe strategies (TrendContinuation uses H1 EMA200 — D1 data insufficient for sub-daily signal generation)
 - License: Public web data — no explicit restriction identified
@@ -170,11 +170,11 @@ For 3-window walk-forward (12 calendar months of data): [VERIFIED: computed in-s
 - Free tier: 25 requests/day [CITED: AlphaLog guide]
 - **Verdict:** Insufficient for H1 backtesting on free tier. 100 bars = 4 days of H1. Paid plan needed for full history.
 
-**Polygon.io (now Massive.com) — C:XAUUSD** [LOW confidence — no free tier specifics found]
+**retired market-data candidate — C:XAUUSD** [LOW confidence — no free tier specifics found]
 - Supports XAU/USD as forex pair (`C:XAUUSD`)
 - Historical aggregates available across timeframes
 - Free tier limitations: specific H1 coverage and rate limits not verified in this session
-- Rebranded to Massive.com in October 2025 [CITED: search result]
+- Rebranded to retired market-data candidate in October 2025 [CITED: search result]
 - **Verdict:** Cannot recommend without verifying free tier H1 coverage; requires direct API testing
 
 **yfinance GC=F (COMEX Gold Futures)** [MEDIUM confidence — domain knowledge verified by search]
@@ -182,10 +182,10 @@ For 3-window walk-forward (12 calendar months of data): [VERIFIED: computed in-s
 - Key risk: Futures prices differ from spot XAUUSD by the cost-of-carry (contango/basis spread)
 - Typical contango: gold futures trade ~$5-20 above spot depending on time-to-expiry
 - Roll risk: `GC=F` switches to the next contract at expiry — introduces price discontinuities in historical data
-- Signal strategies are tuned to XAUUSD spot (IG demo trades spot XAUUSD) — validating on futures introduces systematic price offset
+- Signal strategies are tuned to XAUUSD spot (retired provider demo trades spot XAUUSD) — validating on futures introduces systematic price offset
 - **Verdict:** Not recommended for production validation. Acceptable only for initial framework smoke tests where absolute price levels matter less than relative signal generation patterns.
 
-**HistData.com is the recommended Chemin B source** for H1 data. Stooq is acceptable as a supplementary D1 validation source.
+**retired bootstrap archive is the recommended Chemin B source** for H1 data. retired daily CSV source is acceptable as a supplementary D1 validation source.
 
 ---
 
@@ -201,7 +201,7 @@ src/backtesting/
 └── monte_carlo.py        # Bootstrap resampling, P95 drawdown, P5 profit factor
 
 src/data/                 # NEW — only if Chemin B chosen
-└── historical_loader.py  # One-time CSV → DB bulk insert for HistData M1 data
+└── historical_loader.py  # One-time CSV → DB bulk insert for retired bootstrap archive M1 data
 
 src/scheduler/
 └── jobs.py               # Add run_optimizer() async job (follow existing pattern)
@@ -656,9 +656,9 @@ async def _check_sufficient_data(candles_by_tf: dict[str, list]) -> bool:
     return True
 ```
 
-### Pattern 10: HistData.com Bulk Load (Chemin B — one-time operation)
+### Pattern 10: retired bootstrap archive Bulk Load (Chemin B — one-time operation)
 
-**What:** If Chemin B is chosen, a standalone script reads HistData CSV files, resamples M1 → H1/H4/D1, converts to Candle ORM rows, and bulk-inserts using `INSERT ... ON CONFLICT DO NOTHING` (same pattern as `CandleFetcher`).
+**What:** If Chemin B is chosen, a standalone script reads retired bootstrap archive CSV files, resamples M1 → H1/H4/D1, converts to Candle ORM rows, and bulk-inserts using `INSERT ... ON CONFLICT DO NOTHING` (same pattern as `CandleFetcher`).
 
 **Resample approach (pandas):**
 ```python
@@ -684,7 +684,7 @@ def resample_m1_to_ohlcv(df_m1: pd.DataFrame, rule: str) -> pd.DataFrame:
     }).dropna(subset=['open'])  # drop windows with no trades (weekends)
 ```
 
-**Note:** HistData M1 data excludes weekends natively (Forex spot gold trades Mon-Fri). The `dropna` removes any residual empty aggregation windows.
+**Note:** retired bootstrap archive M1 data excludes weekends natively (Forex spot gold trades Mon-Fri). The `dropna` removes any residual empty aggregation windows.
 
 ### Anti-Patterns to Avoid
 
@@ -729,7 +729,7 @@ def resample_m1_to_ohlcv(df_m1: pd.DataFrame, rule: str) -> pd.DataFrame:
 **Warning signs:** All 100 combos failing WFE gate on first run (may indicate the strategy produces no signals with current params — data issue not code issue).
 
 ### Pitfall 4: Insufficient Data Guard Absent — Optimizer Writes Misleading Results
-**What goes wrong:** With only 250 H1 bars (IG warmup), the optimizer runs, evaluates combos on a 10-day training window, and writes "validated" params. The WFE may pass by chance on tiny sample. These params are then activated and used in live signal generation.
+**What goes wrong:** With only 250 H1 bars (retired provider warmup), the optimizer runs, evaluates combos on a 10-day training window, and writes "validated" params. The WFE may pass by chance on tiny sample. These params are then activated and used in live signal generation.
 **Why it happens:** No minimum data check before the optimizer run.
 **How to avoid:** Implement `_check_sufficient_data()` — return early without writing results if candle counts are below `MIN_CANDLES_FOR_OPTIMIZER`.
 **Warning signs:** `optimizer_results` rows written with `train_start`/`train_end` spanning < 2 months.
@@ -772,17 +772,17 @@ This section is the explicit decision gate the plan must expose to the user.
 
 **Chemin A is viable for framework delivery but NOT for statistical validation within any reasonable timeline.**
 
-| Criterion | Chemin A | Chemin B (HistData.com) |
+| Criterion | Chemin A | Chemin B (retired bootstrap archive) |
 |-----------|----------|------------------------|
 | Framework operational | Day 1 | Day 1 |
 | First WFE-valid activation (H1) | ~7.5 months from today | ~1 day (after manual download) |
 | First 3-window validation (H1) | ~11.5 months from today | ~1 day |
 | OPTIM-02 verifiable | No (for months) | Yes (on first run after load) |
 | OPTIM-03 verifiable | No (for months) | Yes |
-| Human effort required | None | One manual download session (HistData.com, select XAUUSD, download year batches) |
-| Ongoing maintenance | Zero | Zero (one-time operation; IG accumulates going forward) |
-| Data quality | Real IG XAUUSD (post-accumulation) | Real XAUUSD spot (same underlying instrument) |
-| Licensing risk | None | Low — HistData described as free, no restriction identified |
+| Human effort required | None | One manual download session (retired bootstrap archive, select XAUUSD, download year batches) |
+| Ongoing maintenance | Zero | Zero (one-time operation; retired provider accumulates going forward) |
+| Data quality | Real retired-provider XAUUSD (post-accumulation) | Real XAUUSD spot (same underlying instrument) |
+| Licensing risk | None | Low — retired bootstrap archive described as free, no restriction identified |
 | yfinance GC=F as alternative | Not recommended — futures ≠ spot | Not recommended — basis risk |
 
 **Recommended plan structure:**
@@ -860,13 +860,13 @@ This phase has minimal security surface. No user-facing endpoints, no authentica
 | pandas | historical_loader.py (Chemin B) | ✓ | in venv | — |
 | PostgreSQL (candles table) | All optimizer reads | ✓ (existing) | — | — |
 | APScheduler | OPTIM-04 | ✓ | 3.10.x | — |
-| HistData.com M1 download | Chemin B | Human action required | — | Chemin A (months delay) |
-| IG historical API (large requests) | Chemin A long-term | Partially confirmed | — | Chemin B |
+| retired bootstrap archive M1 download | Chemin B | Human action required | — | Chemin A (months delay) |
+| retired-provider historical API (large requests) | Chemin A long-term | Partially confirmed | — | Chemin B |
 
 **Missing dependencies with no fallback:** None that block framework delivery.
 
 **Missing dependencies with fallback:**
-- HistData.com download (Chemin B): requires one manual download session by the user; fallback is Chemin A which delays statistical validation by 7+ months.
+- retired bootstrap archive download (Chemin B): requires one manual download session by the user; fallback is Chemin A which delays statistical validation by 7+ months.
 
 ---
 
@@ -874,17 +874,17 @@ This phase has minimal security surface. No user-facing endpoints, no authentica
 
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
-| A1 | HistData.com provides XAUUSD M1 data suitable for resampling to H1/H4/D1 | Data Provider Assessment | If XAUUSD not available, need alternative M1 source (Dukascopy node.app appears to offer tick data); plan must pivot |
-| A2 | HistData.com CSV format is parseable by standard pandas CSV reader with datetime index | Pattern 10 | If format differs (e.g., proprietary encoding), manual parsing step required in historical_loader.py |
-| A3 | HistData.com licensing permits use of data for algo trading strategy development | Data Provider Assessment | If licensing restricts algo use, need Polygon.io paid or other licensed source |
+| A1 | retired bootstrap archive provides XAUUSD M1 data suitable for resampling to H1/H4/D1 | Data Provider Assessment | If XAUUSD not available, need alternative M1 source (Dukascopy node.app appears to offer tick data); plan must pivot |
+| A2 | retired bootstrap archive CSV format is parseable by standard pandas CSV reader with datetime index | Pattern 10 | If format differs (e.g., proprietary encoding), manual parsing step required in historical_loader.py |
+| A3 | retired bootstrap archive licensing permits use of data for algo trading strategy development | Data Provider Assessment | If licensing restricts algo use, need retired market-data candidate paid or other licensed source |
 | A4 | Profit factor is a sufficient fitness metric for WFE calculation given small OOS trade counts | Standard Stack / Pattern 3 | If trade counts are consistently too low (<5) for profit factor to be meaningful, Sharpe or win_rate may be preferable — open question during implementation |
-| A5 | Polygon.io free tier does not provide sufficient H1 XAUUSD history for backtesting | Data Provider Assessment | If verified otherwise, Polygon.io becomes a viable programmatic Chemin B alternative |
+| A5 | retired market-data candidate free tier does not provide sufficient H1 XAUUSD history for backtesting | Data Provider Assessment | If verified otherwise, retired market-data candidate becomes a viable programmatic Chemin B alternative |
 
 ---
 
 ## Open Questions
 
-1. **Is the HistData.com M1 download feasible for the user?**
+1. **Is the retired bootstrap archive M1 download feasible for the user?**
    - What we know: Data is free, no API key, manually downloadable by year/month.
    - What's unclear: Whether the user is willing/able to do a one-time manual download session.
    - Recommendation: Expose this as the Chemin B action item in the plan with exact steps.
@@ -916,7 +916,7 @@ This phase has minimal security surface. No user-facing endpoints, no authentica
 ### Primary (HIGH confidence)
 - In-session verification (venv): scipy 1.17.1 `LatinHypercube(d=N).random(n=100)` + `scale()` — confirmed working
 - In-session computation: minimum candle counts for 1-window and 3-window walk-forward splits
-- In-session computation: IG-light accumulation timeline (7-12 months per timeframe)
+- In-session computation: retired-provider accumulation timeline (7-12 months per timeframe)
 - In-session computation: Monte Carlo bootstrap with P95/P5 gates
 - `src/models/optimizer_result.py` + `alembic/versions/0001_initial_schema.py` — schema verified, no migration needed
 - `src/scheduler/jobs.py` — APScheduler pattern confirmed for new job integration
@@ -924,13 +924,13 @@ This phase has minimal security surface. No user-facing endpoints, no authentica
 
 ### Secondary (MEDIUM confidence)
 - [QuantStrategy.io Walk-Forward Optimization](https://quantstrategy.io/blog/walk-forward-optimization-vs-traditional-backtesting-which/) — profit factor vs Sharpe discussion
-- [HistData.com](https://www.histdata.com/download-free-forex-historical-data/) — XAUUSD M1 data confirmed free, no API key
-- [Stooq XAUUSD](https://stooq.com/q/d/?s=xauusd) — D1 CSV confirmed, daily only
+- [retired bootstrap archive](https://www.retired_bootstrap_archive.com/download-free-forex-historical-data/) — XAUUSD M1 data confirmed free, no API key
+- [retired daily CSV source XAUUSD](https://retired_daily_csv_source.com/q/d/?s=xauusd) — D1 CSV confirmed, daily only
 - [AlphaLog Alpha Vantage guide](https://alphalog.ai/blog/alphavantage-api-complete-guide) — 25 req/day free tier, compact=100 bars for intraday
 - [SciPy LatinHypercube docs v1.17](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.qmc.LatinHypercube.html)
 
 ### Tertiary (LOW confidence)
-- Polygon.io free tier coverage for XAUUSD H1: not verified — flagged as A5 assumption
+- retired market-data candidate free tier coverage for XAUUSD H1: not verified — flagged as A5 assumption
 - Alpha Vantage GOLD_SILVER_SPOT endpoint exact schema: not verified via direct API call
 
 ---
@@ -941,8 +941,8 @@ This phase has minimal security surface. No user-facing endpoints, no authentica
 - Standard stack: HIGH — all libraries verified in-project venv
 - Framework mechanics (LHS, WFE, Monte Carlo): HIGH — all code patterns verified in-session
 - Architecture (sync/async split, DB write): HIGH — follows verified existing patterns
-- External data providers (Chemin B): MEDIUM — HistData.com confirmed free/available but not directly fetched; HistData CSV format assumed parseable
-- Polygon.io free tier: LOW — not verified
+- External data providers (Chemin B): MEDIUM — retired bootstrap archive confirmed free/available but not directly fetched; retired bootstrap archive CSV format assumed parseable
+- retired market-data candidate free tier: LOW — not verified
 
 **Research date:** 2026-04-22
 **Valid until:** 2026-07-22 (stable domain — 90 days)

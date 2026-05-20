@@ -41,7 +41,7 @@ Progress: [██░░░░░░░░] 1/5 plans complete
 | 02 | data-ingestion | COMPLETE | — |
 | 03 | strategy-engine | COMPLETE | 2026-04-09 |
 | 04 | signal-pipeline | COMPLETE | 2026-04-22 |
-| 04.1 | ig-light-ingestion-hardening | COMPLETE | 2026-04-22 |
+| 04.1 | retired-provider-ingestion-hardening | COMPLETE | 2026-04-22 |
 | 05 | backtesting-validation | COMPLETE | 2026-04-26 |
 | 06 | risk-management | COMPLETE | 2026-04-28 |
 | 07 | signal-mode-monitoring | IN PROGRESS | — |
@@ -85,11 +85,11 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Phase 5 historical source is HistData XAUUSD M1 Generic ASCII loaded into local PostgreSQL. Latest verified active optimizer row is `liquidity_sweep` with WFE `1.8478`, PF `2.5744`, 108 OOS trades.
+- Phase 5 historical source is retired bootstrap archive XAUUSD M1 Generic ASCII loaded into local PostgreSQL. Latest verified active optimizer row is `liquidity_sweep` with WFE `1.8478`, PF `2.5744`, 108 OOS trades.
 
 ### Blockers/Concerns
 
-- Phase 5 optimizer/walk-forward must not run on Binance/PAXG data. HistData is historical/bootstrap only; runtime XAUUSD provider selection is deferred before Phase 7.
+- Phase 5 optimizer/walk-forward must not run on Binance/PAXG data. retired bootstrap archive is historical/bootstrap only; runtime XAUUSD provider selection is deferred before Phase 7.
 
 ## Session Continuity
 

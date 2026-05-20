@@ -53,15 +53,9 @@ def _as_utc_aware(dt: datetime | None) -> datetime | None:
 
 async def _refresh_timeframe(timeframe: str) -> None:
     """Fetch latest candles for one timeframe, run gap detection, update last_fetch."""
-    from src.config import MarketDataProvider
     settings = get_settings()
-    max_gap_bars = (
-        settings.ig_max_gap_bars
-        if settings.market_data_provider == MarketDataProvider.IG
-        else None
-    )
     async with CandleFetcher(settings=settings) as fetcher:
-        detector = GapDetector(fetcher=fetcher, max_gap_bars=max_gap_bars)
+        detector = GapDetector(fetcher=fetcher)
         try:
             await fetcher.fetch_and_store(
                 instrument="XAUUSD",

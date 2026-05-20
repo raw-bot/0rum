@@ -1,8 +1,4 @@
-"""Market data client with provider selection.
-
-Default runtime remains Binance/PAXG for backwards compatibility, but IG demo/live
-can now be selected additively for real XAUUSD ingestion.
-"""
+"""Market data client for the runtime Binance/PAXG plumbing feed."""
 
 from datetime import datetime, timezone
 
@@ -10,7 +6,6 @@ import ccxt.async_support as ccxt
 import structlog
 
 from src.config import MarketDataProvider, Settings, get_settings
-from src.ingestion.ig_client import IGClient
 
 log = structlog.get_logger(__name__)
 
@@ -32,7 +27,7 @@ BINANCE_MAX_CANDLES = 1000
 
 
 class MarketDataClient:
-    """Async market-data client that routes to Binance or IG based on settings."""
+    """Async market-data client for the configured runtime provider."""
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
@@ -42,23 +37,18 @@ class MarketDataClient:
             else str(self.settings.market_data_provider).lower()
         )
         self._exchange = None
-        self._ig_client = None
 
-        if self._provider == MarketDataProvider.IG.value:
-            self._ig_client = IGClient(self.settings)
-        elif self._provider == MarketDataProvider.BINANCE.value:
+        if self._provider == MarketDataProvider.BINANCE.value:
             # No credentials needed — Binance klines endpoint is public.
             self._exchange = ccxt.binance({"enableRateLimit": True})
         else:
             raise RuntimeError(
                 f"Unsupported market data provider '{self._provider}'. "
-                "Use 'binance' or 'ig'."
+                "Use 'binance'."
             )
 
     async def aclose(self) -> None:
         """Close any provider-specific network clients."""
-        if self._ig_client is not None:
-            await self._ig_client.aclose()
         if self._exchange is not None:
             await self._exchange.close()
 
@@ -77,34 +67,13 @@ class MarketDataClient:
             granularity: "M15", "H1", "H4", or "D1"
             count: Max candles per call
             from_time: ISO 8601 UTC string — if set, fetches forward from this time
-            to_time: Optional ISO 8601 UTC string — used by providers that support
-                bounded date ranges (IG)
+            to_time: Optional ISO 8601 UTC string kept for caller compatibility
 
         Returns:
             List of normalized candle dicts:
             {time (ISO str), open, high, low, close, volume}
         """
         provider = getattr(self, "_provider", MarketDataProvider.BINANCE.value)
-
-        if provider == MarketDataProvider.IG.value:
-            assert self._ig_client is not None
-            candles = await self._ig_client.get_candles(
-                instrument=instrument,
-                granularity=granularity,
-                count=count,
-                from_time=from_time,
-                to_time=to_time,
-            )
-            log.info(
-                "market_client.fetched",
-                provider=provider,
-                instrument=instrument,
-                granularity=granularity,
-                count=len(candles),
-                from_time=from_time,
-                to_time=to_time,
-            )
-            return candles
 
         symbol = _INSTRUMENT_MAP.get(instrument, instrument)
         tf = _TF_MAP.get(granularity, granularity)

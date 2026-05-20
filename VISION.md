@@ -14,7 +14,6 @@ This file is the intended end-state.
 
 ## Provider target
 
-- IG path is legacy/inactive (data sufficiency and cooldown constraints).
 - Current runtime plumbing uses Binance `PAXG/USDT` proxy only for continuity.
 - Current research/backtest validation source for real `XAUUSD` is Dukascopy public `.bi5`.
 - Execution broker selection is separate from market-data provider selection.

@@ -1,33 +1,22 @@
-# Cheap Validation Plan
+# Provider Roles
 
-Date: 2026-05-18
+Date: 2026-05-20
 
-This replaces the earlier "find the best provider" framing. 0rum should first
-prove the bot cheaply, then pay for data only when the evidence justifies it.
+Current provider truth for this branch.
 
-## Modes
+## Active Roles
 
-### research
+- Runtime plumbing: Binance public API with `XAUUSD -> PAXG/USDT`.
+- Research/backtest: Dukascopy public `.bi5` for real `XAUUSD`.
+- Execution broker: not selected in this branch.
 
-Default mode.
+## Guardrails
 
-Use:
+- Binance/PAXG is plumbing only and must not validate strategy quality.
+- Dukascopy is research/backtest only and must not be treated as a runtime live provider.
+- Market data provider and execution broker remain separate concerns.
 
-- Dukascopy public `.bi5` datafeed
-- CSV / HistData-style local files
-- Massive free endpoints only if validated
-- local cache
-- replay
-- backtests
-- detailed decision logs
-
-Do not use:
-
-- real orders
-- paid data subscriptions
-- live-trading conclusions
-
-Dukascopy helper:
+## Dukascopy Helper
 
 ```bash
 ./.venv/bin/python scripts/dukascopy_fetch.py probe --symbol XAUUSD --date 2026-05-18 --hour 9
@@ -38,78 +27,9 @@ Dukascopy helper:
 ./.venv/bin/python scripts/dukascopy_fetch.py import-postgres --symbol XAUUSD --start 2020-01-01T00:00:00Z --end 2020-02-01T00:00:00Z --timeframes M15 H1 H4 D1 --dry-run
 ```
 
-Validated status:
+## Validated Status
 
 - Dukascopy public `.bi5` works for `XAUUSD` research/backtest ingestion.
 - `XAUUSD` price scale is `/1000`.
 - No JForex install, account, or API key is required.
-- Dukascopy is not the runtime live provider and does not change execution broker selection.
-- Stooq is not part of the current XAUUSD research path.
-- Capital.com and cTrader remain candidates for future `paper_live` or execution research, separate from historical data.
 - Daily market pauses shift with season/DST and must be classified as expected pauses when they match the end-of-session heuristic.
-
-### paper_live
-
-Use:
-
-- Alpaca Free paper trading for US equities event-loop validation
-- IEX/free market data only as a development feed
-- dashboard and risk engine soak tests
-
-Do not conclude:
-
-- strategy is profitable in real conditions
-- data is canonical
-- XAUUSD strategy quality is proven
-
-### production_candidate
-
-Use only after research + paper_live evidence is strong.
-
-Requires:
-
-- 30 days of stable paper/live-like operation
-- clean out-of-sample report
-- fees/slippage modeled
-- risk/execution defects closed
-- kill switch mandatory
-
-## Budget Rule
-
-No market-data subscription above `20 EUR/month` until the project has proof that
-better data is the current bottleneck.
-
-## Current Provider Roles
-
-| Provider | Role Now | Not For |
-|---|---|---|
-| Dukascopy public datafeed | XAUUSD research/backtest data | live validation |
-| CSV files | offline research/backtest data | live validation |
-| HistData local archives | offline historical bootstrap | runtime |
-| Massive free | research candidate if REST/Flat Files access works | live intraday trading |
-| Twelve Data free | tiny sanity checks only | canonical source |
-| Alpaca Free | paper_live broker/API/event loop | canonical XAUUSD data |
-| Paid Massive/Databento/etc. | later production candidate only | current phase |
-
-## Massive Probe Status
-
-Flat Files S3:
-
-- bucket listing works
-- forex minute prefix exists
-- object downloads currently return `403 NOT_AUTHORIZED`
-
-So Massive Flat Files are not usable yet with the current key/permission set.
-
-## Alpaca Next Step
-
-When we enter `paper_live`, add a separate Alpaca paper adapter. It should test:
-
-- account connection
-- clock/calendar
-- submit/cancel paper order
-- order updates
-- position reconciliation
-- dashboard visibility
-
-It must not be used as proof that a real `XAUUSD` strategy is profitable.

@@ -38,7 +38,7 @@
 - Modify: `tests/conftest.py`
 - Modify: `tests/test_execution/test_executor.py`
 - Modify: `tests/test_ingestion/test_market_client.py`
-- Modify: `tests/test_ingestion/test_ig_client.py`
+- Modify: `tests/test_ingestion/test_retired_provider_client.py`
 - Modify: `tests/test_ingestion/test_candle_fetcher.py`
 - Modify: `tests/test_backtesting/conftest.py`
 - Modify: `tests/test_backtesting/test_optimizer.py`
