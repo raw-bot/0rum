@@ -5,12 +5,15 @@ import lzma
 from pathlib import Path
 import struct
 
+import httpx
 import pandas as pd
 import pytest
 
 from src.data.dukascopy.bi5 import (
     build_dukascopy_bi5_url,
     decompress_bi5,
+    DukascopyTickDownloader,
+    empty_bi5_cache_path,
     iter_utc_hours,
     ohlcv_cache_path,
     parse_tick_bi5,
@@ -133,3 +136,26 @@ def test_public_cache_paths_match_downloader_layout():
     assert ohlcv_cache_path(cache_dir, "XAU/USD", start, end, "M15") == Path(
         "/tmp/dukascopy-cache/ohlcv/XAUUSD/20260518T0900_20260518T1000_M15.csv"
     )
+
+
+@pytest.mark.asyncio
+async def test_downloader_caches_404_hours_as_empty_markers(tmp_path):
+    """Expected market-pause 404 hours are cached so resumed batches do not refetch them."""
+    hour = datetime(2026, 5, 18, 21, tzinfo=UTC)
+    calls: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(404)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        downloader = DukascopyTickDownloader(cache_dir=tmp_path, client=client)
+
+        first = await downloader.fetch_hour("XAUUSD", hour)
+        second = await downloader.fetch_hour("XAUUSD", hour)
+
+    assert first.empty
+    assert second.empty
+    assert len(calls) == 1
+    assert empty_bi5_cache_path(tmp_path, "XAUUSD", hour).exists()
+    assert not raw_bi5_cache_path(tmp_path, "XAUUSD", hour).exists()

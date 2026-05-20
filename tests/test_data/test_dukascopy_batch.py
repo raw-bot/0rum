@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 import pytest
 
 from src.data.dukascopy.batch import build_batch_plan
-from src.data.dukascopy.bi5 import ohlcv_cache_path, raw_bi5_cache_path
+from src.data.dukascopy.bi5 import empty_bi5_cache_path, ohlcv_cache_path, raw_bi5_cache_path
 
 
 def test_build_batch_plan_splits_half_open_utc_ranges(tmp_path):
@@ -81,6 +81,26 @@ def test_build_batch_plan_counts_cached_and_missing_raw_files(tmp_path):
     assert batch.complete_ohlcv_timeframes == ("M15",)
     assert plan.total_cached_raw_files == 2
     assert plan.total_missing_raw_files == 1
+
+
+def test_build_batch_plan_counts_empty_hour_markers_as_cached(tmp_path):
+    """Confirmed empty market-pause hours count as cached, not missing."""
+    start = datetime(2026, 5, 18, 21, tzinfo=UTC)
+    end = datetime(2026, 5, 18, 22, tzinfo=UTC)
+    marker = empty_bi5_cache_path(tmp_path, "XAUUSD", start)
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text("404\n", encoding="ascii")
+
+    plan = build_batch_plan(
+        symbol="XAUUSD",
+        start=start,
+        end=end,
+        batch_days=1,
+        cache_dir=tmp_path,
+    )
+
+    assert plan.total_cached_raw_files == 1
+    assert plan.total_missing_raw_files == 0
 
 
 def test_build_batch_plan_rejects_large_range_without_max_days(tmp_path):

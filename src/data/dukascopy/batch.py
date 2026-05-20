@@ -6,7 +6,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from src.data.dukascopy.bi5 import iter_utc_hours, normalize_symbol, ohlcv_cache_path, raw_bi5_cache_path
+from src.data.dukascopy.bi5 import (
+    empty_bi5_cache_path,
+    iter_utc_hours,
+    normalize_symbol,
+    ohlcv_cache_path,
+    raw_bi5_cache_path,
+)
 
 
 DEFAULT_SAFE_DAYS_WITHOUT_MAX = 31
@@ -71,7 +77,12 @@ def _build_one_batch(
     timeframes: tuple[str, ...],
 ) -> DukascopyBatch:
     hours = iter_utc_hours(start, end)
-    cached_raw_files = sum(1 for hour in hours if raw_bi5_cache_path(cache_dir, symbol, hour).exists())
+    cached_raw_files = sum(
+        1
+        for hour in hours
+        if raw_bi5_cache_path(cache_dir, symbol, hour).exists()
+        or empty_bi5_cache_path(cache_dir, symbol, hour).exists()
+    )
     ohlcv_paths = {
         timeframe: ohlcv_cache_path(cache_dir, symbol, start, end, timeframe) for timeframe in timeframes
     }

@@ -65,7 +65,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         async with CandleFetcher(settings=settings) as fetcher:
             await fetcher.backfill_all()
 
-    asyncio.create_task(_run_startup_ingestion())
+    def _log_startup_ingestion_result(task: asyncio.Task) -> None:
+        if task.cancelled():
+            logger.info("app.startup_ingestion_cancelled")
+            return
+        exc = task.exception()
+        if exc is not None:
+            logger.error(
+                "app.startup_ingestion_failed",
+                error=str(exc),
+                exc_info=(type(exc), exc, exc.__traceback__),
+            )
+
+    startup_ingestion_task = asyncio.create_task(
+        _run_startup_ingestion(),
+        name="startup_ingestion",
+    )
+    startup_ingestion_task.add_done_callback(_log_startup_ingestion_result)
+    app.state.startup_ingestion_task = startup_ingestion_task
     logger.info(
         "app.startup_ingestion_launched",
         provider=settings.market_data_provider.value,
@@ -78,6 +95,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("app.scheduler_started", job_count=len(scheduler.get_jobs()))
 
     yield
+
+    if not startup_ingestion_task.done():
+        startup_ingestion_task.cancel()
+        try:
+            await startup_ingestion_task
+        except asyncio.CancelledError:
+            pass
 
     scheduler.shutdown(wait=False)
     logger.info("app.scheduler_shutdown")

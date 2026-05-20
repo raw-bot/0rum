@@ -184,6 +184,12 @@ def raw_bi5_cache_path(cache_dir: Path, symbol: str, hour_start: datetime) -> Pa
     return _date_path(cache_dir, symbol, hour_start)
 
 
+def empty_bi5_cache_path(cache_dir: Path, symbol: str, hour_start: datetime) -> Path:
+    """Return the local sidecar path marking a confirmed empty hourly file."""
+    raw_path = raw_bi5_cache_path(cache_dir, symbol, hour_start)
+    return raw_path.with_name(f"{raw_path.name}.empty")
+
+
 def ticks_cache_path(cache_dir: Path, symbol: str, start: datetime, end: datetime) -> Path:
     """Return the local cache path for one exported tick CSV range."""
     symbol_norm = normalize_symbol(symbol)
@@ -234,15 +240,23 @@ class DukascopyTickDownloader:
     async def fetch_hour(self, symbol: str, hour_start: datetime, *, force: bool = False) -> pd.DataFrame:
         """Fetch/cache/parse one hourly tick file."""
         raw_path = raw_bi5_cache_path(self.cache_dir, symbol, hour_start)
+        empty_path = empty_bi5_cache_path(self.cache_dir, symbol, hour_start)
+        if not force and not raw_path.exists() and empty_path.exists():
+            return parse_tick_bi5(b"", hour_start=hour_start, symbol=symbol, price_scale=self.price_scale)
+
         if force or not raw_path.exists():
             url = build_dukascopy_bi5_url(symbol, hour_start, base_url=self.base_url)
             response = await self._get_with_retries(url)
             if response.status_code == 404:
+                raw_path.unlink(missing_ok=True)
+                empty_path.parent.mkdir(parents=True, exist_ok=True)
+                empty_path.write_text("404\n", encoding="ascii")
                 return parse_tick_bi5(b"", hour_start=hour_start, symbol=symbol, price_scale=self.price_scale)
             if response.status_code >= 400:
                 raise RuntimeError(f"Dukascopy request failed: HTTP {response.status_code} for {url}")
             raw_path.parent.mkdir(parents=True, exist_ok=True)
             raw_path.write_bytes(response.content)
+            empty_path.unlink(missing_ok=True)
 
         payload = decompress_bi5(raw_path.read_bytes())
         return parse_tick_bi5(payload, hour_start=hour_start, symbol=symbol, price_scale=self.price_scale)

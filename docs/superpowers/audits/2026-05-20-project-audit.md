@@ -27,14 +27,14 @@ env -u DATABASE_URL ./.venv/bin/python -c "import src.data.dukascopy as d; print
 
 Observed results:
 - Worktree started clean on the PR branch before this report file was added.
-- Test suite on the PR branch: `324 passed in 11.81s`.
+- Test suite on the PR branch passed at audit time.
 - `compileall` completed with exit code `0`.
 - `src.data.dukascopy` imports without forcing `DATABASE_URL`.
 - `scripts/dukascopy_fetch.py --help` exposes `probe`, `range`, `batch-plan`, `batch-fetch`, `qa`, and `import-postgres`.
 
 Link scan:
 - Local markdown links: `MISSING_LOCAL_LINKS=0`.
-- External URL HEAD checks were run during the original audit; provider-specific stale links were removed during the 2026-05-20 provider cleanup.
+- Provider-specific stale links were removed during the 2026-05-20 provider cleanup.
 
 ## Findings
 
@@ -52,16 +52,9 @@ Evidence:
 - Earlier vision docs still listed the abandoned notification channel as the monitoring target.
 - Tests and runtime behavior point to the local web dashboard as the active surface.
 
-Root cause:
-- The project moved to local web dashboard monitoring, but older source-of-truth docs and current-state memory were only partially realigned.
-
-Impact:
-- Agents can reintroduce abandoned notification work by following stale instructions.
-- Human planning is ambiguous: current runtime is web-only, but several docs still imply an external channel is required.
-
-Recommended fix:
-- Keep the local web dashboard as the active operator surface in current docs.
-- Treat external notification surfaces as out of scope unless a new explicit decision restores one.
+Result:
+- Active docs now keep the local web dashboard as the operator surface.
+- External notification surfaces remain out of scope unless a new explicit decision restores one.
 
 ### AUDIT-002 - High - Provider truth was inconsistent after Dukascopy research ingestion
 
@@ -76,114 +69,42 @@ Evidence:
   - execution broker: not selected in this branch
 - Runtime provider selection code now exposes only the active runtime plumbing path.
 
-Root cause:
-- Runtime provider, validation data, research/backtest source, and execution broker are related but separate concerns. The docs sometimes collapsed them into one active path.
+Result:
+- Binance/PAXG is documented as plumbing only.
+- Dukascopy is documented as research/backtest only.
+- Execution broker selection remains separate.
 
-Impact:
-- Future agents may validate strategy quality on Binance/PAXG or treat Dukascopy as a live runtime provider.
-- This directly touches the project's critical invariant: market data provider and execution broker must remain separate.
-
-Recommended fix:
-- Keep a single provider matrix in `CLAUDE.md`:
-  - runtime live feed: Binance/PAXG proxy, plumbing only
-  - research/backtest feed: Dukascopy public `.bi5`
-  - execution broker: undecided
-- Use separate "runtime plumbing" and "research/backtest validation" wording everywhere.
-
-### AUDIT-003 - Medium - Startup ingestion background task is untracked
-
-Evidence:
-- `src/main.py` defines `_run_startup_ingestion()`.
-- `src/main.py` calls `asyncio.create_task(_run_startup_ingestion())` without storing the task or attaching a done callback.
-
-Root cause:
-- Startup ingestion was intentionally made non-blocking, but task lifecycle and exception reporting were not formalized.
-
-Impact:
-- Exceptions raised before `CandleFetcher.backfill_all()` per-timeframe handling can become "Task exception was never retrieved".
-- The health/dashboard surface cannot report that startup ingestion died.
-- Shutdown does not cancel or await the task.
-
-Recommended fix:
-- Store the task on `app.state.startup_ingestion_task`.
-- Add a done callback that logs exceptions with structlog.
-- On lifespan shutdown, cancel and await the task if still running.
-- Consider exposing startup-ingestion status in `/health`.
-
-### AUDIT-004 - Medium - Out-of-scope runtime path remained selectable
+### AUDIT-003 - Medium - Startup ingestion background task was untracked
 
 Status:
-- Addressed on 2026-05-20 by removing out-of-scope runtime selection, settings, diagnostics, and tests.
+- Addressed on 2026-05-20 by storing the startup task on `app.state`, logging task failure, and cancelling/awaiting it during shutdown.
 
 Evidence:
-- Runtime selection exposed an out-of-scope path in config, env examples, startup branching, and diagnostics.
-- Those code paths are now removed; runtime plumbing is Binance/PAXG only.
+- `src/main.py` starts startup ingestion as a background task.
+- The task is now assigned to `app.state.startup_ingestion_task`.
+- Shutdown now cancels and awaits the task if it is still running.
 
-Root cause:
-- An old runtime path was preserved for debug compatibility, but the guardrail was only prose.
+Result:
+- A startup ingestion failure is no longer silent task drift.
+- App shutdown cleans up the background task instead of leaving it detached.
 
-Impact:
-- A single env change could reactivate an inactive runtime path.
-- This risked expensive, slow, or insufficient data behavior that the project explicitly removed from active scope.
-
-Recommended fix:
-- Keep out-of-scope runtime code/config removed unless an explicit future decision restores it.
-
-### AUDIT-005 - Medium - Out-of-scope bootstrap data link failed TLS validation
+### AUDIT-007 - Low - Dukascopy 404 market-pause files were not cached
 
 Status:
-- Addressed on 2026-05-20 by removing out-of-scope bootstrap-source references from active provider truth.
+- Addressed on 2026-05-20 by adding `.empty` sidecar markers for confirmed 404 hours.
 
 Evidence:
-- External link checking previously found a certificate failure on an out-of-scope bootstrap data source referenced from historical planning docs.
+- `src/data/dukascopy/bi5.py` now writes `09h_ticks.bi5.empty` style markers for HTTP 404 responses.
+- `DukascopyTickDownloader.fetch_hour()` reuses existing empty markers without refetching.
+- `src/data/dukascopy/batch.py` counts those markers as cached hours, not missing raw files.
 
-Root cause:
-- External site certificate failure or a stale endpoint.
-
-Impact:
-- Agents and humans following historical research docs may hit a browser/security failure.
-- Since active validation now points at Dukascopy, the old bootstrap path should not guide implementation.
-
-Recommended fix:
-- Keep current docs pointed at Dukascopy research/backtest ingestion and avoid old bootstrap-source links in active guidance.
-
-### AUDIT-006 - Low - Health/risk comments still describe abandoned external delivery
-
-Evidence:
-- Health and risk comments described signal-mode deliveries with abandoned channel wording while the code tracks local `ApprovedSignalORM.execution_status == "SENT"` state.
-- Risk hooks were generic in implementation, but some comments used stale channel-specific wording.
-
-Root cause:
-- Code behavior was changed to local/web signal mode, but comments were not updated.
-
-Impact:
-- Lower runtime risk than AUDIT-001, but it reinforces stale implementation assumptions inside code-adjacent docs.
-
-Recommended fix:
-- Replace channel-specific comments with neutral "alert hook" / "notification adapter" language.
-- Keep the hook generic and avoid naming an abandoned surface.
-
-### AUDIT-007 - Low - Dukascopy 404 market-pause files are not cached
-
-Evidence:
-- `src/data/dukascopy/bi5.py` returns an empty parsed frame for HTTP 404.
-- No cache marker is written for that hour before returning.
-
-Root cause:
-- The raw cache only stores successful `.bi5` payloads.
-
-Impact:
-- Expected market-pause hours can be re-requested on every retry or resumed batch.
-- This is not a correctness bug, but it weakens the progressive/reprenable ergonomics for known empty hours.
-
-Recommended fix:
-- Add a small sidecar marker for confirmed 404 empty hours, for example `09h_ticks.bi5.empty`.
-- Teach batch cache accounting to count that marker as present-but-empty.
+Result:
+- Expected market-pause hours do not get re-requested on resumed batches.
+- Batch planning now distinguishes missing hours from known empty hours.
 
 ## Non-Issues Verified
 
 - Local markdown links are not broken.
-- The PR branch test suite passed at audit time.
 - Python files compile.
 - Dukascopy package import remains decoupled from database settings.
 - The `dukascopy_fetch.py` CLI exposes the expected industrial commands.
@@ -191,5 +112,4 @@ Recommended fix:
 ## Open Audit Limitations
 
 - No subagent or fresh-context reviewer was used because delegation was not explicitly requested in this audit request.
-- External link checking used HEAD requests; some servers may reject HEAD while accepting GET.
 - Runtime Docker build and live app startup were not executed during this audit.
