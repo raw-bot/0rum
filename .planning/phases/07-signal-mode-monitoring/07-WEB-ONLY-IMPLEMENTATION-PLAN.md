@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Remove Telegram completely from Phase 7 and make the web dashboard/API the only operator monitoring surface.
+**Goal:** Remove External notification channel completely from Phase 7 and make the web dashboard/API the only operator monitoring surface.
 
 **Architecture:** Normal bot decisions stay local: persisted in PostgreSQL, logged with structlog, and exposed through `/api/dashboard` and `/dashboard`. `ExecutionRouter` no longer sends messages; in signal mode it records a local delivery/audit success so `ApprovedSignalORM.execution_status` can progress without an external dependency. Scheduler trade monitoring keeps lifecycle/stat updates but no longer emits notifications.
 
@@ -12,25 +12,25 @@
 
 ## File Structure
 
-- Modify `src/config.py`: remove Telegram settings.
-- Modify `.env.example`: remove Telegram env vars.
-- Modify `pyproject.toml` and `uv.lock`: remove `python-telegram-bot`.
-- Modify `src/main.py`: remove Telegram Bot startup/shutdown and hook wiring.
+- Modify `src/config.py`: remove External notification channel settings.
+- Modify `.env.example`: remove External notification channel env vars.
+- Modify `pyproject.toml` and `uv.lock`: remove `external-notification-client`.
+- Modify `src/main.py`: remove External notification channel Bot startup/shutdown and hook wiring.
 - Modify `src/execution/executor.py`: remove `SignalSender` dependency and make signal mode local.
-- Delete `src/execution/signal_sender.py`: Telegram-only adapter.
+- Delete `src/execution/signal_sender.py`: External notification channel-only adapter.
 - Modify `src/execution/__init__.py`: remove SignalSender wording.
-- Delete `src/monitoring/telegram_bot.py`: Telegram-only monitoring adapter.
-- Modify `src/scheduler/jobs.py`: remove `_telegram_bot`, `_set_monitor_services`, lifecycle notification calls, and `daily_summary` Telegram job.
-- Modify `src/risk/__init__.py`, `src/risk/events.py`, and `src/risk/hooks.py`: remove Telegram references from docstrings/comments while keeping generic alert hook support if still useful.
-- Modify `src/monitoring/health.py`: rename Telegram-oriented comments around `signals_today`.
+- Delete `src/monitoring/notification_adapter.py`: External notification channel-only monitoring adapter.
+- Modify `src/scheduler/jobs.py`: remove `_notification_adapter`, `_set_monitor_services`, lifecycle notification calls, and `daily_summary` External notification channel job.
+- Modify `src/risk/__init__.py`, `src/risk/events.py`, and `src/risk/hooks.py`: remove External notification channel references from docstrings/comments while keeping generic alert hook support if still useful.
+- Modify `src/monitoring/health.py`: rename External notification channel-oriented comments around `signals_today`.
 - Modify `src/monitoring/dashboard.py`: expose additional monitoring data needed by a web-only operator surface.
 - Modify `src/templates/dashboard.html`: render the new web-only monitoring sections.
-- Modify tests under `tests/`: remove Telegram env setup/tests, add web-only startup/router/scheduler/dashboard assertions.
-- Modify `.planning/phases/07-signal-mode-monitoring/07-VERIFICATION.md` and `07-HUMAN-UAT.md`: replace Telegram UAT with web-only UAT.
+- Modify tests under `tests/`: remove External notification channel env setup/tests, add web-only startup/router/scheduler/dashboard assertions.
+- Modify `.planning/phases/07-signal-mode-monitoring/07-VERIFICATION.md` and `07-HUMAN-UAT.md`: replace External notification channel UAT with web-only UAT.
 
 ---
 
-### Task 1: Remove Telegram Configuration And Dependency
+### Task 1: Remove External notification channel Configuration And Dependency
 
 **Files:**
 - Modify: `src/config.py`
@@ -47,20 +47,20 @@
 - Modify: `pyproject.toml`
 - Modify: `uv.lock`
 
-- [ ] **Step 1: Write config tests that prove Telegram is not required**
+- [ ] **Step 1: Write config tests that prove External notification channel is not required**
 
 Add to `tests/test_config/test_settings.py`:
 
 ```python
-def test_settings_do_not_require_telegram(monkeypatch):
-    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
-    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
+def test_settings_do_not_require_external notification channel(monkeypatch):
+    monkeypatch.delenv("EXTERNAL_NOTIFICATION_TOKEN", raising=False)
+    monkeypatch.delenv("EXTERNAL_NOTIFICATION_CHAT_ID", raising=False)
     monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://test:test@localhost/test")
 
     s = Settings()
 
-    assert not hasattr(s, "telegram_bot_token")
-    assert not hasattr(s, "telegram_chat_id")
+    assert not hasattr(s, "external_notification_token")
+    assert not hasattr(s, "external_notification_chat_id")
 ```
 
 - [ ] **Step 2: Run the new config test and verify it fails before code changes**
@@ -68,41 +68,41 @@ def test_settings_do_not_require_telegram(monkeypatch):
 Run:
 
 ```bash
-pytest tests/test_config/test_settings.py::test_settings_do_not_require_telegram -q
+pytest tests/test_config/test_settings.py::test_settings_do_not_require_external notification channel -q
 ```
 
-Expected before implementation: failure because `Settings` still has Telegram fields.
+Expected before implementation: failure because `Settings` still has External notification channel fields.
 
-- [ ] **Step 3: Remove Telegram settings from config and env examples**
+- [ ] **Step 3: Remove External notification channel settings from config and env examples**
 
 In `src/config.py`, delete:
 
 ```python
-    # Telegram
-    telegram_bot_token: str
-    telegram_chat_id: str
+    # External notification channel
+    external_notification_token: str
+    external_notification_chat_id: str
 ```
 
 In `.env.example`, delete:
 
 ```env
-# === TELEGRAM ===
-TELEGRAM_BOT_TOKEN=your-bot-token
-TELEGRAM_CHAT_ID=your-chat-id
+# === EXTERNAL_NOTIFICATION ===
+EXTERNAL_NOTIFICATION_TOKEN=your-bot-token
+EXTERNAL_NOTIFICATION_CHAT_ID=your-chat-id
 ```
 
 In test files, delete only these setup lines when present:
 
 ```python
-os.environ.setdefault("TELEGRAM_BOT_TOKEN", "test-token")
-os.environ.setdefault("TELEGRAM_CHAT_ID", "test-chat")
-os.environ.setdefault("TELEGRAM_CHAT_ID", "12345")
+os.environ.setdefault("EXTERNAL_NOTIFICATION_TOKEN", "test-token")
+os.environ.setdefault("EXTERNAL_NOTIFICATION_CHAT_ID", "test-chat")
+os.environ.setdefault("EXTERNAL_NOTIFICATION_CHAT_ID", "12345")
 ```
 
 In `pyproject.toml`, remove:
 
 ```toml
-    "python-telegram-bot>=21.0",
+    "external-notification-client>=21.0",
 ```
 
 Regenerate `uv.lock` with:
@@ -125,12 +125,12 @@ Expected: all config tests pass.
 
 ```bash
 git add src/config.py .env.example tests pyproject.toml uv.lock
-git commit -m "refactor(07): remove telegram configuration"
+git commit -m "refactor(07): remove external notification channel configuration"
 ```
 
 ---
 
-### Task 2: Replace Telegram Signal Delivery With Local Execution Audit
+### Task 2: Replace External notification channel Signal Delivery With Local Execution Audit
 
 **Files:**
 - Modify: `src/execution/executor.py`
@@ -205,7 +205,7 @@ Expected before implementation: constructor failure because `ExecutionRouter` st
 
 - [ ] **Step 3: Implement local-only ExecutionRouter**
 
-Replace the Telegram-specific import and constructor in `src/execution/executor.py` with:
+Replace the External notification channel-specific import and constructor in `src/execution/executor.py` with:
 
 ```python
 from decimal import Decimal
@@ -263,7 +263,7 @@ Run:
 pytest tests/test_execution -q
 ```
 
-Expected: execution tests pass with no Telegram imports.
+Expected: execution tests pass with no External notification channel imports.
 
 - [ ] **Step 5: Commit**
 
@@ -274,14 +274,14 @@ git commit -m "refactor(07): make signal execution local"
 
 ---
 
-### Task 3: Remove Telegram Startup And Scheduler Notification Wiring
+### Task 3: Remove External notification channel Startup And Scheduler Notification Wiring
 
 **Files:**
 - Modify: `src/main.py`
 - Modify: `src/scheduler/jobs.py`
-- Delete: `src/monitoring/telegram_bot.py`
+- Delete: `src/monitoring/notification_adapter.py`
 - Modify: `tests/test_backtesting/test_scheduler_wiring.py`
-- Delete: `tests/test_monitoring/test_telegram_bot.py`
+- Delete: `tests/test_monitoring/test_notification_adapter.py`
 - Modify: `tests/test_monitoring/conftest.py`
 - Modify: `tests/test_monitoring/test_monitor_trades.py`
 
@@ -290,25 +290,25 @@ git commit -m "refactor(07): make signal execution local"
 Add to `tests/test_execution/test_scaffold.py`:
 
 ```python
-def test_main_imports_without_telegram_dependency():
+def test_main_imports_without_external notification channel_dependency():
     import src.main as main
 
     assert main.app.title == "0rum"
 ```
 
-- [ ] **Step 2: Run the smoke test and verify it fails or still imports through Telegram path**
+- [ ] **Step 2: Run the smoke test and verify it fails or still imports through External notification channel path**
 
 Run:
 
 ```bash
-pytest tests/test_execution/test_scaffold.py::test_main_imports_without_telegram_dependency -q
+pytest tests/test_execution/test_scaffold.py::test_main_imports_without_external notification channel_dependency -q
 ```
 
-Expected before implementation: may pass on import because Telegram is imported in lifespan only; full suite still fails after dependency removal until startup code is changed.
+Expected before implementation: may pass on import because External notification channel is imported in lifespan only; full suite still fails after dependency removal until startup code is changed.
 
-- [ ] **Step 3: Remove Telegram from `src/main.py`**
+- [ ] **Step 3: Remove External notification channel from `src/main.py`**
 
-In `src/main.py`, delete the block that imports `telegram.Bot`, initializes `bot`, creates `SignalSender` and `TelegramBot`, registers the Telegram circuit breaker hook, calls `_set_monitor_services`, and shuts the bot down.
+In `src/main.py`, delete the block that imports `notification_client.Bot`, initializes `bot`, creates `SignalSender` and `NotificationAdapter`, registers the External notification channel circuit breaker hook, calls `_set_monitor_services`, and shuts the bot down.
 
 Replace service wiring with:
 
@@ -326,15 +326,15 @@ On shutdown, delete:
 
 ```python
     await bot.shutdown()
-    logger.info("app.telegram_bot_shutdown")
+    logger.info("app.notification_adapter_shutdown")
 ```
 
-- [ ] **Step 4: Remove Telegram service state from scheduler**
+- [ ] **Step 4: Remove External notification channel service state from scheduler**
 
 In `src/scheduler/jobs.py`, delete:
 
 ```python
-_telegram_bot: "Any | None" = None
+_notification_adapter: "Any | None" = None
 ```
 
 Delete `_set_monitor_services`.
@@ -342,15 +342,15 @@ Delete `_set_monitor_services`.
 Remove all blocks like:
 
 ```python
-            if _telegram_bot is not None:
-                await _telegram_bot.send_lifecycle_notification(...)
+            if _notification_adapter is not None:
+                await _notification_adapter.send_lifecycle_notification(...)
 ```
 
 and:
 
 ```python
-        if alert is not None and _telegram_bot is not None:
-            await _telegram_bot.send_circuit_breaker_alert(alert)
+        if alert is not None and _notification_adapter is not None:
+            await _notification_adapter.send_circuit_breaker_alert(alert)
 ```
 
 Keep `BreakerManager.record_stop()` and `BreakerManager.record_win()` intact.
@@ -362,7 +362,7 @@ Delete `daily_summary()` completely and remove this scheduler job:
         daily_summary,
         trigger=CronTrigger(hour=0, minute=0, timezone="UTC"),
         id="daily_summary",
-        name="Send daily Telegram summary at 00:00 UTC",
+        name="Send daily External notification channel summary at 00:00 UTC",
         max_instances=1,
         replace_existing=True,
     )
@@ -372,9 +372,9 @@ Delete `daily_summary()` completely and remove this scheduler job:
 
 In `tests/test_backtesting/test_scheduler_wiring.py`, remove `daily_summary` from the expected scheduler job IDs. Keep `monitor_trades`.
 
-Delete `tests/test_monitoring/test_telegram_bot.py`.
+Delete `tests/test_monitoring/test_notification_adapter.py`.
 
-In `tests/test_monitoring/conftest.py`, remove fixtures that reset alert hooks only for Telegram tests unless they are still used by `tests/test_risk/test_hooks.py`.
+In `tests/test_monitoring/conftest.py`, remove fixtures that reset alert hooks only for External notification channel tests unless they are still used by `tests/test_risk/test_hooks.py`.
 
 In `tests/test_monitoring/test_monitor_trades.py`, remove assertions that expect lifecycle notification calls. Keep assertions around trade status, P&L, trailing stop, circuit breaker counter, and strategy stats.
 
@@ -386,13 +386,13 @@ Run:
 pytest tests/test_backtesting/test_scheduler_wiring.py tests/test_monitoring/test_monitor_trades.py -q
 ```
 
-Expected: pass with no Telegram adapter.
+Expected: pass with no External notification channel adapter.
 
 - [ ] **Step 7: Commit**
 
 ```bash
 git add src/main.py src/scheduler/jobs.py src/monitoring tests/test_backtesting/test_scheduler_wiring.py tests/test_monitoring tests/test_execution/test_scaffold.py
-git commit -m "refactor(07): remove telegram runtime wiring"
+git commit -m "refactor(07): remove external notification channel runtime wiring"
 ```
 
 ---
@@ -529,7 +529,7 @@ git commit -m "feat(07): expose web monitoring data"
 - Modify: `src/templates/dashboard.html`
 - Modify: `tests/test_monitoring/test_dashboard.py`
 
-- [ ] **Step 1: Add HTML tests for new sections and no Telegram wording**
+- [ ] **Step 1: Add HTML tests for new sections and no External notification channel wording**
 
 Add tests:
 
@@ -543,11 +543,11 @@ def test_dashboard_page_has_web_monitoring_sections(client):
     assert "Operational Events" in html
 
 
-def test_dashboard_page_does_not_mention_telegram(client):
+def test_dashboard_page_does_not_mention_external notification channel(client):
     response = client.get("/dashboard")
 
-    assert "Telegram" not in response.text
-    assert "telegram" not in response.text
+    assert "External notification channel" not in response.text
+    assert "external notification channel" not in response.text
 ```
 
 - [ ] **Step 2: Run the new HTML tests and verify they fail before template changes**
@@ -555,7 +555,7 @@ def test_dashboard_page_does_not_mention_telegram(client):
 Run:
 
 ```bash
-pytest tests/test_monitoring/test_dashboard.py::TestDashboardPage::test_dashboard_page_has_web_monitoring_sections tests/test_monitoring/test_dashboard.py::TestDashboardPage::test_dashboard_page_does_not_mention_telegram -q
+pytest tests/test_monitoring/test_dashboard.py::TestDashboardPage::test_dashboard_page_has_web_monitoring_sections tests/test_monitoring/test_dashboard.py::TestDashboardPage::test_dashboard_page_does_not_mention_external notification channel -q
 ```
 
 Expected before implementation: at least the new section test fails.
@@ -602,29 +602,29 @@ git commit -m "feat(07): show autonomous bot monitoring sections"
 - Modify: `.planning/phases/07-signal-mode-monitoring/07-HUMAN-UAT.md`
 - Modify: `.planning/phases/07-signal-mode-monitoring/07-CONTEXT.md`
 
-- [ ] **Step 1: Replace Telegram validation with web-only validation**
+- [ ] **Step 1: Replace External notification channel validation with web-only validation**
 
 Update docs so human/UAT checks are:
 
-- app startup with no Telegram env vars;
+- app startup with no External notification channel env vars;
 - `/dashboard` renders;
 - `/api/dashboard` returns web monitoring data;
 - `/health` returns healthy/degraded based on DB/Redis;
-- no Telegram secret or chat is required.
+- no External notification channel secret or chat is required.
 
 Remove checks for:
 
-- Telegram signal message format;
-- trade lifecycle Telegram notifications;
-- circuit breaker Telegram alert;
-- daily summary Telegram message.
+- External notification channel signal message format;
+- trade lifecycle External notification channel notifications;
+- circuit breaker External notification channel alert;
+- daily summary External notification channel message.
 
-- [ ] **Step 2: Verify docs contain no live Telegram requirements**
+- [ ] **Step 2: Verify docs contain no live External notification channel requirements**
 
 Run:
 
 ```bash
-rg -n "TELEGRAM|Telegram|telegram|chat" .planning/phases/07-signal-mode-monitoring/07-VERIFICATION.md .planning/phases/07-signal-mode-monitoring/07-HUMAN-UAT.md
+rg -n "EXTERNAL_NOTIFICATION|External notification channel|external notification channel|chat" .planning/phases/07-signal-mode-monitoring/07-VERIFICATION.md .planning/phases/07-signal-mode-monitoring/07-HUMAN-UAT.md
 ```
 
 Expected: no matches except historical notes explicitly marked as removed, if any.
@@ -643,12 +643,12 @@ git commit -m "docs(07): update UAT for web-only monitoring"
 **Files:**
 - All modified files.
 
-- [ ] **Step 1: Confirm no Telegram imports remain**
+- [ ] **Step 1: Confirm no External notification channel imports remain**
 
 Run:
 
 ```bash
-rg -n "from telegram|import telegram|python-telegram-bot|TELEGRAM_BOT_TOKEN|TELEGRAM_CHAT_ID" .
+rg -n "from external notification channel|import external notification channel|external-notification-client|EXTERNAL_NOTIFICATION_TOKEN|EXTERNAL_NOTIFICATION_CHAT_ID" .
 ```
 
 Expected: no matches.
@@ -680,7 +680,7 @@ Run the current local UAT path used previously against `127.0.0.1:8010` with lif
 - `/dashboard` returns `200 text/html`;
 - `/api/dashboard` returns `200` with web-only monitoring keys;
 - `/health` returns `200`;
-- startup and endpoint checks do not require Telegram env vars.
+- startup and endpoint checks do not require External notification channel env vars.
 
 - [ ] **Step 5: Final commit if verification docs were updated with UAT evidence**
 
@@ -693,6 +693,6 @@ git commit -m "test(07): record web-only monitoring UAT"
 
 ## Self-Review
 
-- Spec coverage: `07-REALIGNMENT.md` requires removal of Telegram runtime, settings, dependency, UAT, and normal decision notifications. Tasks 1-3 remove runtime/config/dependency/tests. Tasks 4-5 make the dashboard the monitoring surface. Task 6 updates verification/UAT. Task 7 verifies no Telegram imports/secrets remain.
+- Spec coverage: `07-REALIGNMENT.md` requires removal of External notification channel runtime, settings, dependency, UAT, and normal decision notifications. Tasks 1-3 remove runtime/config/dependency/tests. Tasks 4-5 make the dashboard the monitoring surface. Task 6 updates verification/UAT. Task 7 verifies no External notification channel imports/secrets remain.
 - Placeholder scan: no `TBD`, `TODO`, or unspecified implementation steps remain.
 - Type consistency: `ExecutionRouter.execute(signal: CandidateSignal, size_lots: Decimal) -> bool` remains compatible with `PipelineRunner`. Dashboard additions use existing ORM models and JSON-safe primitives.

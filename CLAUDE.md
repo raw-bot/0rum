@@ -84,7 +84,7 @@ Provider matrix:
 | Research/backtest XAUUSD data | Dukascopy public `.bi5` |
 | Legacy inactive path | IG demo/live |
 | Execution broker | Undecided; Capital.com/cTrader remain candidates |
-| Operator surface | Local web dashboard, not Telegram |
+| Operator surface | Local web dashboard only |
 
 ## Invariants
 

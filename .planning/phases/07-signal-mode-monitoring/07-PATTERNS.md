@@ -13,7 +13,7 @@
 | `src/execution/__init__.py` | config | — | `src/pipeline/__init__.py` | role-match |
 | `src/execution/signal_sender.py` | service | request-response | `src/risk/runner.py` | role-match |
 | `src/execution/executor.py` | service | request-response | `src/risk/runner.py` | role-match |
-| `src/monitoring/telegram_bot.py` | service | event-driven | `src/risk/hooks.py` | role-match |
+| `src/monitoring/notification_adapter.py` | service | event-driven | `src/risk/hooks.py` | role-match |
 | `src/models/strategy_stats.py` | model | CRUD | `src/models/optimizer_result.py` | exact |
 | `src/models/trade.py` | model | CRUD | `src/models/trade.py` (modify) | exact |
 | `src/scheduler/jobs.py` | service | event-driven | `src/scheduler/jobs.py` (modify) | exact |
@@ -56,8 +56,8 @@ For `signal_sender.py`, adapt to:
 ```python
 from decimal import Decimal
 import structlog
-from telegram import Bot
-from telegram.constants import ParseMode
+from external notification channel import Bot
+from external notification channel.constants import ParseMode
 
 from src.config import get_settings
 from src.models.signal_data import CandidateSignal
@@ -87,7 +87,7 @@ except Exception as exc:
     log.error("jobs.refresh_failed", timeframe=timeframe, error=str(exc))
 ```
 
-For `signal_sender.py`, on Telegram send failure (D-15):
+For `signal_sender.py`, on External notification channel send failure (D-15):
 ```python
 except Exception as exc:
     log.error(
@@ -148,11 +148,11 @@ log.info(
 
 ---
 
-### `src/monitoring/telegram_bot.py` (service, event-driven)
+### `src/monitoring/notification_adapter.py` (service, event-driven)
 
 **Analog:** `src/risk/hooks.py`
 
-`hooks.py` establishes the pattern: callable surface registered at startup, receives a DTO, fires async with error isolation. `telegram_bot.py` is the hook implementor that receives `CircuitBreakerAlert`.
+`hooks.py` establishes the pattern: callable surface registered at startup, receives a DTO, fires async with error isolation. `notification_adapter.py` is the hook implementor that receives `CircuitBreakerAlert`.
 
 **Imports pattern** (`src/risk/hooks.py` lines 1–26):
 ```python
@@ -163,11 +163,11 @@ from src.risk.events import CircuitBreakerAlert
 log = structlog.get_logger(__name__)
 ```
 
-For `telegram_bot.py`, adapt to:
+For `notification_adapter.py`, adapt to:
 ```python
 import structlog
-from telegram import Bot
-from telegram.constants import ParseMode
+from external notification channel import Bot
+from external notification channel.constants import ParseMode
 
 from src.config import get_settings
 from src.risk.events import CircuitBreakerAlert
@@ -177,7 +177,7 @@ log = structlog.get_logger(__name__)
 
 **Class + constructor injection** (mirror `SignalSender` pattern above):
 ```python
-class TelegramBot:
+class NotificationAdapter:
     def __init__(self, bot: Bot) -> None:
         self._bot = bot
         self._settings = get_settings()
@@ -198,16 +198,16 @@ for hook in _alert_hooks:
         log.error("risk.alert_hook.failed", error=str(exc))
 ```
 
-Apply same try/except to every `bot.send_message` call in `telegram_bot.py`:
+Apply same try/except to every `bot.send_message` call in `notification_adapter.py`:
 ```python
 try:
     await self._bot.send_message(
-        chat_id=self._settings.telegram_chat_id,
+        chat_id=self._settings.external_notification_chat_id,
         text=message,
         parse_mode=ParseMode.HTML,
     )
 except Exception as exc:
-    log.error("monitor.telegram_send_failed", event=event_name, error=str(exc))
+    log.error("monitor.notification_send_failed", event=event_name, error=str(exc))
 ```
 
 **Structlog event keys for lifecycle notifications** (follow `src/risk/breaker.py` lines 55/88):
@@ -341,7 +341,7 @@ scheduler.add_job(
     daily_summary,
     trigger=CronTrigger(hour=0, minute=0, timezone="UTC"),
     id="daily_summary",
-    name="Send daily Telegram summary at 00:00 UTC",
+    name="Send daily External notification channel summary at 00:00 UTC",
     max_instances=1,
     replace_existing=True,
 )
@@ -453,20 +453,20 @@ Then in the return dict: `"strategies_active": strategies_active_val,`
 
 **Addition 1 — D-11: Bot instantiation and initialization** (after `configure_structlog()`, before scheduler start):
 ```python
-from telegram import Bot
-bot = Bot(token=settings.telegram_bot_token)
+from external notification channel import Bot
+bot = Bot(token=settings.external_notification_token)
 await bot.initialize()  # opens HTTP session — must precede scheduler start
 ```
 
 **Addition 2 — D-11/D-12: Service instantiation and hook registration** (after bot init):
 ```python
 from src.execution.signal_sender import SignalSender
-from src.monitoring.telegram_bot import TelegramBot
+from src.monitoring.notification_adapter import NotificationAdapter
 from src.risk.hooks import register_alert_hook
 
 signal_sender = SignalSender(bot=bot)
-telegram_bot = TelegramBot(bot=bot)
-register_alert_hook(telegram_bot.send_circuit_breaker_alert)
+notification_adapter = NotificationAdapter(bot=bot)
+register_alert_hook(notification_adapter.send_circuit_breaker_alert)
 ```
 
 **Addition 3 — Bot shutdown in lifespan teardown** (after `scheduler.shutdown()`):
@@ -478,7 +478,7 @@ await bot.shutdown()
 ```python
 # Good — existing pattern:
 database_url=settings.database_url.split("@")[-1],
-# Follow same for bot: never log settings.telegram_bot_token
+# Follow same for bot: never log settings.external_notification_token
 ```
 
 **Addition 4 — Jinja2 templates mount** (after `app = FastAPI(...)`):
@@ -582,8 +582,8 @@ def downgrade() -> None:
 ```python
 import os
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://test:test@localhost/test")
-os.environ.setdefault("TELEGRAM_BOT_TOKEN", "test-token")
-os.environ.setdefault("TELEGRAM_CHAT_ID", "test-chat")
+os.environ.setdefault("EXTERNAL_NOTIFICATION_TOKEN", "test-token")
+os.environ.setdefault("EXTERNAL_NOTIFICATION_CHAT_ID", "test-chat")
 ```
 Note: `tests/conftest.py` already sets these via `setdefault` — test files that import `src.*` at module level need the guard only if they might be collected before `conftest.py` runs.
 
@@ -662,7 +662,7 @@ def _reset_alert_hooks():
     _alert_hooks.clear()
 ```
 
-Copy this into `tests/test_monitoring/conftest.py` — the `send_circuit_breaker_alert` hook registration in `test_telegram_bot.py` must not bleed across tests.
+Copy this into `tests/test_monitoring/conftest.py` — the `send_circuit_breaker_alert` hook registration in `test_notification_adapter.py` must not bleed across tests.
 
 ---
 

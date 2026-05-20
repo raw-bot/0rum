@@ -37,10 +37,10 @@ Execution order is coherent:
 Key dependency notes:
 
 - `07-01` creates `trailing_stop_price` and `StrategyStatsORM`; later plans depend on both.
-- `07-02` creates `SignalSender` and `TelegramBot`; `07-03` depends on `SignalSender`, `07-04/05` depend on `TelegramBot`.
+- `07-02` creates `SignalSender` and `NotificationAdapter`; `07-03` depends on `SignalSender`, `07-04/05` depend on `NotificationAdapter`.
 - `07-03` introduces `ExecutionRouter` and PipelineRunner risk tuple threading before trade monitoring exists.
 - `07-04` adds trade monitoring, daily summary, `strategy_stats` upsert math, and `BreakerManager.get_consecutive_stops()`.
-- `07-05` wires dashboard, health live `strategies_active`, Telegram service initialization, and main composition.
+- `07-05` wires dashboard, health live `strategies_active`, External notification channel service initialization, and main composition.
 
 No blocking contradictions found in the plan dependency graph.
 

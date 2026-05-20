@@ -9,11 +9,11 @@
 Phase 6 introduces a new `src/risk/` package that:
 1. Evaluates three pre-execution risk gates (RISK-01 daily loss, RISK-02 max positions, RISK-03 concentration) on every quota-survivor candidate signal.
 2. Provides a pure ATR-based position sizer with symmetric volatility adjustment (RISK-04) and a 2% hard cap.
-3. Manages a Redis-backed circuit breaker (RISK-05) that trips after 8 consecutive theoretical stops, enforces a 24 h cooldown, and emits a typed alert event for Phase 7 to deliver via Telegram.
+3. Manages a Redis-backed circuit breaker (RISK-05) that trips after 8 consecutive theoretical stops, enforces a 24 h cooldown, and emits a typed alert event for Phase 7 to deliver via External notification channel.
 
 What this phase is NOT:
 - It does not build the theoretical-trade lifecycle (open → TP1 → close → P&L). That is Phase 7 (SIG-02). Phase 6 reads `TradeORM` where rows exist and degrades gracefully when the table is empty.
-- It does not implement Telegram delivery. `src/monitoring/telegram_bot.py` is still Phase 7 / NOTIF-03. Phase 6 emits a structured event + structlog record only.
+- It does not implement External notification channel delivery. `src/monitoring/notification_adapter.py` is still Phase 7 / NOTIF-03. Phase 6 emits a structured event + structlog record only.
 - It does not refactor `src/pipeline/runner.py` beyond adding a single new step that delegates to `src/risk/` via a clean interface.
 - It does not add scheduler jobs — gates run inline in the pipeline.
 - It does not address auto-mode (real broker fills). Auto mode is Phase 8/9.
@@ -86,7 +86,7 @@ What this phase is NOT:
 - **D-12:** While the breaker `is_tripped()`, the gate evaluator short-circuits ALL candidates to `REJECTED` with reason `circuit_breaker_active`. No daily-loss / max-positions / concentration evaluation runs. The signal is REJECTED before the sizer is invoked.
 - **D-15:** RISK-01 (daily loss limit) does NOT trip the circuit breaker in Phase 6. AGENTS.md §12.1 Gate 1 includes "+ circuit breaker alert" but this is not in the ROADMAP success criterion and the user did not confirm it explicitly. Phase 6 implements RISK-01 strictly per ROADMAP: block + structlog event, no breaker trip. Tying daily-loss to the breaker is deferred (cheap to add later if needed).
 
-### Telegram Alert Delivery (deferred to Phase 7)
+### External notification channel Alert Delivery (deferred to Phase 7)
 - **D-13:** Phase 6 defines `CircuitBreakerAlert` (Pydantic v2 DTO in `src/risk/events.py`) with fields:
   - `tripped_at: datetime`
   - `consecutive_stops: int`
@@ -94,7 +94,7 @@ What this phase is NOT:
   - `last_stop_strategy: str`
   - `last_stop_trade_id: UUID | None`
 
-  When `BreakerManager.record_stop()` returns a non-None alert, Phase 6 emits structlog `risk.circuit_breaker.tripped` AND publishes the alert through a simple in-process hook interface (e.g., `BreakerAlertHook` callable list) that Phase 7's Telegram NOTIF-03 will register against. **No `python-telegram-bot` import in Phase 6**. `src/monitoring/telegram_bot.py` stays unimplemented.
+  When `BreakerManager.record_stop()` returns a non-None alert, Phase 6 emits structlog `risk.circuit_breaker.tripped` AND publishes the alert through a simple in-process hook interface (e.g., `BreakerAlertHook` callable list) that Phase 7's External notification channel NOTIF-03 will register against. **No `external-notification-client` import in Phase 6**. `src/monitoring/notification_adapter.py` stays unimplemented.
 
 ### Mode Coverage
 - **D-13b:** Phase 6 targets signal mode only. "Consecutive stops" = theoretical stops (`TradeORM.close_reason = 'SL'` AND `status = 'CLOSED'`). Use the existing AGENTS.md / schema convention (`SL`, `TP1`, `TP2`, `TRAIL`, `MANUAL`, `CIRCUIT_BREAKER`) rather than introducing `sl_hit`. Auto-mode broker-fill stops will be wired in Phase 8/9; the breaker contract designed here is mode-agnostic and will not need changes.
@@ -175,7 +175,7 @@ What this phase is NOT:
 - `src/main.py` does NOT need changes — risk runs inline via the existing scheduled pipeline job.
 - `src/monitoring/health.py`: Phase 6 wires `circuit_breaker` (from `BreakerManager.is_tripped()`), `open_positions` (count of `TradeORM` rows where `status='OPEN'`), and `daily_pnl_pct` (D-14 query). `signals_today` stays as today's `ApprovedSignalORM` count.
 - Phase 7 (SIG-02) hooks into `BreakerManager.record_stop()` / `record_win()` when it implements the theoretical-trade lifecycle.
-- Phase 7 (NOTIF-03) registers a Telegram callback against the `CircuitBreakerAlert` hook surface (D-13).
+- Phase 7 (NOTIF-03) registers a External notification channel callback against the `CircuitBreakerAlert` hook surface (D-13).
 
 ### Test Strategy
 - Unit tests for each gate function (populated TradeORM, empty TradeORM, threshold edge cases, UTC day boundary).
@@ -200,7 +200,7 @@ What this phase is NOT:
 <deferred>
 ## Deferred Ideas
 
-- Telegram client (`src/monitoring/telegram_bot.py`) — Phase 7 (NOTIF-01..04). Phase 6 produces the alert event; Phase 7 delivers it.
+- External notification channel client (`src/monitoring/notification_adapter.py`) — Phase 7 (NOTIF-01..04). Phase 6 produces the alert event; Phase 7 delivers it.
 - Theoretical-trade lifecycle (open → TP1 → trailing → close) populating `TradeORM` — Phase 7 (SIG-01, SIG-02, SIG-03).
 - Auto-mode risk handling (real broker fills, real positions) — Phase 8/9.
 - Daily-loss-limit tripping the circuit breaker (AGENTS.md §12.1 Gate 1 hint) — possible v2; not in ROADMAP success criterion (D-15).

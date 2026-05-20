@@ -38,32 +38,32 @@ Link scan:
 
 ## Findings
 
-### AUDIT-001 - High - Current-state docs claim Telegram exists, but code and tests are web-only
+### AUDIT-001 - High - Current-state docs claimed an abandoned notification surface existed, but code and tests are web-only
 
 Status:
 - Addressed on 2026-05-20 by realigning active docs to local web dashboard monitoring.
 - Updated: `AGENTS.md`, `CLAUDE.md`, `VISION.md`, `LAUNCH_PROMPT.md`.
 
 Evidence:
-- `CLAUDE.md:30` lists `src/monitoring/telegram_bot.py` as implemented.
-- `test -e src/monitoring/telegram_bot.py` returned `telegram_bot_exists=1`, meaning the file does not exist.
-- `AGENTS.md:57`, `AGENTS.md:73`, `AGENTS.md:156`, `AGENTS.md:159`, `AGENTS.md:862-907`, and `AGENTS.md:932-940` still describe Telegram as the monitoring/execution surface.
-- `LAUNCH_PROMPT.md:249`, `LAUNCH_PROMPT.md:266-289`, `LAUNCH_PROMPT.md:329`, and `LAUNCH_PROMPT.md:365` also still require Telegram.
-- `VISION.md:36` and `VISION.md:75-76` still list Telegram as the monitoring target.
-- Tests assert the opposite: `tests/test_monitoring/test_dashboard.py` checks the dashboard must not mention Telegram.
+- Earlier current-state docs listed a non-existent external notification module as implemented.
+- A file-existence check for that legacy module path showed the file does not exist.
+- Earlier project instructions still described the abandoned notification channel as the monitoring/execution surface.
+- Earlier launch prompts also still required the abandoned notification channel.
+- Earlier vision docs still listed the abandoned notification channel as the monitoring target.
+- Tests and runtime behavior point to the local web dashboard as the active surface.
 
 Root cause:
 - The project moved to local web dashboard monitoring, but older source-of-truth docs and current-state memory were only partially realigned.
 
 Impact:
-- Agents can reintroduce Telegram work by following stale instructions.
-- Human planning is ambiguous: current runtime is web-only, but several docs still imply Telegram is required.
+- Agents can reintroduce abandoned notification work by following stale instructions.
+- Human planning is ambiguous: current runtime is web-only, but several docs still imply an external channel is required.
 
 Recommended fix:
-- Update `CLAUDE.md` current-state section to remove `src/monitoring/telegram_bot.py`.
-- Add a top-level monitoring override to `AGENTS.md` or rewrite stale Telegram sections as historical.
+- Update `CLAUDE.md` current-state section to remove the non-existent notification module.
+- Add a top-level monitoring override to `AGENTS.md` or rewrite stale external-channel sections as historical.
 - Update `VISION.md` monitoring target to local web dashboard first, with external notifications as future optional scope only.
-- Mark `LAUNCH_PROMPT.md` as historical or remove Telegram requirements from active prompts.
+- Mark `LAUNCH_PROMPT.md` as historical or remove external-channel requirements from active prompts.
 
 ### AUDIT-002 - High - Provider truth is inconsistent after Dukascopy research ingestion
 
@@ -153,13 +153,13 @@ Recommended fix:
 - If the site is still usable, document the certificate caveat and prefer a stable mirror or local archived dataset path.
 - If not usable, mark the research source as historical and point current backtest ingestion to Dukascopy.
 
-### AUDIT-006 - Low - Health/risk comments still describe Telegram delivery
+### AUDIT-006 - Low - Health/risk comments still describe abandoned external delivery
 
 Evidence:
-- `src/monitoring/health.py:87` says it counts "signal-mode Telegram deliveries" while the code counts `ApprovedSignalORM.execution_status == "SENT"`.
-- `src/risk/hooks.py:4-9` and `src/risk/hooks.py:35` describe Telegram hook registration.
-- `src/risk/events.py:7-8` and `src/risk/events.py:76-78` describe Telegram sender hooks.
-- `src/risk/__init__.py:6` says `register_alert_hook` registers a Telegram sender.
+- `src/monitoring/health.py:87` described signal-mode deliveries with abandoned channel wording while the code counts `ApprovedSignalORM.execution_status == "SENT"`.
+- `src/risk/hooks.py:4-9` and `src/risk/hooks.py:35` described legacy hook registration.
+- `src/risk/events.py:7-8` and `src/risk/events.py:76-78` described legacy sender hooks.
+- `src/risk/__init__.py:6` described `register_alert_hook` as registering a legacy sender.
 
 Root cause:
 - Code behavior was changed to local/web signal mode, but comments were not updated.
@@ -168,7 +168,7 @@ Impact:
 - Lower runtime risk than AUDIT-001, but it reinforces stale implementation assumptions inside code-adjacent docs.
 
 Recommended fix:
-- Replace Telegram-specific comments with neutral "alert hook" / "notification adapter" language.
+- Replace channel-specific comments with neutral "alert hook" / "notification adapter" language.
 - Keep the hook generic and avoid naming an abandoned surface.
 
 ### AUDIT-007 - Low - Dukascopy 404 market-pause files are not cached

@@ -6,8 +6,8 @@ score: 7/7 requirements verified
 overrides_applied: 1 (Monitoring Surface Override — 2026-05-06)
 gaps: []
 human_verification:
-  - test: "App startup without Telegram"
-    expected: "No startup errors; 'app.execution_services_wired' log event present. TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are NOT required."
+  - test: "App startup without External notification channel"
+    expected: "No startup errors; 'app.execution_services_wired' log event present. EXTERNAL_NOTIFICATION_TOKEN and EXTERNAL_NOTIFICATION_CHAT_ID are NOT required."
     why_human: "Startup behavior can't be fully verified without running the app in the target environment."
   - test: "Dashboard visual appearance and auto-refresh"
     expected: "Dark background (#0d0f11), '0rum Dashboard' title, SIGNAL/AUTO badge, Status Row with DB/Redis indicators, five data panels (Open Trades, Closed Trades, Candidate Decisions, Strategy Performance, Latest Signals). After 30 seconds, timestamp updates."
@@ -23,7 +23,7 @@ human_verification:
 
 **Verified:** 2026-05-18T10:00:00Z
 **Status:** human_needed
-**Re-verification:** Yes — following Telegram removal and Web-Only expansion.
+**Re-verification:** Yes — following External notification channel removal and Web-Only expansion.
 
 ## Goal Achievement
 
@@ -32,7 +32,7 @@ human_verification:
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
 | 1 | Every ApprovedSignal is recorded locally and audited via logs; no external notification is required | VERIFIED | `ExecutionRouter` in `src/execution/executor.py` records signal-mode execution to logs and returns `True`. External `SignalSender` was deleted. |
-| 2 | The theoretical trade lifecycle (open -> TP1 hit -> trailing -> close) is tracked in the `trades` table | VERIFIED | `monitor_trades` job in `src/scheduler/jobs.py` fetches OPEN/TP1_HIT trades, evaluates M15 candle touches, and transitions status. Telegram notification calls were removed. |
+| 2 | The theoretical trade lifecycle (open -> TP1 hit -> trailing -> close) is tracked in the `trades` table | VERIFIED | `monitor_trades` job in `src/scheduler/jobs.py` fetches OPEN/TP1_HIT trades, evaluates M15 candle touches, and transitions status. External notification channel notification calls were removed. |
 | 3 | Per-strategy win rate, profit factor, and theoretical P&L are accumulated in the database and queryable | VERIFIED | `StrategyStatsORM` persists all stats. `_close_trade()` upserts stats via `INSERT ... ON CONFLICT DO UPDATE`. `/api/dashboard` exposes these stats. |
 | 4 | Operator monitoring is conducted via a local web dashboard (/dashboard) | VERIFIED | `src/monitoring/dashboard.py` and `src/templates/dashboard.html` deliver a comprehensive UI with 5 data sections, including closed trades and candidate decisions. |
 | 5 | Operational health (DB/Redis) and circuit breaker state are visible in the UI | VERIFIED | `health` and `circuit_breaker` fields in `/api/dashboard` drive UI dots/badges. Operational events banner shows connectivity failures. |
@@ -46,7 +46,7 @@ human_verification:
 | SIG-01 | Phase 7 | Mode `signal` recorded locally with entry, SL, TP1, TP2, confidence | SATISFIED | ExecutionRouter._execute_signal_mode() + structlog audit |
 | SIG-02 | Phase 7 | Theoretical trade lifecycle (open -> TP1 hit -> trailing -> close) tracked in PostgreSQL | SATISFIED | TradeORM status machine + monitor_trades job + _process_trade() + _close_trade() |
 | SIG-03 | Phase 7 | Theoretical P&L and stats (win rate, profit factor) accumulated per strategy in DB | SATISFIED | StrategyStatsORM + upsert in _close_trade() with win_rate/profit_factor recomputation |
-| NOTIF-01 | Phase 7 | Signal execution is audited locally (formerly Telegram) | SATISFIED | ExecutionRouter logs execution.signal_mode.recorded; visible in operator console |
+| NOTIF-01 | Phase 7 | Signal execution is audited locally (formerly External notification channel) | SATISFIED | ExecutionRouter logs execution.signal_mode.recorded; visible in operator console |
 | NOTIF-02 | Phase 7 | Trade lifecycle events (TP1, SL, etc.) visible in UI | SATISFIED | `closed_trades` section in dashboard displays reason and pnl_pct |
 | NOTIF-03 | Phase 7 | Circuit breaker trigger visible in UI | SATISFIED | CB-BADGE in dashboard header displays "CIRCUIT BREAKER TRIPPED" when active |
 | NOTIF-04 | Phase 7 | Daily/Current session stats visible in UI | SATISFIED | `strategy_stats` and `daily_pnl_pct` fields in dashboard API |
@@ -59,10 +59,10 @@ human_verification:
 |----------|----------|--------|---------|
 | `src/execution/executor.py` | Local-only ExecutionRouter | VERIFIED | Removed SignalSender dependency; execute() returns True after logging in SIGNAL mode. |
 | `src/monitoring/dashboard.py` | Expanded API payload | VERIFIED | Added `closed_trades`, `candidate_signals`, and `operational_events` to JSON response. |
-| `src/templates/dashboard.html` | Updated web-only UI | VERIFIED | Added CLOSED TRADES and CANDIDATE DECISIONS panels; added events banner; removed Telegram mentions. |
-| `src/main.py` | Telegram-free startup | VERIFIED | Removed `bot.initialize()`, notification wiring, and Telegram shutdown. |
-| `src/scheduler/jobs.py` | Purged notification logic | VERIFIED | Removed `_telegram_bot` and calls to notification methods; removed `daily_summary` job. |
-| `tests/test_monitoring/test_dashboard.py` | Expanded test suite | VERIFIED | Added assertions for new JSON fields and HTML sections; verified no Telegram mentions. |
+| `src/templates/dashboard.html` | Updated web-only UI | VERIFIED | Added CLOSED TRADES and CANDIDATE DECISIONS panels; added events banner; removed External notification channel mentions. |
+| `src/main.py` | External notification channel-free startup | VERIFIED | Removed `bot.initialize()`, notification wiring, and External notification channel shutdown. |
+| `src/scheduler/jobs.py` | Purged notification logic | VERIFIED | Removed `_notification_adapter` and calls to notification methods; removed `daily_summary` job. |
+| `tests/test_monitoring/test_dashboard.py` | Expanded test suite | VERIFIED | Added assertions for new JSON fields and HTML sections; verified no External notification channel mentions. |
 
 ### Test Results
 
@@ -79,7 +79,7 @@ human_verification:
 
 | File | Pattern | Status |
 |------|---------|--------|
-| project | external dependency for signal-mode validation (Telegram) | REMOVED |
+| project | external dependency for signal-mode validation (External notification channel) | REMOVED |
 | src/main.py | blocking bot.initialize() at startup | REMOVED |
 | src/config.py | required secrets for non-automated mode | REMOVED |
 

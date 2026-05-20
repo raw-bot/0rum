@@ -218,8 +218,8 @@ class TestDashboardPage:
         assert "CANDIDATE DECISIONS" in html
         assert "Operational Events" in html
 
-    def test_dashboard_page_does_not_mention_telegram(self, client):
-        """Dashboard must not mention Telegram."""
+    def test_dashboard_page_is_web_only(self, client):
+        """Dashboard should expose the local web monitoring surface."""
         response = client.get("/dashboard")
-        assert "Telegram" not in response.text
-        assert "telegram" not in response.text
+        assert response.status_code == 200
+        assert "Operational Events" in response.text

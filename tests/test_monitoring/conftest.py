@@ -17,8 +17,7 @@ async def fake_redis():
 def _reset_alert_hooks():
     """Clear _alert_hooks before and after each test to prevent cross-test bleed.
 
-    send_circuit_breaker_alert registration in telegram_bot tests must not
-    persist into subsequent test functions.
+    alert adapter registrations must not persist into subsequent test functions.
     """
     try:
         from src.risk.hooks import _alert_hooks

@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-10)
 
 Phase: 07 (signal-mode-monitoring) — EXECUTING
 Plan: 1 of 5
-Next: Telegram delivery layer (SignalSender, TelegramBot)
+Next: Local web monitoring realignment
 Status: Executing Phase 07
 Last activity: 2026-05-02 -- Phase 07 execution started
 

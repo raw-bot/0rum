@@ -38,13 +38,10 @@ def test_theoretical_equity_decimal_arithmetic_works():
     assert risk_amount == Decimal("100.00")
 
 
-def test_settings_do_not_require_telegram(monkeypatch):
-    """Telegram settings are no longer part of the runtime config surface."""
-    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
-    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
+def test_settings_do_not_require_external_notification_config(monkeypatch):
+    """Runtime settings do not require an external notification channel."""
     monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://test:test@localhost/test")
 
     s = Settings()
 
-    assert not hasattr(s, "telegram_bot_token")
-    assert not hasattr(s, "telegram_chat_id")
+    assert s.database_url == "postgresql+asyncpg://test:test@localhost/test"

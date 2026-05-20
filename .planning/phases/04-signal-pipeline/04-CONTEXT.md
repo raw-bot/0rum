@@ -8,7 +8,7 @@
 
 Receive `list[CandidateSignal]` from StrategyRunner, run through dedup → conflict filter → regime detection → ranker → quota gate, then batch-persist all candidates (with final statuses) and approved signals to the DB. Delivers `ApprovedSignalORM` rows ready for Phase 6 risk gates and Phase 7 execution.
 
-No risk gate logic, no Telegram sending, no trade tracking — those belong to Phases 6 and 7.
+No risk gate logic, no External notification channel sending, no trade tracking — those belong to Phases 6 and 7.
 
 </domain>
 

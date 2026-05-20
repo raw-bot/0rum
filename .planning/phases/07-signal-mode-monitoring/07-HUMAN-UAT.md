@@ -12,8 +12,8 @@ updated: 2026-05-18T10:00:00Z
 
 ## Tests
 
-### 1. App startup without Telegram
-expected: No startup errors; 'app.execution_services_wired' log event present. TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are NOT required.
+### 1. App startup without External notification channel
+expected: No startup errors; 'app.execution_services_wired' log event present. EXTERNAL_NOTIFICATION_TOKEN and EXTERNAL_NOTIFICATION_CHAT_ID are NOT required.
 why_human: Startup behavior can't be fully verified without running the app in the target environment.
 result: [pending]
 

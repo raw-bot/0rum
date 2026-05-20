@@ -5,7 +5,7 @@
 > Chaque prompt est auto-suffisant — copier-coller directement dans Claude Code.
 
 > **Statut 2026-05-20** : ce fichier est historique. Pour l'état courant, lire d'abord
-> `CLAUDE.md`. La surface active est le dashboard web local, pas Telegram.
+> `CLAUDE.md`. La surface active est le dashboard web local, sans canal externe.
 > IG est legacy/inactif. Dukascopy public `.bi5` est la source research/backtest
 > XAUUSD validée. Binance/PAXG reste un proxy de plomberie runtime, pas une source
 > de validation stratégique.

@@ -15,8 +15,6 @@ def _settings() -> Settings:
     return Settings(
         database_url="sqlite+aiosqlite:///./test.db",
         redis_url="redis://localhost:6379/0",
-        telegram_bot_token="token",
-        telegram_chat_id="chat",
         ig_api_key="demo-key",
         ig_identifier="demo-user",
         ig_password="demo-pass",

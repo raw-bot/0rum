@@ -2,7 +2,7 @@
 
 ## What This Is
 
-0rum (prononcé « orum », from *aurum* — gold in Latin) is a 24/7 autonomous trading bot for XAUUSD (Gold/USD) built around a split provider architecture: market data and order execution are decoupled. The current target for real XAUUSD development is IG in demo first, then live; the Phase 2 Binance/CCXT PAXG/USDT ingestion remains an interim plumbing path only and must not be treated as validation-grade XAUUSD data. The bot runs 4 parallel technical strategies, filters and ranks signals through a pipeline, validates parameters via walk-forward optimization, and executes either as a Telegram signal sender (mode signal) or a fully automated order executor (mode auto). The system is entirely code-generated — the author is a non-developer.
+0rum (prononcé « orum », from *aurum* — gold in Latin) is a 24/7 autonomous trading bot for XAUUSD (Gold/USD) built around a split provider architecture: market data and order execution are decoupled. The current target for real XAUUSD development is IG in demo first, then live; the Phase 2 Binance/CCXT PAXG/USDT ingestion remains an interim plumbing path only and must not be treated as validation-grade XAUUSD data. The bot runs 4 parallel technical strategies, filters and ranks signals through a pipeline, validates parameters via walk-forward optimization, and executes either as local signal-mode audit surfaced in the web dashboard or as a fully automated order executor. The system is entirely code-generated — the author is a non-developer.
 
 ## Core Value
 
@@ -25,10 +25,10 @@ The bot must reliably generate validated XAUUSD signals in mode signal, with eve
 - [ ] Market regime detection (TRENDING_UP/DOWN, RANGING, HIGH_VOL) feeds signal ranking
 - [ ] Risk gates: daily loss limit (−3%), max positions (5), concentration check
 - [ ] ATR-based position sizing with volatility adjustment and 2% hard cap
-- [ ] Circuit breaker: 8 consecutive stops → 24h shutdown with Telegram alert
-- [ ] Mode signal: Telegram formatted signal + theoretical trade tracking in DB
+- [ ] Circuit breaker: 8 consecutive stops → 24h shutdown visible in health and dashboard state
+- [ ] Mode signal: approved signal persisted locally + theoretical trade tracking in DB
 - [ ] Mode auto: broker-native order placement, partial close at TP1, ATR trailing stop
-- [ ] Telegram notifications for all event types (signal, TP, SL, circuit breaker, daily summary)
+- [ ] Local dashboard and structured logs expose signal, TP, SL, circuit breaker, and daily summary state
 - [ ] Structured JSON logging via structlog throughout
 - [ ] Real XAUUSD provider validation completed before Phase 5 optimizer/backtest runs
 
@@ -36,7 +36,7 @@ The bot must reliably generate validated XAUUSD signals in mode signal, with eve
 
 - ML/neural networks (LSTM, sklearn, etc.) — pure technical strategies only, no AI in signal generation
 - Multi-asset — XAUUSD exclusively, no instrument loop
-- Frontend/dashboard — `/health` endpoint is sufficient for v1
+- Remote operator notifications — local web dashboard is the active v1 surface
 - External data APIs (Fear & Greed, news) — no external dependencies beyond the selected market-data/execution providers
 - RSI/MACD — explicitly eliminated to reduce parameter count
 - More than 3 optimizable parameters per strategy — overfitting protection
@@ -55,7 +55,7 @@ The bot must reliably generate validated XAUUSD signals in mode signal, with eve
 
 ## Constraints
 
-- **Tech Stack**: Python 3.12, FastAPI, PostgreSQL 16, Redis, Docker Compose, SQLAlchemy 2.0 async, Pydantic v2, httpx, APScheduler, structlog, scipy/numpy/pandas, python-telegram-bot — no deviations
+- **Tech Stack**: Python 3.12, FastAPI, PostgreSQL 16, Redis, Docker Compose, SQLAlchemy 2.0 async, Pydantic v2, httpx, APScheduler, structlog, scipy/numpy/pandas — no deviations
 - **Code Style**: async everywhere, type hints everywhere, Google-style docstrings, structured logging, no bare `except:`
 - **Optimization**: max 3 params/strategy, WFE > 50% gate, no structural params (EMA50/200, swing order=10) in optimizer
 - **Capital Safety**: risk gates are not optional — no trade executes without passing all 3 gates

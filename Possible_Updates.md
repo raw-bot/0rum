@@ -142,7 +142,7 @@ equivalent is context selection.
 - `ALLOW`, `REDUCE`, or `BLOCK`
 - risk multiplier such as `1.0`, `0.5`, or `0.0`
 - per-strategy allowlist
-- reasons attached for logging and Telegram summaries
+- reasons attached for logging and operator summaries
 
 ### Suggested rules
 
@@ -242,7 +242,7 @@ The stock bot had a simple human-readable operating artifact: the daily watchlis
 
 ### Output
 
-Telegram message or persisted text snapshot like:
+Operator message or persisted text snapshot like:
 
 ```text
 XAUUSD Daily Brief
@@ -814,7 +814,7 @@ These should remain risk controls, not optimizer parameters.
   - natural place for orchestration
 - `src/monitoring/health.py`
   - can surface latest tradeability state
-- future `src/monitoring/telegram_bot.py`
+- future monitoring adapter
   - natural output path for daily briefs, close summaries, and weekly review
 
 ### Minimal invasive path
@@ -867,7 +867,7 @@ Instead:
 
 ### Phase 6 - Daily brief and weekly review
 
-- produce Telegram or persisted text summary
+- produce operator or persisted text summary
 - include regime, risk mode, event windows, allowed strategies
 - add a weekly review artifact with benchmark and open-issue summary
 

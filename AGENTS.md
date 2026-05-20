@@ -28,13 +28,13 @@ Règles de priorité :
 
 ## Monitoring Surface Override — 2026-05-20
 
-La surface opérateur Telegram est abandonnée au profit d'une UI web locale.
+L'ancienne surface opérateur de notification externe est abandonnée au profit d'une UI web locale.
 
 Règles de priorité :
 - `signal mode` ne dépend plus d'aucun canal externe de notification
 - la surface active est `GET /dashboard` + `GET /api/dashboard`
 - les signaux approuvés doivent être persistés, traçables localement, puis visibles dans la UI web
-- toute section plus bas qui présente Telegram comme surface active doit être lue comme historique
+- toute section plus bas qui présente un canal externe comme surface active doit être lue comme historique
 
 ---
 
@@ -926,7 +926,7 @@ class ExecutionRouter:
 Surface active :
 - `GET /dashboard` — UI opérateur locale read-only
 - `GET /api/dashboard` — JSON agrégé pour health, signaux, trades, P&L, circuit breaker, stratégies actives
-- aucun canal Telegram requis pour le mode signal
+- aucun canal externe requis pour le mode signal
 - `📊 Daily Summary` — résumé quotidien à 00:00 UTC
 - `🏥 Health Alert` — problème système
 

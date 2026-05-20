@@ -38,16 +38,16 @@ created: 2026-04-28
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 07-01-01 | 01 | 1 | SIG-01 | T-07-01 / — | Telegram token never logged in execution.send_failed event | unit | `pytest tests/test_execution/test_signal_sender.py -x` | ❌ W0 | ⬜ pending |
+| 07-01-01 | 01 | 1 | SIG-01 | T-07-01 / — | External notification channel token never logged in execution.send_failed event | unit | `pytest tests/test_execution/test_signal_sender.py -x` | ❌ W0 | ⬜ pending |
 | 07-01-02 | 01 | 1 | NOTIF-01 | — | N/A | unit | `pytest tests/test_execution/test_executor.py::test_status_sent_on_success -x` | ❌ W0 | ⬜ pending |
 | 07-01-03 | 01 | 1 | NOTIF-01 | — | keep PENDING + log on failure; no silent discard | unit | `pytest tests/test_execution/test_executor.py::test_status_pending_on_failure -x` | ❌ W0 | ⬜ pending |
 | 07-02-01 | 02 | 1 | SIG-02 | — | N/A | unit | `pytest tests/test_monitoring/test_monitor_trades.py::test_tp1_hit -x` | ❌ W0 | ⬜ pending |
 | 07-02-02 | 02 | 1 | SIG-02 | — | N/A | unit | `pytest tests/test_monitoring/test_monitor_trades.py::test_trail_ratchet -x` | ❌ W0 | ⬜ pending |
 | 07-02-03 | 02 | 1 | SIG-02 | — | SL wins pre-TP1_HIT (conservative worst-case) | unit | `pytest tests/test_monitoring/test_monitor_trades.py::test_sl_wins_pre_tp1 -x` | ❌ W0 | ⬜ pending |
 | 07-03-01 | 03 | 1 | SIG-03 | — | N/A | unit | `pytest tests/test_monitoring/test_strategy_stats.py -x` | ❌ W0 | ⬜ pending |
-| 07-04-01 | 04 | 2 | NOTIF-02 | — | N/A | unit | `pytest tests/test_monitoring/test_telegram_bot.py::test_lifecycle_notifications -x` | ❌ W0 | ⬜ pending |
-| 07-04-02 | 04 | 2 | NOTIF-03 | — | N/A | unit | `pytest tests/test_monitoring/test_telegram_bot.py::test_cb_alert -x` | ❌ W0 | ⬜ pending |
-| 07-04-03 | 04 | 2 | NOTIF-04 | — | N/A | unit | `pytest tests/test_monitoring/test_telegram_bot.py::test_daily_summary -x` | ❌ W0 | ⬜ pending |
+| 07-04-01 | 04 | 2 | NOTIF-02 | — | N/A | unit | `pytest tests/test_monitoring/test_notification_adapter.py::test_lifecycle_notifications -x` | ❌ W0 | ⬜ pending |
+| 07-04-02 | 04 | 2 | NOTIF-03 | — | N/A | unit | `pytest tests/test_monitoring/test_notification_adapter.py::test_cb_alert -x` | ❌ W0 | ⬜ pending |
+| 07-04-03 | 04 | 2 | NOTIF-04 | — | N/A | unit | `pytest tests/test_monitoring/test_notification_adapter.py::test_daily_summary -x` | ❌ W0 | ⬜ pending |
 | 07-05-01 | 05 | 2 | SIG-02 | — | N/A | unit | `pytest tests/test_monitoring/test_dashboard.py -x` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
@@ -61,7 +61,7 @@ created: 2026-04-28
 - [ ] `tests/test_execution/test_executor.py` — stubs for NOTIF-01 (D-13/D-14/D-15)
 - [ ] `tests/test_monitoring/test_monitor_trades.py` — stubs for SIG-02, NOTIF-02
 - [ ] `tests/test_monitoring/test_strategy_stats.py` — stubs for SIG-03
-- [ ] `tests/test_monitoring/test_telegram_bot.py` — stubs for NOTIF-02, NOTIF-03, NOTIF-04
+- [ ] `tests/test_monitoring/test_notification_adapter.py` — stubs for NOTIF-02, NOTIF-03, NOTIF-04
 - [ ] `tests/test_monitoring/test_dashboard.py` — stubs for /dashboard, /api/dashboard
 
 *Note: `tests/test_monitoring/__init__.py` and `tests/test_monitoring/test_health_risk.py` already exist — add to existing package.*
@@ -72,8 +72,8 @@ created: 2026-04-28
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| Telegram signal message delivered to chat | NOTIF-01 | Requires live Telegram bot token + chat | Set valid token, run bot in signal mode, generate an approved signal, verify message received in Telegram |
-| Daily summary fires at 00:00 UTC | NOTIF-04 | Requires real-time clock + live Telegram | Advance system clock or use APScheduler immediate trigger; verify message in Telegram chat |
+| External notification channel signal message delivered to chat | NOTIF-01 | Requires live External notification channel bot token + chat | Set valid token, run bot in signal mode, generate an approved signal, verify message received in External notification channel |
+| Daily summary fires at 00:00 UTC | NOTIF-04 | Requires real-time clock + live External notification channel | Advance system clock or use APScheduler immediate trigger; verify message in External notification channel chat |
 | Dashboard renders correctly at /dashboard | D-21 | Browser rendering requires visual inspection | Open http://localhost:8000/dashboard, verify sections load, verify auto-refresh updates timestamp |
 
 ---

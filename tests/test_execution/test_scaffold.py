@@ -6,8 +6,8 @@ def test_execution_package_scaffold() -> None:
     assert True
 
 
-def test_main_imports_without_telegram_dependency() -> None:
-    """Application module imports without Telegram-specific dependencies."""
+def test_main_imports_without_external_notification_dependency() -> None:
+    """Application module imports without external notification dependencies."""
     import src.main as main
 
     assert main.app.title == "0rum"

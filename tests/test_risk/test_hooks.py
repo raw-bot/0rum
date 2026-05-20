@@ -40,7 +40,7 @@ async def test_register_then_publish_invokes_hook():
 @pytest.mark.asyncio
 async def test_hook_failure_does_not_propagate():
     """A failing hook must not raise and must not prevent subsequent hooks from receiving the alert."""
-    failing = AsyncMock(side_effect=RuntimeError("telegram down"))
+    failing = AsyncMock(side_effect=RuntimeError("notification adapter down"))
     working = AsyncMock()
     register_alert_hook(failing)
     register_alert_hook(working)

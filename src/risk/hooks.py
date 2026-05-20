@@ -1,12 +1,12 @@
 """In-process pub-sub surface for cross-phase alert delivery.
 
 Phase 6 publishes CircuitBreakerAlert via _publish_alert() whenever the circuit
-breaker trips (CONTEXT D-13). Phase 7 NOTIF-03 will append a Telegram-sender
-callable to _alert_hooks at application startup (src/main.py), never from a
-request path.
+breaker trips (CONTEXT D-13). Startup wiring may append alert adapters to
+_alert_hooks at application startup (src/main.py), never from a request path.
 
-No telegram import lives here — Phase 6 emits only. Phase 7 owns the Telegram
-integration. This split keeps Phase 6 free of notification-layer dependencies.
+No external notification import lives here — Phase 6 emits only. Monitoring
+adapters own delivery. This split keeps Phase 6 free of notification-layer
+dependencies.
 
 Trust model (T-06-02-04): register_alert_hook is a plain Python function with no
 auth gate. Registration is expected only from src/main.py at startup. ASVS L1
@@ -32,7 +32,7 @@ _alert_hooks: list[BreakerAlertHook] = []
 def register_alert_hook(hook: BreakerAlertHook) -> None:
     """Append a hook to the alert subscriber list.
 
-    Phase 7 NOTIF-03 calls this at startup to register the Telegram sender.
+    Startup wiring calls this to register alert delivery adapters.
     Multiple hooks may be registered; they fire in registration order.
     Hook failures are isolated — a failing hook does not prevent others from
     receiving the alert.

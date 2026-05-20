@@ -104,8 +104,6 @@ async def test_ig_provider_routes_to_ig_client():
     settings = Settings(
         database_url="sqlite+aiosqlite:///./test.db",
         redis_url="redis://localhost:6379/0",
-        telegram_bot_token="token",
-        telegram_chat_id="chat",
         market_data_provider="ig",
     )
     client = MarketDataClient.__new__(MarketDataClient)

@@ -15,7 +15,7 @@ files_reviewed_list:
   - src/models/trade.py
   - src/monitoring/dashboard.py
   - src/monitoring/health.py
-  - src/monitoring/telegram_bot.py
+  - src/monitoring/notification_adapter.py
   - src/pipeline/runner.py
   - src/risk/breaker.py
   - src/scheduler/jobs.py
@@ -28,7 +28,7 @@ files_reviewed_list:
   - tests/test_monitoring/test_dashboard.py
   - tests/test_monitoring/test_monitor_trades.py
   - tests/test_monitoring/test_strategy_stats.py
-  - tests/test_monitoring/test_telegram_bot.py
+  - tests/test_monitoring/test_notification_adapter.py
   - tests/test_pipeline/test_runner_risk_step.py
 findings:
   critical: 2
@@ -47,7 +47,7 @@ status: issues_found
 
 ## Summary
 
-This review covers Phase 7 (signal-mode-monitoring) of the 0rum trading bot. The codebase introduces signal-mode execution (Telegram notifications), a monitoring dashboard, trade lifecycle management with trailing stops, circuit breaker state machine, strategy statistics, and scheduler jobs. Overall the code is well-structured with consistent patterns, but two critical issues exist: a detached-ORM-instance error that will silently prevent all trade lifecycle processing in production, and an incorrect blended P&L calculation for SL-closed trades that never reached TP1. Several warnings around security (XSS in dashboard), resource management (unnecessary Redis connections), and fragile code patterns are also identified.
+This review covers Phase 7 (signal-mode-monitoring) of the 0rum trading bot. The codebase introduces signal-mode execution (External notification channel notifications), a monitoring dashboard, trade lifecycle management with trailing stops, circuit breaker state machine, strategy statistics, and scheduler jobs. Overall the code is well-structured with consistent patterns, but two critical issues exist: a detached-ORM-instance error that will silently prevent all trade lifecycle processing in production, and an incorrect blended P&L calculation for SL-closed trades that never reached TP1. Several warnings around security (XSS in dashboard), resource management (unnecessary Redis connections), and fragile code patterns are also identified.
 
 ## Critical Issues
 
@@ -165,7 +165,7 @@ function escapeHtml(s) {
 
 **Issue:** `_set_monitor_services()` is called with `breaker_manager=None`:
 ```python
-_set_monitor_services(telegram_bot=telegram_bot_inst, breaker_manager=None)
+_set_monitor_services(notification_adapter=notification_adapter_inst, breaker_manager=None)
 ```
 This means `_breaker_manager` stays `None` throughout the application lifetime. Every call in `_close_trade()` (line 458) and `daily_summary()` (line 556) falls through to `BreakerManager()` which opens a new Redis connection. Over time this leaks connections.
 

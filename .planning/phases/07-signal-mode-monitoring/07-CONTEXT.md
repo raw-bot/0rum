@@ -8,10 +8,10 @@
 ## Phase Boundary
 
 Phase 7 delivers the complete signal mode runtime plus a comprehensive read-only operator dashboard. Following the 2026-05-06 Monitoring Surface Override, the system is **web-only**:
-1. Every `ApprovedSignal` is recorded locally and audited via structured logs (SIG-01 / NOTIF-01). Telegram sending is ABANDONED.
+1. Every `ApprovedSignal` is recorded locally and audited via structured logs (SIG-01 / NOTIF-01). External notification channel sending is ABANDONED.
 2. A theoretical trade lifecycle (OPEN → TP1_HIT → CLOSED) is tracked in `TradeORM` for every approved signal (SIG-02).
 3. Per-strategy win rate, profit factor, and P&L are accumulated in a new `strategy_stats` table and queryable (SIG-03).
-4. Monitoring is conducted via a local web dashboard (`/dashboard`) + JSON API (`/api/dashboard`). Telegram notifications are ABANDONED.
+4. Monitoring is conducted via a local web dashboard (`/dashboard`) + JSON API (`/api/dashboard`). External notification channel notifications are ABANDONED.
 5. The dashboard displays bot health, execution mode, circuit breaker state, latest signals, open theoretical trades, recently closed trades, candidate signal decisions, per-strategy stats, and operational events.
 
 What this phase is NOT:
@@ -38,8 +38,8 @@ What this phase is NOT:
 ### Module Structure (Web-Only)
 
 - **D-09:** `src/execution/executor.py` implements local-only `ExecutionRouter`. `SignalSender` was REMOVED.
-- **D-10:** `src/monitoring/dashboard.py` implements the web-only monitoring surface. `TelegramBot` was REMOVED.
-- **D-11:** Startup logic in `main.py` is Telegram-free. No `Bot` instantiation or external wiring.
+- **D-10:** `src/monitoring/dashboard.py` implements the web-only monitoring surface. `NotificationAdapter` was REMOVED.
+- **D-11:** Startup logic in `main.py` is External notification channel-free. No `Bot` instantiation or external wiring.
 - **D-12:** Circuit breaker alerts are visible via the dashboard's CB-BADGE and operational events banner. Alert hooks are local-only or internal.
 
 ### Operator Dashboard (UI)
@@ -65,7 +65,7 @@ What this phase is NOT:
 ## Canonical References
 
 ### Primary Spec
-- `AGENTS.md` 2026-05-06 Override — Telegram abandoned; UI web locale prioritaire.
+- `AGENTS.md` 2026-05-06 Override — External notification channel abandoned; UI web locale prioritaire.
 - `AGENTS.md` §13.1 — Signal mode (local-only behavior).
 - `AGENTS.md` §13.2 — Trailing stop behavior.
 

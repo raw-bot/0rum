@@ -2,14 +2,14 @@
 phase: 07-signal-mode-monitoring
 status: approved
 date: 2026-05-06
-decision: remove-telegram-web-monitoring-only
+decision: remove-external notification channel-web-monitoring-only
 ---
 
 # Phase 7 Realignment: Web Monitoring Only
 
 ## Decision
 
-Telegram is removed from Phase 7.
+External notification channel is removed from Phase 7.
 
 0rum is an autonomous trading bot. It should not notify the operator for every
 decision, candidate signal, approved signal, or theoretical trade lifecycle
@@ -39,11 +39,11 @@ Phase 7 must provide:
 
 Phase 7 must not require:
 
-- `TELEGRAM_BOT_TOKEN`.
-- `TELEGRAM_CHAT_ID`.
-- A live Telegram Bot API call.
-- Any Telegram startup initialization.
-- Any Telegram-based UAT step.
+- `EXTERNAL_NOTIFICATION_TOKEN`.
+- `EXTERNAL_NOTIFICATION_CHAT_ID`.
+- A live External notification channel Bot API call.
+- Any External notification channel startup initialization.
+- Any External notification channel-based UAT step.
 - Any notification on normal trading decisions.
 
 ## Dashboard Monitoring Contract
@@ -66,29 +66,29 @@ trading state.
 
 ## Codebase Realignment
 
-Implementation should remove Telegram from the active code path:
+Implementation should remove External notification channel from the active code path:
 
-- Remove Telegram settings from `src/config.py` and `.env.example`.
-- Remove `python-telegram-bot` from project dependencies if no import remains.
-- Remove Telegram initialization and shutdown from `src/main.py`.
+- Remove External notification channel settings from `src/config.py` and `.env.example`.
+- Remove `external-notification-client` from project dependencies if no import remains.
+- Remove External notification channel initialization and shutdown from `src/main.py`.
 - Replace the signal-mode delivery abstraction with a local execution/audit path
   that records decisions and lets the dashboard display them.
-- Remove Telegram notification jobs and hooks from scheduler/risk wiring.
-- Delete or rewrite Telegram-specific tests.
+- Remove External notification channel notification jobs and hooks from scheduler/risk wiring.
+- Delete or rewrite External notification channel-specific tests.
 - Update Phase 7 verification and UAT docs so web monitoring is the validation
   target.
 
 ## Validation Target
 
 Phase 7 is complete when the current app can be started locally without
-Telegram secrets and the operator can inspect bot state through the web UI and
+External notification channel secrets and the operator can inspect bot state through the web UI and
 JSON endpoints.
 
 Local UAT should verify:
 
-- App startup succeeds with no Telegram environment variables.
+- App startup succeeds with no External notification channel environment variables.
 - `/dashboard` loads successfully.
 - `/api/dashboard` exposes system state, trading activity, strategy stats, and
   recent decisions.
 - `/health` reports degraded or healthy status based on DB/Redis availability.
-- No UAT step depends on a Telegram chat or Bot API call.
+- No UAT step depends on a External notification channel chat or Bot API call.

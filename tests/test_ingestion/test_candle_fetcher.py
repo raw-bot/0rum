@@ -12,8 +12,6 @@ from src.config import Settings
 def make_settings() -> Settings:
     return Settings(
         database_url="postgresql+asyncpg://test:test@localhost/test",
-        telegram_bot_token="test-token",
-        telegram_chat_id="test-chat",
     )
 
 

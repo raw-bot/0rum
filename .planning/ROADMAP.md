@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 4: Signal Pipeline** - Dedup, conflict filter, regime detection, ranker, quota producing ApprovedSignals
 - [x] **Phase 5: Backtesting & Validation** - Walk-forward optimizer, Monte Carlo validation, LHS sampling
 - [ ] **Phase 6: Risk Management** - 3 risk gates, ATR position sizing, circuit breaker
-- [ ] **Phase 7: Signal Mode & Monitoring** - Telegram signal sending, theoretical trade tracking, full notifications
+- [ ] **Phase 7: Signal Mode & Monitoring** - Local web dashboard, theoretical trade tracking, local monitoring
 - [ ] **Phase 8: Auto Mode** - Broker-native order execution, partial close at TP1, ATR trailing stop
 
 ## Phase Details
@@ -138,24 +138,24 @@ Plans:
   2. A signal is blocked and logged as REJECTED when 5 or more theoretical positions are already open
   3. A signal is blocked or its size reduced when 4+ open positions are in the same direction
   4. Position size is calculated using ATR-based sizing, reduced 30% in high-vol regimes and capped at 2% hard cap
-  5. After 8 consecutive stop-losses the system enters a 24-hour shutdown, rejects all new signals, and sends a Telegram circuit breaker alert
+  5. After 8 consecutive stop-losses the system enters a 24-hour shutdown, rejects all new signals, and exposes circuit breaker state locally
 **Plans**: TBD
 
 ### Phase 7: Signal Mode & Monitoring
-**Goal**: The bot operates fully in signal mode — validated ApprovedSignals are sent to Telegram, theoretical trades are tracked, and all notification types fire correctly
+**Goal**: The bot operates fully in signal mode — validated ApprovedSignals are persisted, theoretical trades are tracked, and the local web dashboard/API exposes monitoring state
 **Depends on**: Phase 4, Phase 5, Phase 6
 **Requirements**: SIG-01, SIG-02, SIG-03, NOTIF-01, NOTIF-02, NOTIF-03, NOTIF-04
 **Success Criteria** (what must be TRUE):
-  1. Every ApprovedSignal produces a correctly formatted Telegram signal message with entry, SL, TP1, TP2, confidence, and size suggestion
+  1. Every ApprovedSignal is persisted with entry, SL, TP1, TP2, confidence, and size suggestion
   2. The theoretical trade lifecycle (open → TP1 hit → trailing → close) is tracked in the `trades` table even though no real order is placed
   3. Per-strategy win rate, profit factor, and theoretical P&L are accumulated in the database and queryable
-  4. TP1 hit, TP2 hit, SL hit, and circuit breaker events each produce the correct Telegram notification
-  5. The daily summary Telegram message fires at 00:00 UTC with signals sent, trades, P&L, and circuit breaker state
+  4. TP1 hit, TP2 hit, SL hit, and circuit breaker events are visible through local monitoring
+  5. Daily summary state is reconstructable from local records with signals sent, trades, P&L, and circuit breaker state
 **Plans**: 5 plans
 
 Plans:
 - [x] 07-01-PLAN.md — DB migration (trailing_stop_price, strategy_stats) + ORM + test scaffolds
-- [x] 07-02-PLAN.md — Telegram delivery layer (SignalSender, TelegramBot) + unit tests
+- [x] 07-02-PLAN.md — Historical delivery layer superseded by local web monitoring
 - [x] 07-03-PLAN.md — ExecutionRouter + PipelineRunner D-13/D-14/D-15 changes + tests
 - [x] 07-04-PLAN.md — monitor_trades job + daily_summary job + strategy_stats upsert + scheduler registration
 - [x] 07-05-PLAN.md — /api/dashboard + /dashboard template + main.py wiring + /health fix + human verification
@@ -169,7 +169,7 @@ Plans:
   1. In `EXECUTION_MODE=auto` the bot places a market or limit order on the selected execution broker for each ApprovedSignal that passes all risk gates
   2. When price hits TP1 the system closes exactly 50% of the position via the broker partial-close mechanism
   3. After TP1 hit a trailing stop is activated on the remainder, trailing at 1.0× ATR(H1) and ratcheting only upward
-  4. Switching from `signal` to `auto` in `.env` triggers a Telegram notification confirming the mode change
+  4. Switching from `signal` to `auto` in `.env` is visible in `/health`, `/api/dashboard`, and logs
 **Plans**: TBD
 
 ## Progress
