@@ -126,6 +126,15 @@ class TestDashboardApi:
         assert isinstance(data["candidate_signals"], list)
         assert isinstance(data["operational_events"], list)
 
+    def test_dashboard_api_account_context(self, client):
+        """Response JSON exposes theoretical equity and risk context."""
+        response = client.get("/api/dashboard")
+        account = response.json()["account"]
+
+        assert account["theoretical_equity_usd"] == 10000.0
+        assert account["risk_per_trade"] == 0.01
+        assert account["daily_loss_limit"] == -0.03
+
 
 class TestDashboardPage:
     """Tests for the /dashboard HTML page."""
@@ -223,3 +232,13 @@ class TestDashboardPage:
         response = client.get("/dashboard")
         assert response.status_code == 200
         assert "Operational Events" in response.text
+
+    def test_dashboard_page_shows_account_context(self, client):
+        """Dashboard page has placeholders for account equity and per-trade risk."""
+        response = client.get("/dashboard")
+        html = response.text
+
+        assert "EQUITY" in html
+        assert "RISK/TRADE" in html
+        assert 'id="account-equity"' in html
+        assert 'id="risk-per-trade"' in html

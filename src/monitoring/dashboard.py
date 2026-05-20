@@ -81,6 +81,11 @@ async def dashboard_api(db: AsyncSession = Depends(get_db)) -> dict:
 
     result["health"] = {"db": db_ok, "redis": redis_ok, "strategies_active": strategies_active}
     result["execution_mode"] = settings.execution_mode.value
+    result["account"] = {
+        "theoretical_equity_usd": float(settings.theoretical_equity_usd),
+        "risk_per_trade": float(settings.risk_per_trade),
+        "daily_loss_limit": float(settings.daily_loss_limit),
+    }
 
     # --- Circuit Breaker ---
     cb_tripped = False

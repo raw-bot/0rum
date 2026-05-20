@@ -355,6 +355,14 @@ tbody tr:nth-child(even) {
 
 <div data-section="status" class="status-row">
   <div class="status-cell">
+    <div class="status-cell-label">EQUITY</div>
+    <div class="data-val" id="account-equity">--</div>
+  </div>
+  <div class="status-cell">
+    <div class="status-cell-label">RISK/TRADE</div>
+    <div class="data-val" id="risk-per-trade">--</div>
+  </div>
+  <div class="status-cell">
     <div class="status-cell-label">DATABASE</div>
     <div id="db-status">
       <span class="status-dot offline" id="db-dot"></span>
@@ -464,6 +472,12 @@ function renderHeader(data) {
 
 function renderStatusRow(data) {
   const health = data.health || {};
+  const account = data.account || {};
+
+  document.getElementById('account-equity').textContent =
+    formatMoney(account.theoretical_equity_usd);
+  document.getElementById('risk-per-trade').textContent =
+    formatPercent(account.risk_per_trade, 2);
 
   // DB
   const dbDot = document.getElementById('db-dot');
@@ -704,6 +718,15 @@ function appendBadgeCell(row, value, className) {
 function formatNumber(value, digits) {
   const number = Number(value);
   return Number.isFinite(number) ? number.toFixed(digits) : '--';
+}
+
+function formatMoney(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '--';
+  return '$' + number.toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
 }
 
 function formatPercent(value, digits, signed) {
