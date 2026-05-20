@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, Index, Numeric, String, text
+from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String, text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -40,6 +40,10 @@ class TradeORM(Base):
     status: Mapped[str] = mapped_column(String(15), nullable=False, default="OPEN")
     pnl: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 5), nullable=True)
     pnl_pct: Mapped[Optional[Decimal]] = mapped_column(Numeric(8, 5), nullable=True)
-    opened_at: Mapped[datetime] = mapped_column(nullable=False, server_default="NOW()")
-    closed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    opened_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default="NOW()",
+    )
+    closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     close_reason: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)

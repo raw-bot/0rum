@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import Boolean, ForeignKey, Index, Numeric, String, text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Numeric, String, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -33,7 +33,11 @@ class CandidateSignalORM(Base):
     confidence: Mapped[Decimal] = mapped_column(Numeric(4, 3), nullable=False)
     timeframe: Mapped[str] = mapped_column(String(5), nullable=False)
     params_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default="NOW()")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default="NOW()",
+    )
     status: Mapped[str] = mapped_column(String(15), nullable=False, default="PENDING")
 
 
@@ -53,4 +57,8 @@ class ApprovedSignalORM(Base):
     rank_score: Mapped[Decimal] = mapped_column(Numeric(6, 4), nullable=False)
     risk_check_passed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     execution_status: Mapped[str] = mapped_column(String(15), nullable=False, default="PENDING")
-    created_at: Mapped[datetime] = mapped_column(nullable=False, server_default="NOW()")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default="NOW()",
+    )
