@@ -25,18 +25,10 @@ _last_candle_fetch: dict[str, str | None] = {
     "D1": None,
 }
 
-# Injected service singletons — set by main.py at startup after Bot initialization.
-# Tests can inject mocks via _set_monitor_services().
-_telegram_bot: "Any | None" = None
+# Injected service singletons — set by main.py at startup.
+# Tests can inject mocks via _set_pipeline_runner().
 _breaker_manager: "Any | None" = None
 _pipeline_runner: "Any | None" = None
-
-
-def _set_monitor_services(telegram_bot: "Any", breaker_manager: "Any") -> None:
-    """Inject monitoring service singletons. Called once at app startup."""
-    global _telegram_bot, _breaker_manager
-    _telegram_bot = telegram_bot
-    _breaker_manager = breaker_manager
 
 
 def _set_pipeline_runner(runner: "Any") -> None:
@@ -61,15 +53,9 @@ def _as_utc_aware(dt: datetime | None) -> datetime | None:
 
 async def _refresh_timeframe(timeframe: str) -> None:
     """Fetch latest candles for one timeframe, run gap detection, update last_fetch."""
-    from src.config import MarketDataProvider
     settings = get_settings()
-    max_gap_bars = (
-        settings.ig_max_gap_bars
-        if settings.market_data_provider == MarketDataProvider.IG
-        else None
-    )
     async with CandleFetcher(settings=settings) as fetcher:
-        detector = GapDetector(fetcher=fetcher, max_gap_bars=max_gap_bars)
+        detector = GapDetector(fetcher=fetcher)
         try:
             await fetcher.fetch_and_store(
                 instrument="XAUUSD",
@@ -348,15 +334,6 @@ async def _process_trade(
                 strategy=strategy_name,
                 direction=direction,
             )
-            if _telegram_bot is not None:
-                await _telegram_bot.send_lifecycle_notification(
-                    trade_id=str(trade.id),
-                    strategy=strategy_name,
-                    direction=direction,
-                    close_reason="TP1",
-                    exit_price=tp1,
-                    pnl_pct=None,
-                )
 
     elif trade.status == "TP1_HIT":
         # Update trailing stop ratchet first
@@ -483,126 +460,9 @@ async def _close_trade(
     from src.risk.breaker import BreakerManager
     breaker = _breaker_manager or BreakerManager()
     if close_reason == "SL":
-        alert = await breaker.record_stop(trade_id=trade.id, strategy=strategy_name)
-        if alert is not None and _telegram_bot is not None:
-            await _telegram_bot.send_circuit_breaker_alert(alert)
+        await breaker.record_stop(trade_id=trade.id, strategy=strategy_name)
     if is_win:
         await breaker.record_win()
-
-    # NOTIF-02: Send lifecycle notification
-    if _telegram_bot is not None:
-        await _telegram_bot.send_lifecycle_notification(
-            trade_id=str(trade.id),
-            strategy=strategy_name,
-            direction=trade.direction,
-            close_reason=close_reason,
-            exit_price=exit_price,
-            pnl_pct=blended_pnl_pct,
-        )
-
-
-async def daily_summary() -> None:
-    """Send daily summary Telegram notification at 00:00 UTC (NOTIF-04, D-19).
-
-    Queries DB for: signals sent today, trades closed by close_reason, daily P&L,
-    MTD P&L, circuit breaker state, execution mode, and per-strategy stats.
-    """
-    from sqlalchemy import func, select
-
-    from src.config import get_settings
-    from src.database import AsyncSessionLocal
-    from src.models.signal import ApprovedSignalORM
-    from src.models.strategy_stats import StrategyStatsORM
-    from src.models.trade import TradeORM
-    from src.monitoring.telegram_bot import DailySummaryPayload
-    from src.risk.breaker import BreakerManager
-
-    try:
-        settings = get_settings()
-        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        today_date = datetime.now(timezone.utc).date()
-        mtd_start = today_date.replace(day=1)
-
-        async with AsyncSessionLocal() as session:
-            # Signals sent today
-            signals_sent_result = await session.execute(
-                select(func.count(ApprovedSignalORM.id)).where(
-                    ApprovedSignalORM.execution_status == "SENT",
-                    func.date(ApprovedSignalORM.created_at) == today_date,
-                )
-            )
-            signals_sent = signals_sent_result.scalar_one() or 0
-
-            # Trades closed today by close_reason
-            trades_result = await session.execute(
-                select(TradeORM.close_reason, func.count(TradeORM.id))
-                .where(
-                    TradeORM.closed_at.isnot(None),
-                    func.date(TradeORM.closed_at) == today_date,
-                )
-                .group_by(TradeORM.close_reason)
-            )
-            trades_by_reason: dict[str, int] = {}
-            for reason, count in trades_result.all():
-                if reason is not None:
-                    trades_by_reason[reason] = count
-
-            # Daily P&L
-            daily_pnl_result = await session.execute(
-                select(func.sum(TradeORM.pnl_pct)).where(
-                    TradeORM.closed_at.isnot(None),
-                    func.date(TradeORM.closed_at) == today_date,
-                )
-            )
-            daily_pnl = float(daily_pnl_result.scalar_one() or 0)
-
-            # MTD P&L
-            mtd_pnl_result = await session.execute(
-                select(func.sum(TradeORM.pnl_pct)).where(
-                    TradeORM.closed_at.isnot(None),
-                    func.date(TradeORM.closed_at) >= mtd_start,
-                )
-            )
-            mtd_pnl = float(mtd_pnl_result.scalar_one() or 0)
-
-            # Strategy stats
-            stats_result = await session.execute(
-                select(StrategyStatsORM).order_by(StrategyStatsORM.win_rate.desc())
-            )
-            strategy_stats = [
-                {
-                    "strategy": row.strategy,
-                    "win_rate": float(row.win_rate),
-                    "profit_factor": float(row.profit_factor),
-                }
-                for row in stats_result.scalars().all()
-            ]
-
-        # Circuit breaker state
-        breaker = _breaker_manager or BreakerManager()
-        cb_tripped = await breaker.is_tripped()
-        consecutive_stops = await breaker.get_consecutive_stops()
-
-        payload = DailySummaryPayload(
-            date=today_str,
-            signals_sent=signals_sent,
-            trades_by_reason=trades_by_reason,
-            daily_pnl_pct=daily_pnl,
-            mtd_pnl_pct=mtd_pnl,
-            cb_tripped=cb_tripped,
-            consecutive_stops=consecutive_stops,
-            execution_mode=settings.execution_mode.value.upper(),
-            strategy_stats=strategy_stats,
-        )
-
-        if _telegram_bot is not None:
-            await _telegram_bot.send_daily_summary(payload)
-            log.info("jobs.daily_summary.complete", date=today_str, signals=signals_sent)
-        else:
-            log.warning("jobs.daily_summary.no_bot", date=today_str)
-
-    except Exception as exc:
-        log.error("jobs.daily_summary.failed", error=str(exc))
 
 
 def create_scheduler() -> AsyncIOScheduler:
@@ -678,15 +538,6 @@ def create_scheduler() -> AsyncIOScheduler:
         trigger=IntervalTrigger(minutes=15),
         id="monitor_trades",
         name="Monitor open theoretical trades every 15 minutes",
-        max_instances=1,
-        replace_existing=True,
-    )
-
-    scheduler.add_job(
-        daily_summary,
-        trigger=CronTrigger(hour=0, minute=0, timezone="UTC"),
-        id="daily_summary",
-        name="Send daily Telegram summary at 00:00 UTC",
         max_instances=1,
         replace_existing=True,
     )

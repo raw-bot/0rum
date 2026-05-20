@@ -27,18 +27,8 @@ TF_INTERVAL_MINUTES: dict[str, int] = {
     "D1": 1440,
 }
 
-# Maximum bars to request per API call.  IG demo caps single-request windows;
-# 1 000 bars keeps every chunk comfortably inside that limit.
+# Maximum bars to request per API call.
 CHUNK_BARS = 1000
-
-# Per-timeframe bar counts for IG-light startup warm-up.
-# Mirrors config defaults; overridden at runtime via Settings when present.
-_IG_WARMUP_BARS_DEFAULT: dict[str, str] = {
-    "M15": "ig_warmup_bars_m15",
-    "H1": "ig_warmup_bars_h1",
-    "H4": "ig_warmup_bars_h4",
-    "D1": "ig_warmup_bars_d1",
-}
 
 
 class CandleFetcher:
@@ -265,56 +255,6 @@ class CandleFetcher:
                     error=str(exc),
                 )
         log.info("candle_fetcher.backfill_all_complete", instrument=instrument)
-
-    async def warm_up_timeframe(
-        self,
-        instrument: str = "XAUUSD",
-        timeframe: str = "M15",
-    ) -> int:
-        """Fetch a single bounded recent window for one timeframe (IG-safe startup).
-
-        Issues exactly one fetch_and_store call using a count, not a date range,
-        so no open-ended historical request is sent to IG.
-        """
-        setting_key = _IG_WARMUP_BARS_DEFAULT.get(timeframe, "ig_warmup_bars_m15")
-        bars = getattr(self.settings, setting_key, 300)
-        log.info(
-            "candle_fetcher.warmup_start",
-            instrument=instrument,
-            timeframe=timeframe,
-            bars=bars,
-        )
-        inserted = await self.fetch_and_store(
-            instrument=instrument,
-            timeframe=timeframe,
-            count=bars,
-        )
-        log.info(
-            "candle_fetcher.warmup_complete",
-            instrument=instrument,
-            timeframe=timeframe,
-            inserted=inserted,
-        )
-        return inserted
-
-    async def warm_up_all(self, instrument: str = "XAUUSD") -> None:
-        """Warm up all 4 timeframes with one bounded fetch each.
-
-        Replaces backfill_all() on the IG path — never issues a multi-page
-        date-range walk.
-        """
-        log.info("candle_fetcher.warmup_all_start", instrument=instrument)
-        for timeframe in TIMEFRAMES:
-            try:
-                await self.warm_up_timeframe(instrument=instrument, timeframe=timeframe)
-            except Exception as exc:
-                log.error(
-                    "candle_fetcher.warmup_timeframe_failed",
-                    instrument=instrument,
-                    timeframe=timeframe,
-                    error=str(exc),
-                )
-        log.info("candle_fetcher.warmup_all_complete", instrument=instrument)
 
     async def prune_incomplete(self, instrument: str = "XAUUSD") -> int:
         """Delete candles with complete=False that are older than 24 hours.

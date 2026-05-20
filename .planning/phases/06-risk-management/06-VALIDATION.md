@@ -81,7 +81,7 @@ revised: 2026-04-27
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| Telegram circuit-breaker delivery end-to-end | RISK-05 (delivery side, deferred to Phase 7 / NOTIF-03) | Phase 6 emits the alert event only; actual Telegram bot is Phase 7 | Phase 6 verifies alert event published via in-process hook (`BreakerAlertHook`) — automated. Real Telegram delivery verified in Phase 7. |
+| External notification channel circuit-breaker delivery end-to-end | RISK-05 (delivery side, deferred to Phase 7 / NOTIF-03) | Phase 6 emits the alert event only; actual External notification channel bot is Phase 7 | Phase 6 verifies alert event published via in-process hook (`BreakerAlertHook`) — automated. Real External notification channel delivery verified in Phase 7. |
 
 *All other phase behaviors have automated verification per RESEARCH §Validation Architecture.*
 

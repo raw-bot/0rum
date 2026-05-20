@@ -8,7 +8,7 @@
 
 Receive `list[CandidateSignal]` from StrategyRunner, run through dedup → conflict filter → regime detection → ranker → quota gate, then batch-persist all candidates (with final statuses) and approved signals to the DB. Delivers `ApprovedSignalORM` rows ready for Phase 6 risk gates and Phase 7 execution.
 
-No risk gate logic, no Telegram sending, no trade tracking — those belong to Phases 6 and 7.
+No risk gate logic, no External notification channel sending, no trade tracking — those belong to Phases 6 and 7.
 
 </domain>
 
@@ -40,7 +40,7 @@ No risk gate logic, no Telegram sending, no trade tracking — those belong to P
   This gives full audit trail (every filtered signal visible in DB) with minimal round-trips.
 
 ### Provider Realignment Boundary
-- **D-05:** Phase 4 is allowed to continue on the existing candle contract because dedup/conflict/ranker/quota/regime logic is provider-agnostic once candles are already in PostgreSQL. However, Binance/CCXT PAXG/USDT must be treated as plumbing-only data. Phase 5 optimizer/backtest work is blocked until a real XAUUSD provider is integrated and validated. Current target: IG demo → live.
+- **D-05:** Phase 4 is allowed to continue on the existing candle contract because dedup/conflict/ranker/quota/regime logic is provider-agnostic once candles are already in PostgreSQL. However, Binance/CCXT PAXG/USDT must be treated as plumbing-only data. Phase 5 optimizer/backtest work is blocked until a real XAUUSD provider is integrated and validated. Current target: retired live-provider path.
 
 ### Claude's Discretion
 - Internal structure of `PipelineRunner` (whether each step is a method or standalone function)

@@ -84,7 +84,7 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> dict:
         logger.warning("health.strategies_active.failed", error=str(exc))
         strategies_active_val = 0
 
-    # Count signal-mode Telegram deliveries for the current UTC day.
+    # Count signal-mode local deliveries for the current UTC day.
     try:
         today = datetime.now(timezone.utc).date()
         stmt = select(func.count(ApprovedSignalORM.id)).where(

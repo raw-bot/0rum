@@ -268,13 +268,13 @@ Fetch error handling: if `/api/dashboard` returns non-200 or throws, display an 
 | Execution mode — auto | `AUTO MODE` | ALL CAPS badge — destructive color (caution signal; operator must register execution mode as a high-stakes state) |
 | DB health — healthy | `ONLINE` | Short dot label |
 | DB health — unhealthy | `OFFLINE` | Short dot label |
-| Direction — long | `BUY` | Not "LONG" — matches Telegram message format in AGENTS.md §14.1 |
-| Direction — short | `SELL` | Not "SHORT" — matches Telegram message format |
+| Direction — long | `BUY` | Not "LONG" — matches External notification channel message format in AGENTS.md §14.1 |
+| Direction — short | `SELL` | Not "SHORT" — matches External notification channel message format |
 | Trade status — open | `OPEN` | Neutral |
 | Trade status — tp1 hit | `TP1 HIT` | Warning color |
 | Signal status — sent | `SENT` | Accent color |
 | Signal status — pending | `PENDING` | Muted color |
-| Close reason — SL | `STOPPED` | Matches Telegram notification label (AGENTS.md §14.1) |
+| Close reason — SL | `STOPPED` | Matches External notification channel notification label (AGENTS.md §14.1) |
 | Close reason — TP2 | `TP2 HIT` | Accent color |
 | Close reason — TRAIL | `TRAIL STOP` | Warning color |
 | Close reason — CB | `CIRCUIT BREAK` | Destructive color |

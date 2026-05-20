@@ -20,7 +20,7 @@ def test_theoretical_equity_default():
 def test_theoretical_equity_env_override(monkeypatch):
     """THEORETICAL_EQUITY_USD env var is parsed to Decimal by pydantic-settings."""
     monkeypatch.setenv("THEORETICAL_EQUITY_USD", "20000")
-    # get_settings() is not cached — each call instantiates a fresh Settings() from env.
+    # Read Settings() directly to keep this test independent of get_settings() cache behavior.
     s = Settings()
     assert s.theoretical_equity_usd == Decimal("20000")
     assert isinstance(s.theoretical_equity_usd, Decimal)
@@ -36,3 +36,12 @@ def test_theoretical_equity_decimal_arithmetic_works():
     risk_pct = 0.01
     risk_amount = equity * Decimal(str(risk_pct))
     assert risk_amount == Decimal("100.00")
+
+
+def test_settings_do_not_require_external_notification_config(monkeypatch):
+    """Runtime settings do not require an external notification channel."""
+    monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://test:test@localhost/test")
+
+    s = Settings()
+
+    assert s.database_url == "postgresql+asyncpg://test:test@localhost/test"

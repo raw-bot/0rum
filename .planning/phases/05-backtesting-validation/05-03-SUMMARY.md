@@ -84,7 +84,7 @@ None — plan executed exactly as written. The placement order (before vs after 
 ## Next Phase Readiness
 
 - Wave 1 complete: 05-01, 05-02, 05-03 all implemented and tested
-- Wave 2 (05-04) is a human decision gate: Chemin A (wait for live data) vs Chemin B (HistData.com import)
+- Wave 2 (05-04) is a human decision gate: Chemin A (wait for live data) vs Chemin B (retired bootstrap archive import)
 - Decision has not been made — 05-04 must not execute before explicit path selection
 
 ---

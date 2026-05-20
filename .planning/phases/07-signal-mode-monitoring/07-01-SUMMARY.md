@@ -53,7 +53,7 @@ completed: 2026-04-29
 - Added Alembic revision `0003` chained to `0002`.
 - Added nullable `TradeORM.trailing_stop_price` as `Numeric(12, 5)`.
 - Added `StrategyStatsORM` with all D-16 fields for cumulative strategy performance.
-- Added execution and monitoring pytest scaffolds for upcoming Telegram/executor/dashboard tests.
+- Added execution and monitoring pytest scaffolds for upcoming External notification channel/executor/dashboard tests.
 - Imported `StrategyStatsORM` in `src.models.__init__` for metadata discovery.
 
 ## Files Created/Modified
@@ -111,7 +111,7 @@ None.
 
 ## Next Phase Readiness
 
-Plan `07-02` can now build `SignalSender` and `TelegramBot` against a stable Phase 7 schema foundation. Later plans can rely on `TradeORM.trailing_stop_price` and `StrategyStatsORM` existing.
+Plan `07-02` can now build `SignalSender` and `NotificationAdapter` against a stable Phase 7 schema foundation. Later plans can rely on `TradeORM.trailing_stop_price` and `StrategyStatsORM` existing.
 
 ---
 *Phase: 07-signal-mode-monitoring*

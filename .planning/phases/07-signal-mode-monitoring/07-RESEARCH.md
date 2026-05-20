@@ -1,7 +1,7 @@
 # Phase 7: Signal Mode & Monitoring — Research
 
 **Researched:** 2026-04-28
-**Domain:** Telegram signal delivery, theoretical trade lifecycle tracking, APScheduler jobs, FastAPI dashboard, PostgreSQL upsert
+**Domain:** External notification channel signal delivery, theoretical trade lifecycle tracking, APScheduler jobs, FastAPI dashboard, PostgreSQL upsert
 **Confidence:** HIGH
 
 ---
@@ -22,10 +22,10 @@
 - D-08: Win definition: `pnl_pct > 0` on blended close → `BreakerManager.record_win()`. Includes TRAIL exits that close in profit.
 
 **Module Structure**
-- D-09: Phase 7 creates `src/execution/signal_sender.py` and `src/monitoring/telegram_bot.py`.
+- D-09: Phase 7 creates `src/execution/signal_sender.py` and `src/monitoring/notification_adapter.py`.
 - D-10: `ExecutionRouter` in `src/execution/executor.py` — signal branch calls `signal_sender.send_signal(signal, size_lots)` then creates TradeORM row; auto branch raises `NotImplementedError`.
-- D-11: Single `Bot(token=settings.telegram_bot_token)` instance in `main.py`. Injected into `SignalSender.__init__` and `TelegramBot.__init__`.
-- D-12: CB alert hook registered at startup: `register_alert_hook(telegram_bot.send_circuit_breaker_alert)`.
+- D-11: Single `Bot(token=settings.external_notification_token)` instance in `main.py`. Injected into `SignalSender.__init__` and `NotificationAdapter.__init__`.
+- D-12: CB alert hook registered at startup: `register_alert_hook(notification_adapter.send_circuit_breaker_alert)`.
 
 **size_lots Threading**
 - D-13: `risk_passed` list type changes to `list[tuple[CandidateSignal, float, RiskDecision]]`. Full `RiskDecision` threaded through to `_persist()` and `ExecutionRouter`.
@@ -51,14 +51,14 @@
 - Internal layout of `src/execution/` — defer `broker_executor.py` stub to Phase 8.
 - `StrategyStatsORM` upsert pattern — use PostgreSQL `INSERT ... ON CONFLICT (strategy) DO UPDATE`.
 - Monitor job ATR source — query DB for latest completed H1 candles; use `RegimeDetector._calculate_atr()` or lightweight ATR helper.
-- Test layout for `tests/test_monitoring/` and `tests/test_execution/` — mirror `tests/test_pipeline/` structure; mock `Bot.send_message` for Telegram unit tests.
+- Test layout for `tests/test_monitoring/` and `tests/test_execution/` — mirror `tests/test_pipeline/` structure; mock `Bot.send_message` for External notification channel unit tests.
 
 ### Deferred Ideas (OUT OF SCOPE)
 - Auto-mode broker order placement, partial close at TP1, live trailing stop — Phase 8.
-- Telegram bot command handling — Phase 8/v2.
+- External notification channel bot command handling — Phase 8/v2.
 - `strategies_performance` array in `/health` — deferred.
 - Rolling window stats (30-day, 7-day) — lifetime cumulative only in Phase 7.
-- Retry mechanism for failed Telegram sends.
+- Retry mechanism for failed External notification channel sends.
 - `broker_executor.py` stub in `src/execution/`.
 - Daily loss limit tripping circuit breaker — deferred per Phase 6 D-15.
 </user_constraints>
@@ -68,24 +68,24 @@
 
 | ID | Description | Research Support |
 |----|-------------|------------------|
-| SIG-01 | Mode `signal` sends formatted Telegram signal message with entry, SL, TP1, TP2, confidence | `SignalSender.send_signal()` calls `Bot.send_message()`; message format from AGENTS.md §13.1 |
+| SIG-01 | Mode `signal` sends formatted External notification channel signal message with entry, SL, TP1, TP2, confidence | `SignalSender.send_signal()` calls `Bot.send_message()`; message format from AGENTS.md §13.1 |
 | SIG-02 | Theoretical trade lifecycle (open → TP1 hit → trailing → close) tracked in PostgreSQL | `monitor_trades` APScheduler job; TradeORM status machine; trailing_stop_price column via migration |
 | SIG-03 | Theoretical P&L and stats (win rate, profit factor) accumulated per strategy in DB | `strategy_stats` table with PostgreSQL upsert in same transaction as TradeORM status update |
-| NOTIF-01 | Telegram notification on new approved signal (both modes) | `SignalSender.send_signal()` with Bot.send_message; execution_status updated to SENT |
-| NOTIF-02 | Telegram notification on TP1 hit, TP2 hit, SL hit | `TelegramBot` lifecycle notification methods called from `monitor_trades` job |
-| NOTIF-03 | Telegram notification on circuit breaker trigger | `register_alert_hook(telegram_bot.send_circuit_breaker_alert)` at startup; hook already wired in Phase 6 |
-| NOTIF-04 | Daily summary Telegram message with session stats | `daily_summary` APScheduler cron job at 00:00 UTC; format from AGENTS.md §14.3 |
+| NOTIF-01 | External notification channel notification on new approved signal (both modes) | `SignalSender.send_signal()` with Bot.send_message; execution_status updated to SENT |
+| NOTIF-02 | External notification channel notification on TP1 hit, TP2 hit, SL hit | `NotificationAdapter` lifecycle notification methods called from `monitor_trades` job |
+| NOTIF-03 | External notification channel notification on circuit breaker trigger | `register_alert_hook(notification_adapter.send_circuit_breaker_alert)` at startup; hook already wired in Phase 6 |
+| NOTIF-04 | Daily summary External notification channel message with session stats | `daily_summary` APScheduler cron job at 00:00 UTC; format from AGENTS.md §14.3 |
 </phase_requirements>
 
 ---
 
 ## Summary
 
-Phase 7 delivers the complete signal-mode runtime: Telegram signal delivery, a 15-minute trade lifecycle monitor, per-strategy stats accumulation, all notification types, and a read-only operator dashboard. The codebase through Phase 6 is complete and stable. The core abstractions Phase 7 depends on (`BreakerManager`, `register_alert_hook`, `RiskDecision`, `TradeORM`) are verified present and working. No new external libraries are required — `python-telegram-bot>=21.0` is already in `pyproject.toml`. The primary new infrastructure is: two new modules (`src/execution/`, `src/monitoring/telegram_bot.py`), two new DB objects (`strategy_stats` table, `trailing_stop_price` column on `trades`), two new APScheduler jobs (`monitor_trades`, `daily_summary`), two new FastAPI routes (`/dashboard`, `/api/dashboard`), and one Jinja2 template.
+Phase 7 delivers the complete signal-mode runtime: External notification channel signal delivery, a 15-minute trade lifecycle monitor, per-strategy stats accumulation, all notification types, and a read-only operator dashboard. The codebase through Phase 6 is complete and stable. The core abstractions Phase 7 depends on (`BreakerManager`, `register_alert_hook`, `RiskDecision`, `TradeORM`) are verified present and working. No new external libraries are required — `external-notification-client>=21.0` is already in `pyproject.toml`. The primary new infrastructure is: two new modules (`src/execution/`, `src/monitoring/notification_adapter.py`), two new DB objects (`strategy_stats` table, `trailing_stop_price` column on `trades`), two new APScheduler jobs (`monitor_trades`, `daily_summary`), two new FastAPI routes (`/dashboard`, `/api/dashboard`), and one Jinja2 template.
 
 The most structurally significant change is D-13: threading `RiskDecision` through `risk_passed` tuples changes the signature of `_persist()` and the status loop in `PipelineRunner.run()`. This must be done carefully to avoid breaking the existing pipeline. The second most complex piece is `monitor_trades` — it operates on completed M15 candles, performs Decimal comparisons across all open/TP1_HIT trades, calls `BreakerManager` on SL, and upserts `strategy_stats` atomically with the trade close — all within a single async session.
 
-**Primary recommendation:** Implement in wave order: (1) DB migration + ORM for `strategy_stats` and `trailing_stop_price`, (2) Telegram delivery layer (`SignalSender` + `TelegramBot`), (3) `ExecutionRouter` + `_persist()` changes, (4) `monitor_trades` job, (5) `daily_summary` job, (6) dashboard endpoint + template. Tests should mock `Bot.send_message` using `AsyncMock` throughout.
+**Primary recommendation:** Implement in wave order: (1) DB migration + ORM for `strategy_stats` and `trailing_stop_price`, (2) External notification channel delivery layer (`SignalSender` + `NotificationAdapter`), (3) `ExecutionRouter` + `_persist()` changes, (4) `monitor_trades` job, (5) `daily_summary` job, (6) dashboard endpoint + template. Tests should mock `Bot.send_message` using `AsyncMock` throughout.
 
 ---
 
@@ -93,11 +93,11 @@ The most structurally significant change is D-13: threading `RiskDecision` throu
 
 | Capability | Primary Tier | Secondary Tier | Rationale |
 |------------|-------------|----------------|-----------|
-| Signal Telegram delivery | API / Backend (`SignalSender`) | — | One-way push from bot logic; no browser involved |
+| Signal External notification channel delivery | API / Backend (`SignalSender`) | — | One-way push from bot logic; no browser involved |
 | Trade lifecycle monitoring | API / Backend (`monitor_trades` job) | Database / Storage | Scheduler job reads candles, writes TradeORM |
 | Strategy stats accumulation | Database / Storage | API / Backend | Pure DB upsert within TradeORM close transaction |
-| Circuit breaker Telegram alert | API / Backend (`TelegramBot`) | — | Hook surface already in Phase 6; Phase 7 registers receiver |
-| Daily summary generation | API / Backend (`daily_summary` job) | Database / Storage | Aggregation queries feed Telegram message |
+| Circuit breaker External notification channel alert | API / Backend (`NotificationAdapter`) | — | Hook surface already in Phase 6; Phase 7 registers receiver |
+| Daily summary generation | API / Backend (`daily_summary` job) | Database / Storage | Aggregation queries feed External notification channel message |
 | Dashboard data aggregation | API / Backend (`/api/dashboard`) | Database / Storage | JSON endpoint; browser polls it |
 | Dashboard HTML delivery | API / Backend (`/dashboard` route) | — | Jinja2 TemplateResponse from FastAPI |
 | Operator display rendering | Browser / Client | — | Vanilla JS setInterval polling `/api/dashboard` |
@@ -110,7 +110,7 @@ The most structurally significant change is D-13: threading `RiskDecision` throu
 
 | Library | Version | Purpose | Why Standard |
 |---------|---------|---------|--------------|
-| python-telegram-bot | >=21.0 [VERIFIED: pyproject.toml] | Telegram Bot API wrapper | Project dependency; `Bot` class used standalone (no Application needed for one-way sends) |
+| external-notification-client | >=21.0 [VERIFIED: pyproject.toml] | External notification channel Bot API wrapper | Project dependency; `Bot` class used standalone (no Application needed for one-way sends) |
 | SQLAlchemy | >=2.0.0 [VERIFIED: pyproject.toml] | ORM + async sessions | Project standard; `mapped_column`, `AsyncSessionLocal` pattern established |
 | APScheduler | >=3.10.0 [VERIFIED: pyproject.toml] | Scheduled jobs | Project standard; `CronTrigger` and `IntervalTrigger` already used |
 | FastAPI | >=0.111.0 [VERIFIED: pyproject.toml] | Web framework | Project standard; `APIRouter`, `Depends` patterns established |
@@ -124,7 +124,7 @@ The most structurally significant change is D-13: threading `RiskDecision` throu
 |---------|---------|-------------|
 | `sqlalchemy.dialects.postgresql.insert` | PostgreSQL upsert for `strategy_stats` | Any incremental accumulation into a single row per strategy |
 | `fakeredis.FakeAsyncRedis` | Already used in Phase 6 tests; mock BreakerManager in monitor tests | Any test touching BreakerManager |
-| `unittest.mock.AsyncMock` | Mock `Bot.send_message` in Telegram unit tests | All Telegram delivery tests |
+| `unittest.mock.AsyncMock` | Mock `Bot.send_message` in External notification channel unit tests | All External notification channel delivery tests |
 
 ### No New Packages Required
 
@@ -161,13 +161,13 @@ APScheduler (15-min interval)
               ├─► UPSERT strategy_stats (ON CONFLICT strategy DO UPDATE)
               ├─► BreakerManager.record_stop() if SL (may emit CircuitBreakerAlert)
               ├─► BreakerManager.record_win() if pnl_pct > 0
-              └─► TelegramBot.send_lifecycle_notification(trade, close_reason)
+              └─► NotificationAdapter.send_lifecycle_notification(trade, close_reason)
 
 APScheduler (cron 00:00 UTC)
   └─► daily_summary()
         ├─► DB queries: signals sent today, trades by close_reason, pnl
         ├─► BreakerManager.is_tripped()
-        └─► TelegramBot.send_daily_summary(payload)
+        └─► NotificationAdapter.send_daily_summary(payload)
 
 PipelineRunner._persist() [modified]
   ├─► ApprovedSignalORM (execution_status=PENDING)  ─┐
@@ -200,9 +200,9 @@ src/
 ├── execution/
 │   ├── __init__.py
 │   ├── executor.py          # ExecutionRouter — signal/auto routing
-│   └── signal_sender.py     # SignalSender — formats + sends Telegram signal
+│   └── signal_sender.py     # SignalSender — formats + sends External notification channel signal
 ├── monitoring/
-│   ├── telegram_bot.py      # TelegramBot — lifecycle + CB + daily_summary notifications
+│   ├── notification_adapter.py      # NotificationAdapter — lifecycle + CB + daily_summary notifications
 │   └── health.py            # MODIFIED: add strategies_active real query (D-20)
 ├── models/
 │   ├── trade.py             # MODIFIED: add trailing_stop_price column
@@ -219,17 +219,17 @@ alembic/versions/
 └── 0003_phase7_signal_mode.py   # NEW: trailing_stop_price + strategy_stats
 ```
 
-### Pattern 1: Standalone Bot Usage (python-telegram-bot v21+)
+### Pattern 1: Standalone Bot Usage (external-notification-client v21+)
 
-In v21+, `Bot` requires initialization via `async with Bot(...) as bot:` OR explicit `await bot.initialize()` / `await bot.shutdown()`. For a long-lived FastAPI app, call `await bot.initialize()` in the lifespan startup and `await bot.shutdown()` in shutdown. [VERIFIED: Context7 /python-telegram-bot/python-telegram-bot]
+In v21+, `Bot` requires initialization via `async with Bot(...) as bot:` OR explicit `await bot.initialize()` / `await bot.shutdown()`. For a long-lived FastAPI app, call `await bot.initialize()` in the lifespan startup and `await bot.shutdown()` in shutdown. [VERIFIED: Context7 /external-notification-client/external-notification-client]
 
 ```python
 # src/main.py — lifespan startup
-from telegram import Bot
+from external notification channel import Bot
 
-bot = Bot(token=settings.telegram_bot_token)
+bot = Bot(token=settings.external_notification_token)
 await bot.initialize()  # opens HTTP session
-# inject into SignalSender + TelegramBot
+# inject into SignalSender + NotificationAdapter
 
 # lifespan shutdown
 await bot.shutdown()
@@ -240,11 +240,11 @@ await bot.shutdown()
 ### Pattern 2: send_message with ParseMode
 
 ```python
-# Source: Context7 /python-telegram-bot/python-telegram-bot
-from telegram.constants import ParseMode
+# Source: Context7 /external-notification-client/external-notification-client
+from external notification channel.constants import ParseMode
 
 await bot.send_message(
-    chat_id=settings.telegram_chat_id,
+    chat_id=settings.external_notification_chat_id,
     text=message_text,
     parse_mode=ParseMode.HTML,  # simpler escaping than MarkdownV2
 )
@@ -379,13 +379,13 @@ All unpacking of `for sig, score in approved_ranked:` must become `for sig, scor
 
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
-| Telegram message delivery | Custom HTTP client to Telegram API | `python-telegram-bot Bot.send_message` | Rate limiting, error handling, connection pooling already solved |
+| External notification channel message delivery | Custom HTTP client to External notification channel API | `external-notification-client Bot.send_message` | Rate limiting, error handling, connection pooling already solved |
 | PostgreSQL upsert | SELECT + UPDATE logic with race condition | `sqlalchemy.dialects.postgresql.insert().on_conflict_do_update()` | Single atomic statement, no TOCTOU race |
 | Scheduled jobs | Custom asyncio.create_task loop with sleep | APScheduler `IntervalTrigger` / `CronTrigger` | Already in use; `max_instances=1` prevents pile-up |
-| HTML escaping in Telegram | Manual string replacement | `html.escape()` or `ParseMode.HTML` | All special characters handled correctly |
+| HTML escaping in External notification channel | Manual string replacement | `html.escape()` or `ParseMode.HTML` | All special characters handled correctly |
 | ATR calculation | New implementation | `RegimeDetector()._calculate_atr()` | Already tested, period-14 simple ATR matches AGENTS.md |
 
-**Key insight:** Every new piece of infrastructure this phase needs (Telegram, upsert, scheduling, ATR) is either already in the project or solved by existing project dependencies. Phase 7 is integration, not novel infrastructure.
+**Key insight:** Every new piece of infrastructure this phase needs (External notification channel, upsert, scheduling, ATR) is either already in the project or solved by existing project dependencies. Phase 7 is integration, not novel infrastructure.
 
 ---
 
@@ -393,13 +393,13 @@ All unpacking of `for sig, score in approved_ranked:` must become `for sig, scor
 
 ### Pitfall 1: Bot Instance Not Initialized Before Use
 
-**What goes wrong:** `TelegramError: Bot is not initialized` or `RuntimeError: Bot is not initialized` when calling `bot.send_message()` without first calling `await bot.initialize()`.
+**What goes wrong:** `NotificationError: Bot is not initialized` or `RuntimeError: Bot is not initialized` when calling `bot.send_message()` without first calling `await bot.initialize()`.
 
-**Why it happens:** python-telegram-bot v20+ requires explicit initialization of the HTTP session. Calling `bot.send_message()` on an uninitialized Bot raises at the network layer.
+**Why it happens:** external-notification-client v20+ requires explicit initialization of the HTTP session. Calling `bot.send_message()` on an uninitialized Bot raises at the network layer.
 
 **How to avoid:** In `main.py` lifespan, call `await bot.initialize()` before the scheduler starts. Call `await bot.shutdown()` in the shutdown block after `scheduler.shutdown()`.
 
-**Warning signs:** Tests pass (if they mock `bot.send_message`) but integration fails immediately on first Telegram send.
+**Warning signs:** Tests pass (if they mock `bot.send_message`) but integration fails immediately on first External notification channel send.
 
 ### Pitfall 2: Decimal Comparison With Float Candle Fields
 
@@ -550,7 +550,7 @@ The correct test for a BUY: SL touched if `candle_low <= sl_price`; TP1 touched 
 
 | Old Approach | Current Approach | When Changed | Impact |
 |--------------|------------------|--------------|--------|
-| `python-telegram-bot` v13 `Updater` | v20+ `Bot` standalone without Updater | v20 (2022) | No polling loop needed for one-way sends; use `Bot` directly |
+| `external-notification-client` v13 `Updater` | v20+ `Bot` standalone without Updater | v20 (2022) | No polling loop needed for one-way sends; use `Bot` directly |
 | SQLAlchemy `Column()` | `mapped_column()` with `Mapped[]` type annotations | SA 2.0 | Project already uses new style; must continue |
 | `from_orm()` Pydantic | `model_validate()` | Pydantic v2 | Project already uses new style |
 
@@ -599,7 +599,7 @@ The correct test for a BUY: SL touched if `candle_low <= sl_price`; TP1 touched 
 |------------|------------|-----------|---------|----------|
 | PostgreSQL | All ORM + migrations | Project-level (Docker Compose) | Not checked in shell | None — required |
 | Redis | BreakerManager, health | Project-level (Docker Compose) | Not checked in shell | None — required |
-| python-telegram-bot | Telegram sends | Listed in pyproject.toml | >=21.0 declared | None — required |
+| external-notification-client | External notification channel sends | Listed in pyproject.toml | >=21.0 declared | None — required |
 | jinja2 | Dashboard template | Not in pyproject.toml [ASSUMED] | Unknown | None — must add |
 | APScheduler | monitor_trades, daily_summary | Listed in pyproject.toml | >=3.10.0 declared | None — required |
 | alembic | Migration 0003 | Listed in pyproject.toml | >=1.13.0 declared | None — required |
@@ -634,9 +634,9 @@ The correct test for a BUY: SL touched if `candle_low <= sl_price`; TP1 touched 
 | SIG-03 | `strategy_stats` upsert increments wins/losses/pnl atomically | unit | `pytest tests/test_monitoring/test_strategy_stats.py -x` | Wave 0 |
 | NOTIF-01 | `execution_status` updated to SENT after successful send | unit | `pytest tests/test_execution/test_executor.py::test_status_sent_on_success -x` | Wave 0 |
 | NOTIF-01 | `execution_status` stays PENDING and logs on failure | unit | `pytest tests/test_execution/test_executor.py::test_status_pending_on_failure -x` | Wave 0 |
-| NOTIF-02 | TP1/TP2/SL/TRAIL lifecycle notifications sent | unit | `pytest tests/test_monitoring/test_telegram_bot.py -x` | Wave 0 |
-| NOTIF-03 | CB alert hook fires `send_circuit_breaker_alert` | unit | `pytest tests/test_monitoring/test_telegram_bot.py::test_cb_alert -x` | Wave 0 |
-| NOTIF-04 | Daily summary queries correct fields and sends | unit | `pytest tests/test_monitoring/test_telegram_bot.py::test_daily_summary -x` | Wave 0 |
+| NOTIF-02 | TP1/TP2/SL/TRAIL lifecycle notifications sent | unit | `pytest tests/test_monitoring/test_notification_adapter.py -x` | Wave 0 |
+| NOTIF-03 | CB alert hook fires `send_circuit_breaker_alert` | unit | `pytest tests/test_monitoring/test_notification_adapter.py::test_cb_alert -x` | Wave 0 |
+| NOTIF-04 | Daily summary queries correct fields and sends | unit | `pytest tests/test_monitoring/test_notification_adapter.py::test_daily_summary -x` | Wave 0 |
 
 ### Sampling Rate
 
@@ -651,7 +651,7 @@ The correct test for a BUY: SL touched if `candle_low <= sl_price`; TP1 touched 
 - [ ] `tests/test_execution/test_executor.py` — NOTIF-01, D-13/D-14/D-15
 - [ ] `tests/test_monitoring/test_monitor_trades.py` — SIG-02, NOTIF-02
 - [ ] `tests/test_monitoring/test_strategy_stats.py` — SIG-03
-- [ ] `tests/test_monitoring/test_telegram_bot.py` — NOTIF-02, NOTIF-03, NOTIF-04
+- [ ] `tests/test_monitoring/test_notification_adapter.py` — NOTIF-02, NOTIF-03, NOTIF-04
 - [ ] `tests/test_monitoring/test_dashboard.py` — /dashboard, /api/dashboard endpoints
 
 Note: `tests/test_monitoring/__init__.py` and `tests/test_monitoring/test_health_risk.py` already exist — add to existing package.
@@ -667,16 +667,16 @@ Note: `tests/test_monitoring/__init__.py` and `tests/test_monitoring/test_health
 | V2 Authentication | No | Dashboard has no auth (D-25) — operator tool, local/firewall only |
 | V3 Session Management | No | No user sessions |
 | V4 Access Control | No | No user-facing access control in Phase 7 |
-| V5 Input Validation | Yes (low risk) | No user input on dashboard; `/api/dashboard` is read-only; Telegram messages are bot-generated only |
-| V6 Cryptography | No | Telegram bot token read from env; no crypto operations |
+| V5 Input Validation | Yes (low risk) | No user input on dashboard; `/api/dashboard` is read-only; External notification channel messages are bot-generated only |
+| V6 Cryptography | No | External notification channel bot token read from env; no crypto operations |
 
 ### Known Threat Patterns
 
 | Pattern | STRIDE | Standard Mitigation |
 |---------|--------|---------------------|
-| Telegram token in logs | Information Disclosure | `settings.telegram_bot_token` must never appear in structlog output; already gated by `main.py` pattern of masking credentials |
+| External notification channel token in logs | Information Disclosure | `settings.external_notification_token` must never appear in structlog output; already gated by `main.py` pattern of masking credentials |
 | Dashboard SSRF via `/api/dashboard` | Tampering | Endpoint is read-only; no URL parameters; no external requests triggered by dashboard fetch |
-| Bot token exposure via error messages | Information Disclosure | `execution.send_failed` log event must log error string but NOT the token; `telegram.error.TelegramError` messages from PTB do not expose the token |
+| Bot token exposure via error messages | Information Disclosure | `execution.send_failed` log event must log error string but NOT the token; `notification_client.error.NotificationError` messages from PTB do not expose the token |
 
 ---
 
@@ -690,10 +690,10 @@ Note: `tests/test_monitoring/__init__.py` and `tests/test_monitoring/test_health
 - `src/models/signal.py` — Verified `CandidateSignalORM.strategy` and `ApprovedSignalORM.execution_status` fields
 - `src/risk/breaker.py` — Verified `BreakerManager` public API: `record_stop`, `record_win`, `is_tripped`, `reset_if_expired`
 - `src/risk/hooks.py` — Verified `register_alert_hook`, `_publish_alert`, `BreakerAlertHook` type alias
-- `src/config.py` — Verified `telegram_bot_token`, `telegram_chat_id`, `execution_mode` (ExecutionMode enum) present
+- `src/config.py` — Verified `external_notification_token`, `external_notification_chat_id`, `execution_mode` (ExecutionMode enum) present
 - `src/scheduler/jobs.py` — Verified current job list; `monitor_trades` and `daily_summary` absent
 - `src/main.py` — Verified lifespan structure; Bot instantiation absent; hook registration absent
-- `pyproject.toml` — Verified `python-telegram-bot>=21.0`, `apscheduler>=3.10.0`, `alembic>=1.13.0` present; `jinja2` not listed
+- `pyproject.toml` — Verified `external-notification-client>=21.0`, `apscheduler>=3.10.0`, `alembic>=1.13.0` present; `jinja2` not listed
 - `AGENTS.md §13.1` — Signal message format (BUY/SELL template)
 - `AGENTS.md §14.3` — Daily summary format
 - `07-CONTEXT.md` — All 26 decisions verified against codebase
@@ -701,7 +701,7 @@ Note: `tests/test_monitoring/__init__.py` and `tests/test_monitoring/test_health
 
 ### Secondary (MEDIUM confidence)
 
-- Context7 `/python-telegram-bot/python-telegram-bot` — Bot.send_message with ParseMode.HTML, Bot initialization pattern without Application
+- Context7 `/external-notification-client/external-notification-client` — Bot.send_message with ParseMode.HTML, Bot initialization pattern without Application
 - Context7 `/websites/sqlalchemy_en_20` — `sqlalchemy.dialects.postgresql.insert().on_conflict_do_update()` API
 - Context7 `/fastapi/fastapi` — `Jinja2Templates`, `TemplateResponse(request=request, name=..., context={})`
 

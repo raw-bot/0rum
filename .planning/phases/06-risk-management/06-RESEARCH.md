@@ -73,7 +73,7 @@
 - **D-12:** While breaker `is_tripped()`, gate evaluator short-circuits ALL candidates to `REJECTED` with reason `circuit_breaker_active`. No daily-loss / max-positions / concentration evaluation runs. Sizer is not invoked.
 - **D-15:** RISK-01 (daily loss limit) does NOT trip the circuit breaker in Phase 6. AGENTS.md §12.1 Gate 1 hint is deferred. Strict ROADMAP behavior: block + structlog event, no breaker trip.
 
-**Telegram alert delivery (deferred to Phase 7)**
+**External notification channel alert delivery (deferred to Phase 7)**
 - **D-13:** Phase 6 defines `CircuitBreakerAlert` (Pydantic v2 DTO in `src/risk/events.py`):
   - `tripped_at: datetime`
   - `consecutive_stops: int`
@@ -81,7 +81,7 @@
   - `last_stop_strategy: str`
   - `last_stop_trade_id: UUID | None`
 
-  When `BreakerManager.record_stop()` returns a non-None alert, Phase 6 emits structlog `risk.circuit_breaker.tripped` AND publishes the alert through a simple in-process hook interface (`BreakerAlertHook` callable list) that Phase 7's NOTIF-03 will register against. **No `python-telegram-bot` import in Phase 6.** `src/monitoring/telegram_bot.py` stays unimplemented.
+  When `BreakerManager.record_stop()` returns a non-None alert, Phase 6 emits structlog `risk.circuit_breaker.tripped` AND publishes the alert through a simple in-process hook interface (`BreakerAlertHook` callable list) that Phase 7's NOTIF-03 will register against. **No `external-notification-client` import in Phase 6.** `src/monitoring/notification_adapter.py` stays unimplemented.
 
 **Mode coverage**
 - **D-13b:** Phase 6 targets signal mode only. "Consecutive stops" = theoretical stops (`TradeORM.close_reason = 'SL'` AND `status = 'CLOSED'`). Use existing schema convention (`SL`, `TP1`, `TP2`, `TRAIL`, `MANUAL`, `CIRCUIT_BREAKER`) — do NOT introduce `sl_hit`. Auto-mode broker-fill stops will be wired in Phase 8/9; the breaker contract is mode-agnostic.
@@ -98,7 +98,7 @@
 
 ### Deferred Ideas (OUT OF SCOPE)
 
-- Telegram client (`src/monitoring/telegram_bot.py`) — Phase 7 (NOTIF-01..04). Phase 6 produces alert event; Phase 7 delivers.
+- External notification channel client (`src/monitoring/notification_adapter.py`) — Phase 7 (NOTIF-01..04). Phase 6 produces alert event; Phase 7 delivers.
 - Theoretical-trade lifecycle (open → TP1 → trailing → close) populating `TradeORM` — Phase 7 (SIG-01..03).
 - Auto-mode risk handling (real broker fills, real positions) — Phase 8/9.
 - Daily-loss-limit tripping the circuit breaker — possible v2; not in ROADMAP success criterion (D-15).
@@ -117,7 +117,7 @@
 | RISK-02 | Max positions gate blocks new signals if concurrent theoretical positions ≥ 5 | `select(func.count()).where(TradeORM.status == 'OPEN')` (Code Examples §2) |
 | RISK-03 | Concentration check — REDUCE size 50% when 4+ same-direction open (per D-04, NOT block) | `select(TradeORM.direction, func.count()).group_by(...)` (Code Examples §3); halving applied in sizer after hard cap |
 | RISK-04 | ATR-based position sizing with vol adjustment and 2% hard cap | Pure function consuming `MarketRegime.atr_pctile` (0–1 scale); order: vol → cap → concentration (D-07) |
-| RISK-05 | Circuit breaker: 24h shutdown after 8 consecutive SL, sends Telegram alert | `redis.asyncio` (already imported in `src/monitoring/health.py`); `fakeredis.FakeAsyncRedis` for tests; alert via in-process hook (D-13) |
+| RISK-05 | Circuit breaker: 24h shutdown after 8 consecutive SL, sends External notification channel alert | `redis.asyncio` (already imported in `src/monitoring/health.py`); `fakeredis.FakeAsyncRedis` for tests; alert via in-process hook (D-13) |
 
 **Note on RISK-03 wording mismatch:** REQUIREMENTS.md says "blocks signals that would over-expose the same direction." Locked decision **D-04** overrides this to **REDUCE size by 50%, do NOT block**, per AGENTS.md §12.1 Gate 3. The verifier and plan-checker MUST treat D-04 as authoritative.
 </phase_requirements>
@@ -141,7 +141,7 @@ The biggest correctness traps are the `atr_pctile` scale (0–1 in code vs 0–1
 | Direction concentration | Database (PostgreSQL) | Backend (`src/risk/gates.py`) | `GROUP BY direction` SQL aggregate; backend interprets count vs threshold |
 | ATR sizing math | Backend (`src/risk/sizer.py`) — pure function | — | No I/O; consumes already-computed `MarketRegime` from pipeline scope |
 | Circuit breaker state | Cache (Redis) | Backend (`src/risk/breaker.py`) | Cross-process counter with TTL → Redis is the only viable store; `redis.asyncio` is the client |
-| Alert dispatch | Backend (`src/risk/runner.py` hook surface) | Backend (Phase 7 Telegram in `src/monitoring/telegram_bot.py`) | Phase 6 emits structured event; Phase 7 owns the side effect |
+| Alert dispatch | Backend (`src/risk/runner.py` hook surface) | Backend (Phase 7 External notification channel in `src/monitoring/notification_adapter.py`) | Phase 6 emits structured event; Phase 7 owns the side effect |
 | Pipeline integration | Backend (`src/pipeline/runner.py`) | Backend (`src/risk/runner.py`) | Pipeline orchestrates; risk runner is a black box behind `RiskGateRunner.evaluate()` |
 | Health visibility | Backend (`src/monitoring/health.py`) | Cache + Database | `circuit_breaker` from Redis read; `open_positions`/`daily_pnl_pct` from gate helpers |
 
@@ -158,7 +158,7 @@ The biggest correctness traps are the `atr_pctile` scale (0–1 in code vs 0–1
 - Tests under `tests/test_risk/` mirroring `tests/test_pipeline/` layout.
 - Treat PostgreSQL as the real runtime target. Some tests use SQLite as scaffolding only — risk gates use Postgres-specific `func.date_trunc` and should be tested via either a Postgres test container OR by mocking `session.execute()`.
 - "Redis is only used in `health.py` right now" — Phase 6 will be the second runtime consumer.
-- "Do not assume a missing module exists just because `AGENTS.md` mentions it." (`src/risk/`, `src/execution/`, `src/monitoring/telegram_bot.py` are all NOT yet implemented.)
+- "Do not assume a missing module exists just because `AGENTS.md` mentions it." (`src/risk/`, `src/execution/`, `src/monitoring/notification_adapter.py` are all NOT yet implemented.)
 - Forbidden patterns: no LSTM/sklearn, no MACD/RSI, no multi-asset (none apply to risk module — none of these would naturally appear in risk code; just don't accidentally reintroduce them via copy-paste from elsewhere).
 
 ## Standard Stack
@@ -489,7 +489,7 @@ class BreakerManager:
 
 ### Pattern 4: In-process hook list for cross-phase event delivery
 **What:** Module-level list of callables; Phase 6 publishes via iteration; Phase 7 appends a callable.
-**When to use:** `CircuitBreakerAlert` delivery without importing Phase 7's Telegram client (D-13).
+**When to use:** `CircuitBreakerAlert` delivery without importing Phase 7's External notification channel client (D-13).
 **Example:**
 ```python
 # src/risk/runner.py (excerpt)
@@ -500,7 +500,7 @@ BreakerAlertHook = Callable[[CircuitBreakerAlert], Awaitable[None]]
 _alert_hooks: list[BreakerAlertHook] = []
 
 def register_alert_hook(hook: BreakerAlertHook) -> None:
-    """Phase 7 NOTIF-03 calls this at startup to register the Telegram sender."""
+    """Phase 7 NOTIF-03 calls this at startup to register the External notification channel sender."""
     _alert_hooks.append(hook)
 
 async def _publish_alert(alert: CircuitBreakerAlert) -> None:
@@ -518,7 +518,7 @@ async def _publish_alert(alert: CircuitBreakerAlert) -> None:
 - **Recomputing ATR in the sizer.** `MarketRegime.atr_value` and `MarketRegime.atr_pctile` are produced by `RegimeDetector.detect()` in step 3 of `PipelineRunner.run()` (line 81); they are in scope at line 90 and beyond. Recomputing wastes cycles and risks divergence. (D-06)
 - **Applying the hard cap BEFORE the vol adjustment.** Cap-then-vol means a low-vol +30% bump can push past the 2% ceiling. AGENTS.md §12.2 and D-07 specify vol-then-cap. The order is load-bearing.
 - **Treating an empty `TradeORM` as an error.** Until Phase 7 ships, `TradeORM` is empty. Every gate must return "passed" cleanly when counts/sums are 0/None. `func.coalesce(func.sum(...), 0)` is mandatory; never use `result.scalar_one()` without coalesce — it returns `None` on empty SUM and breaks the comparison. (D-01)
-- **Importing `python-telegram-bot` from `src/risk/`.** Phase 6 emits a `CircuitBreakerAlert` event via the hook surface; Phase 7 (NOTIF-03) implements delivery. Importing telegram from risk creates a phase-ordering violation. (D-13)
+- **Importing `external-notification-client` from `src/risk/`.** Phase 6 emits a `CircuitBreakerAlert` event via the hook surface; Phase 7 (NOTIF-03) implements delivery. Importing external notification channel from risk creates a phase-ordering violation. (D-13)
 - **Using `aioredis` (the standalone package).** Deprecated and merged into redis-py. The project already uses `redis.asyncio` in `src/monitoring/health.py:5`. Stay consistent.
 - **Setting `risk_check_passed=False` without also marking the candidate REJECTED.** The pipeline currently sets `risk_check_passed=True` unconditionally in `PipelineRunner._persist` line 184. Phase 6 must thread the `RiskDecision` back to `_persist` so both `CandidateSignalORM.status='REJECTED'` AND `ApprovedSignalORM` is NOT created for failed candidates. The contract: failed candidates do not produce an `ApprovedSignalORM` row at all (matches existing dedup/conflict/quota behavior).
 - **Adding a `rejection_reason` column to `candidate_signals`.** Explicitly out of scope (D-05). Logs are sufficient for v1.
@@ -535,7 +535,7 @@ async def _publish_alert(alert: CircuitBreakerAlert) -> None:
 | Decimal arithmetic | `float` everywhere | `decimal.Decimal` for money math | `TradeORM.pnl_pct` is `Numeric(8,5)` and returns `Decimal`. Mixing `float` and `Decimal` raises `TypeError` and loses precision. Project models use `Decimal` consistently. |
 | Pydantic v2 DTOs | Plain `@dataclass` | `pydantic.BaseModel` | Project standard (CLAUDE.md "Invariants"); free validation; aligned with `signal_data.py` |
 | ATR computation | New ATR helper in sizer | Read `MarketRegime.atr_value` / `atr_pctile` from upstream pipeline scope | Already computed by `RegimeDetector` in step 3 of `PipelineRunner.run` |
-| Telegram client | `python-telegram-bot` import in risk | Emit `CircuitBreakerAlert` DTO via hook surface | Phase ordering: Phase 7 owns Telegram (NOTIF-03). D-13. |
+| External notification channel client | `external-notification-client` import in risk | Emit `CircuitBreakerAlert` DTO via hook surface | Phase ordering: Phase 7 owns External notification channel (NOTIF-03). D-13. |
 
 **Key insight:** Phase 6 is wiring + a small amount of state-machine code. Almost all heavy lifting (regime detection, ATR computation, persistence transaction, async DB engine, async Redis client, structured logging) is already done elsewhere in the codebase. Resist the urge to "improve" any of it.
 
@@ -1072,13 +1072,13 @@ def test_atr_pctile_scale_invariant():
 
 | # | Claim | Section | Risk if Wrong |
 |---|-------|---------|---------------|
-| A1 | XAUUSD lot conversion: 1 lot = 100 oz, so `size_lots = risk_amount / (sl_distance × 100)` | Code Examples §sizer | Wrong lot size in production. AGENTS.md §12.2 explicitly states this; treating as solid but worth re-confirming with broker contract specs (the project plans IG demo → live; IG XAUUSD CFD has different contract sizing — typically 1 contract = 100 oz, but verify before Phase 8). [ASSUMED — sourced from AGENTS.md §12.2] |
+| A1 | XAUUSD lot conversion: 1 lot = 100 oz, so `size_lots = risk_amount / (sl_distance × 100)` | Code Examples §sizer | Wrong lot size in production. AGENTS.md §12.2 explicitly states this; treating as solid but worth re-confirming with broker contract specs (the project plans retired live-provider path; retired-provider XAUUSD CFD has different contract sizing — typically 1 contract = 100 oz, but verify before Phase 8). [ASSUMED — sourced from AGENTS.md §12.2] |
 | A2 | `func.date_trunc('day', func.timezone('UTC', func.now()))` is the SQLAlchemy 2.0 idiom for the Postgres SQL in D-14 | Code Examples §1 | Query may not produce the intended UTC-day boundary. Recommend a smoke-test against a populated test DB to confirm. [ASSUMED — derived from SQLAlchemy generic `func` mapping; the equivalent raw SQL in D-14 is verified] |
 | A3 | `RISK-01 trip condition` uses `<=` (D-14 confirms) → at exactly -3.000% the gate trips | Validation Architecture | A `<` vs `<=` flip silently changes which boundary blocks. D-14 explicitly uses `<=`; tests must pin this. [VERIFIED: CONTEXT.md D-14] |
 | A4 | `RISK-02 trip condition` uses `>=` (open count ≥ MAX_POSITIONS) | Validation Architecture | Same boundary risk. ROADMAP success criterion §2 says "5 or more" → `>=`. [VERIFIED: ROADMAP Phase 6 §2] |
 | A5 | Order of breaker check vs gates: breaker FIRST (D-12 explicit), no DB read if tripped | Code Examples §5 | Wasted DB reads when tripped (acceptable but suboptimal); inconsistent if reordered. [VERIFIED: CONTEXT.md D-12] |
 | A6 | `BreakerManager` is constructed once per `RiskGateRunner` instance; `RiskGateRunner` is constructed inside `PipelineRunner.run()` (per-run instance) | Code Examples §6 | If `RiskGateRunner` is hoisted to module-level, the `redis.asyncio` connection is shared across pipeline runs. Acceptable (redis-py async client is connection-pool-aware) but be deliberate about lifecycle. [ASSUMED — pattern; either choice works, recommend per-run for consistency with existing PipelineRunner pattern] |
-| A7 | Phase 7 will register a `BreakerAlertHook` at startup; until then, the hook list is empty and `_publish_alert` is a no-op | Code Examples §4 | If Phase 6 ships and a stop sequence trips the breaker before Phase 7, no Telegram alert fires (only structlog). This is acceptable per D-13 (deferred delivery). [VERIFIED: CONTEXT.md D-13] |
+| A7 | Phase 7 will register a `BreakerAlertHook` at startup; until then, the hook list is empty and `_publish_alert` is a no-op | Code Examples §4 | If Phase 6 ships and a stop sequence trips the breaker before Phase 7, no External notification channel alert fires (only structlog). This is acceptable per D-13 (deferred delivery). [VERIFIED: CONTEXT.md D-13] |
 | A8 | `pyproject.toml` should add `fakeredis>=2.20` to main `[project.dependencies]` (not optional-dependencies) | Standard Stack | Pollutes prod image with test-only dep (~100KB). Project precedent (pytest, respx, aiosqlite already in main deps) supports it; cleaner alternative is to add `[project.optional-dependencies.test]`. [ASSUMED — project precedent; either works] |
 
 ## Open Questions (RESOLVED)
@@ -1126,7 +1126,7 @@ def test_atr_pctile_scale_invariant():
 | Quick run command | `pytest tests/test_risk/ -x -q` |
 | Full suite command | `pytest -q` |
 | Test layout | `tests/test_risk/` (NEW; mirror `tests/test_pipeline/`) |
-| Required env vars | Already set by `tests/conftest.py:11-13` — `DATABASE_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` |
+| Required env vars | Already set by `tests/conftest.py:11-13` — `DATABASE_URL`, `EXTERNAL_NOTIFICATION_TOKEN`, `EXTERNAL_NOTIFICATION_CHAT_ID` |
 
 ### Phase Requirements → Test Map
 

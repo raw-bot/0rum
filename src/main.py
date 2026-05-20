@@ -48,42 +48,41 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         database_url=settings.database_url.split("@")[-1],  # hide credentials
     )
 
-    from src.config import MarketDataProvider
     from src.ingestion.candle_fetcher import CandleFetcher
 
-    # Bot initialization (D-11) — MUST precede scheduler start
-    from telegram import Bot
-    bot = Bot(token=settings.telegram_bot_token)
-    await bot.initialize()
-    logger.info("app.telegram_bot_initialized")
-
     # Service instantiation and wiring (D-11, D-12)
-    from src.execution.signal_sender import SignalSender
     from src.execution.executor import ExecutionRouter
-    from src.monitoring.telegram_bot import TelegramBot
-    from src.risk.hooks import register_alert_hook
-    from src.scheduler.jobs import _set_monitor_services, _set_pipeline_runner
-
-    signal_sender = SignalSender(bot=bot)
-    telegram_bot_inst = TelegramBot(bot=bot)
-    register_alert_hook(telegram_bot_inst.send_circuit_breaker_alert)
-    executor = ExecutionRouter(signal_sender=signal_sender)
-    _set_monitor_services(telegram_bot=telegram_bot_inst, breaker_manager=None)
+    from src.scheduler.jobs import _set_pipeline_runner
 
     # PipelineRunner wiring (inject router singleton)
     from src.pipeline.runner import PipelineRunner
+    executor = ExecutionRouter()
     runner = PipelineRunner(router=executor)
     _set_pipeline_runner(runner)
     logger.info("app.execution_services_wired")
 
     async def _run_startup_ingestion() -> None:
         async with CandleFetcher(settings=settings) as fetcher:
-            if settings.market_data_provider == MarketDataProvider.IG:
-                await fetcher.warm_up_all()
-            else:
-                await fetcher.backfill_all()
+            await fetcher.backfill_all()
 
-    asyncio.create_task(_run_startup_ingestion())
+    def _log_startup_ingestion_result(task: asyncio.Task) -> None:
+        if task.cancelled():
+            logger.info("app.startup_ingestion_cancelled")
+            return
+        exc = task.exception()
+        if exc is not None:
+            logger.error(
+                "app.startup_ingestion_failed",
+                error=str(exc),
+                exc_info=(type(exc), exc, exc.__traceback__),
+            )
+
+    startup_ingestion_task = asyncio.create_task(
+        _run_startup_ingestion(),
+        name="startup_ingestion",
+    )
+    startup_ingestion_task.add_done_callback(_log_startup_ingestion_result)
+    app.state.startup_ingestion_task = startup_ingestion_task
     logger.info(
         "app.startup_ingestion_launched",
         provider=settings.market_data_provider.value,
@@ -97,10 +96,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     yield
 
+    if not startup_ingestion_task.done():
+        startup_ingestion_task.cancel()
+        try:
+            await startup_ingestion_task
+        except asyncio.CancelledError:
+            pass
+
     scheduler.shutdown(wait=False)
     logger.info("app.scheduler_shutdown")
-    await bot.shutdown()
-    logger.info("app.telegram_bot_shutdown")
     logger.info("app.shutdown")
 
 

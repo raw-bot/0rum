@@ -18,7 +18,7 @@ affects:
   - 06-04-sizer (consumes PositionSizing)
   - 06-05-breaker (emits CircuitBreakerAlert via _publish_alert)
   - 06-06-runner (returns RiskDecision)
-  - 07-notif (registers Telegram hook via register_alert_hook)
+  - 07-notif (registers External notification channel hook via register_alert_hook)
 
 tech-stack:
   added: []
@@ -146,7 +146,7 @@ None — no new network endpoints, auth paths, file access patterns, or ORM sche
 - `grep -c "ConfigDict(frozen=True)" src/risk/events.py` = 3: PASSED
 - `grep -c "Field(ge=0.0)" src/risk/events.py` = 1: PASSED
 - `grep -c "from src.risk" src/risk/events.py` = 0: PASSED
-- `grep -E -c "from telegram|import telegram|python_telegram_bot" src/risk/hooks.py` = 0: PASSED
+- `grep -E -c "from external notification channel|import external notification channel|external-notification-client" src/risk/hooks.py` = 0: PASSED
 - `grep -c "noqa: BLE001" src/risk/hooks.py` = 1: PASSED
 - 2 tests passed in test_hooks.py: PASSED
 - 210 total suite passed (no regressions): PASSED

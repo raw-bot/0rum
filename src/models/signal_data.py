@@ -120,7 +120,7 @@ class CandidateSignal(BaseModel):
 
 
 class ApprovedSignal(BaseModel):
-    """Pipeline-approved signal ready for execution or Telegram send.
+    """Pipeline-approved signal ready for execution or local delivery.
 
     Attributes:
         candidate_signal_id: UUID linking back to the candidate signal.

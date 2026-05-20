@@ -22,36 +22,29 @@ Implemented in `src/`:
 - signal pipeline persistence
 - backtesting walk-forward core
 - optimizer with Monte Carlo validation
-- offline HistData bootstrap loader
 - regime detection
 - scheduler wiring
-- partial `/health`
+- risk module (`src/risk/`)
+- execution module (`src/execution/`) for signal mode
+- live `/health` wiring (postgres, redis, risk, signals, active strategies)
+- local web dashboard (`GET /dashboard`, `GET /api/dashboard`) for operator monitoring
+- Dukascopy research ingestion helpers for public `.bi5` planning, guarded batch fetches, cache QA, and Postgres import.
 
-Not implemented yet in `src/`:
-
-- `src/risk/`
-- `src/execution/`
-- `src/monitoring/telegram_bot.py`
-
-The repo currently covers the foundation through Phase 5 backtesting/validation plumbing, not the full target system described in `AGENTS.md`.
+The repo currently covers the foundation through local signal-mode monitoring plumbing, not the full auto-execution target system described in `AGENTS.md`.
 
 ## Core Runtime
 
 - `src/main.py`
-  Configures `structlog`, launches startup ingestion as a background task (IG → `warm_up_all()`, Binance → `backfill_all()`), starts APScheduler, then serves FastAPI.
+  Configures `structlog`, launches startup ingestion as a background task using `backfill_all()`, starts APScheduler, then serves FastAPI.
 - `src/ingestion/`
   `MarketDataClient` normalizes provider output to candle dicts.
-  Default runtime provider is Binance via `XAUUSD -> PAXG/USDT`.
-  `IGClient` exists as the additive IG path.
+  Default runtime plumbing provider is Binance via `XAUUSD -> PAXG/USDT`; this remains a proxy and is not validation-grade XAUUSD data.
 - `src/ingestion/candle_fetcher.py`
   Parses normalized candle dicts into ORM rows and writes with PostgreSQL `INSERT ... ON CONFLICT DO NOTHING`.
-  Backfill (Binance path) is six months by bounded pagination windows.
-  On the IG path, `warm_up_all()` replaces backfill: one bounded `fetch_and_store` per timeframe using `count`, no date-range walk.
-  Per-timeframe warm-up bar counts come from `Settings.ig_warmup_bars_*`.
+  Runtime backfill is six months by bounded pagination windows.
 - `src/ingestion/gap_detector.py`
   Scans for missing candles and explicitly ignores expected weekend gaps.
   Accepts `max_gap_bars` — gaps exceeding this limit are logged and skipped instead of triggering a fetch.
-  Always passes `to_time=gap_end` to `fetch_and_store` so no open-ended historical request is issued on IG.
 - `src/strategies/runner.py`
   Loads the latest 500 complete candles per timeframe from PostgreSQL, restores active optimizer params when present, then runs eligible strategies with `asyncio.gather(..., return_exceptions=True)`.
   Before the first optimizer result exists, it can bootstrap with `PARAM_RANGES` midpoints. After optimizer history exists, strategies without an active optimizer row are skipped as unvalidated.
@@ -59,20 +52,31 @@ The repo currently covers the foundation through Phase 5 backtesting/validation 
   Runs `dedup -> conflict -> regime -> rank -> quota -> persist`.
   Persistence is one transaction that writes the regime row, candidate rows with final statuses, then approved rows.
 - `src/monitoring/health.py`
-  Checks PostgreSQL and Redis, returns scheduler fetch timestamps, and still uses placeholders for several trading fields.
+  Checks PostgreSQL and Redis, returns scheduler fetch timestamps, and includes live risk/status fields (`circuit_breaker`, `open_positions`, `daily_pnl_pct`, `signals_today`, `strategies_active`).
 - `src/backtesting/historical_loader.py`
-  Loads HistData Generic ASCII XAUUSD M1 ZIP archives, resamples to optimizer timeframes, and bulk inserts idempotently.
+  Provides shared research candle record conversion and idempotent bulk insert helpers.
 - `src/backtesting/optimizer.py`
   Evaluates deterministic LHS parameter samples across walk-forward windows, builds dense daily OOS PnL for Monte Carlo, and persists active params only when WFE, multi-window, and Monte Carlo gates pass.
 
-## Current Trading Truth
+## Current Provider Truth
 
-- Project target is real `XAUUSD` through IG demo -> live.
-- Current plumbing still supports Binance `PAXG/USDT` as a temporary proxy.
-- Do not treat the Binance proxy as sufficient validation for later live-like phases.
-- Phase 5 validation is backed by local HistData XAUUSD M1 archives resampled into M15/H1/H4/D1.
+- Runtime plumbing uses Binance `PAXG/USDT` only.
+- Binance/PAXG is not validation-grade XAUUSD data.
+- Research/backtest ingestion uses Dukascopy public `.bi5` for `XAUUSD`.
+- Dukascopy uses price scale `/1000` and supports M15/H1/H4/D1 exports from tick cache.
+- Dukascopy is not a runtime live provider.
+- Market data provider and execution broker stay decoupled.
 - Latest real optimizer rerun persisted one active strategy: `liquidity_sweep` with WFE `1.8478`, PF `2.5744`, 108 OOS trades.
 - `trend_continuation` and `ema_momentum` failed Monte Carlo; `breakout_expansion` had no passing combo. Runtime skips these unvalidated strategies until an optimizer run activates them.
+
+Provider matrix:
+
+| Concern | Current status |
+|---|---|
+| Runtime market-data plumbing | Binance/CCXT `PAXG/USDT` proxy only |
+| Research/backtest XAUUSD data | Dukascopy public `.bi5` |
+| Execution broker | Not selected in this branch |
+| Operator surface | Local web dashboard only |
 
 ## Invariants
 
@@ -104,7 +108,6 @@ The repo currently covers the foundation through Phase 5 backtesting/validation 
 - Do not introduce RSI into `BreakoutExpansionStrategy`.
 - Do not introduce MACD into `EmaMomentumStrategy`.
 - Do not change candle dict keys without updating ingestion code and tests together.
-- If switching runtime ingestion to IG, set `MARKET_DATA_PROVIDER=ig` and provide `IG_XAUUSD_EPIC`.
 - Source comments may reference old `CLAUDE.md` sections and `D-*` / `T-*` decision IDs.
   Those breadcrumbs point mainly to `.planning/phases/03-strategy-engine/03-CONTEXT.md` and `.planning/phases/04-signal-pipeline/04-CONTEXT.md`.
 
@@ -117,21 +120,15 @@ The repo currently covers the foundation through Phase 5 backtesting/validation 
 - `tests/test_strategies/test_runner.py` checks for `asyncio.gather`, `return_exceptions=True`, and absence of DB writes.
 - Pipeline tests mostly mock DB sessions and stage helpers.
 - `tests/test_ingestion/test_gap_detector.py` uses raw SQLite DDL because the production schema is PostgreSQL-specific.
-- `tests/test_ingestion/test_ig_client.py` uses `respx`.
 - No committed endpoint tests were found for startup or `/health`.
 
 ## Known Gaps And Pitfalls
 
-- `get_settings()` is not cached even though its docstring says it is.
-- `src/main.py` does not wait for startup ingestion to finish before starting the scheduler (intentional — backfill/warm-up runs in background).
-- On the IG path, `warm_up_all()` issues one `fetch_and_store(count=N)` per timeframe. If the DB is already populated, those bars are silently skipped by `ON CONFLICT DO NOTHING` — no wasted API quota.
-- `GapDetector.max_gap_bars` is only enforced when explicitly passed. The scheduler wires it for IG via `Settings.ig_max_gap_bars`; direct calls without the argument are unbounded.
-- `/health` is only partially wired:
-  `circuit_breaker`, `open_positions`, `daily_pnl_pct`, and `signals_today` are placeholders.
-  `strategies_active` is hardcoded to `4`.
+- `get_settings()` is cached with `@lru_cache(maxsize=1)`; test code that needs env-specific behavior should instantiate `Settings()` directly.
+- `src/main.py` does not wait for startup ingestion to finish before starting the scheduler (intentional — backfill runs in background).
 - Redis is only used in `health.py` right now.
-- `TradeORM` exists, but current scheduler and pipeline code do not create trades.
-- `ApprovedSignalORM.execution_status` is always persisted as `PENDING` by the current pipeline.
+- Pipeline persistence creates `TradeORM` rows for approved signals.
+- `ApprovedSignalORM.execution_status` is initially persisted as `PENDING` and updated to `SENT` after successful signal-mode delivery.
 - `ranker.py` falls back to WFE `0.5` when no active optimizer row exists.
 - `quota.py` counts approved signals by current UTC date.
 - Do not assume a missing module exists just because `AGENTS.md` or a docstring mentions it.
@@ -140,11 +137,10 @@ The repo currently covers the foundation through Phase 5 backtesting/validation 
 
 - `uvicorn src.main:app --host 0.0.0.0 --port 8000`
 - `pytest`
-- `python scripts/ig_demo_probe.py`
-- `python scripts/ig_demo_probe.py --search gold`
-- `python scripts/ig_demo_probe.py --count 3`
-- `python scripts/histdata_phase5_loader.py qa`
-- `python scripts/histdata_phase5_loader.py import`
+- `./.venv/bin/python scripts/dukascopy_fetch.py batch-plan --symbol XAUUSD --start 2020-01-01T00:00:00Z --end 2020-02-01T00:00:00Z --batch-days 5 --max-days 31`
+- `./.venv/bin/python scripts/dukascopy_fetch.py batch-fetch --symbol XAUUSD --start 2020-01-01T00:00:00Z --end 2020-02-01T00:00:00Z --batch-days 5 --max-days 31 --timeframes M15 H1 H4 D1 --progress`
+- `./.venv/bin/python scripts/dukascopy_fetch.py qa --symbol XAUUSD --start 2020-01-01T00:00:00Z --end 2020-02-01T00:00:00Z --timeframe M15`
+- `./.venv/bin/python scripts/dukascopy_fetch.py import-postgres --symbol XAUUSD --start 2020-01-01T00:00:00Z --end 2020-02-01T00:00:00Z --timeframes M15 H1 H4 D1 --dry-run`
 
 ## Maintenance Rule
 

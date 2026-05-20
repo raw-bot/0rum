@@ -45,11 +45,11 @@
 - [ ] **RISK-02**: Max positions gate blocks new signals if concurrent theoretical positions ≥ 5
 - [x] **RISK-03**: Concentration check gate blocks signals that would over-expose the same direction
 - [x] **RISK-04**: ATR-based position sizing with volatility adjustment and 2% hard cap per trade
-- [ ] **RISK-05**: Circuit breaker triggers 24h trading shutdown after 8 consecutive stop-losses, sends Telegram alert
+- [ ] **RISK-05**: Circuit breaker triggers 24h trading shutdown after 8 consecutive stop-losses and surfaces the state locally
 
 ### Signal Mode
 
-- [ ] **SIG-01**: Mode `signal` sends formatted Telegram signal message with entry, SL, TP1, TP2, confidence
+- [ ] **SIG-01**: Mode `signal` persists approved signal details with entry, SL, TP1, TP2, confidence
 - [ ] **SIG-02**: Theoretical trade lifecycle (open → TP1 hit → trailing → close) tracked in PostgreSQL
 - [ ] **SIG-03**: Theoretical P&L and stats (win rate, profit factor) accumulated per strategy in DB
 
@@ -59,12 +59,12 @@
 - [ ] **AUTO-02**: Partial close at TP1 (50% position) with ATR trailing stop activated on remainder
 - [ ] **AUTO-03**: Stop-loss and take-profit orders managed via the selected broker API
 
-### Notifications
+### Monitoring
 
-- [ ] **NOTIF-01**: Telegram notification on new approved signal (both modes)
-- [ ] **NOTIF-02**: Telegram notification on TP1 hit, TP2 hit, SL hit
-- [ ] **NOTIF-03**: Telegram notification on circuit breaker trigger
-- [ ] **NOTIF-04**: Daily summary Telegram message with session stats
+- [ ] **NOTIF-01**: Local dashboard/API exposes new approved signals
+- [ ] **NOTIF-02**: Local dashboard/API exposes TP1 hit, TP2 hit, and SL hit lifecycle state
+- [ ] **NOTIF-03**: Local dashboard/API exposes circuit breaker state
+- [ ] **NOTIF-04**: Daily summary state is reconstructable from local database records
 
 ## v2 Requirements
 

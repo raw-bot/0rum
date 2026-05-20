@@ -50,7 +50,7 @@ created: 2026-04-22
 | 05-02-03 | 02 | 1 | OPTIM-05 | — | Both gates must pass (not just one) | unit | `pytest tests/test_backtesting/test_monte_carlo.py::test_both_gates_required -x` | ✅ | ✅ green |
 | 05-03-01 | 03 | 1 | OPTIM-04 | — | Optimizer job registered in scheduler | unit | `pytest tests/test_backtesting/test_scheduler_wiring.py::test_optimizer_job_registered -x` | ✅ | ✅ green |
 | 05-03-02 | 03 | 1 | OPTIM-04 | — | Optimizer job has max_instances=1 | unit | `pytest tests/test_backtesting/test_scheduler_wiring.py::test_optimizer_job_max_instances -x` | ✅ | ✅ green |
-| 05-04-01 | 04 | 2 | DATA | — | HistData CSV parses and resamples correctly | unit | `pytest tests/test_backtesting/test_historical_loader.py::test_resample_m1_to_m15_ohlcv -x` | ✅ | ✅ green |
+| 05-04-01 | 04 | 2 | DATA | — | retired bootstrap archive CSV parses and resamples correctly | unit | `pytest tests/test_backtesting/test_historical_loader.py::test_resample_m1_to_m15_ohlcv -x` | ✅ | ✅ green |
 | 05-04-02 | 04 | 2 | DATA | — | Bulk insert uses ON CONFLICT DO NOTHING | unit | `pytest tests/test_backtesting/test_historical_loader.py::test_bulk_insert_candles_is_idempotent_with_sqlite -x` | ✅ | ✅ green |
 | 05-05-01 | 05 | 2 | ALL OPTIM | — | Full optimizer run on synthetic data produces is_active=True row | integration | `pytest tests/test_backtesting/test_optimizer_integration.py -x` | ✅ | ✅ green |
 
@@ -77,7 +77,7 @@ created: 2026-04-22
 
 | Behavior | Requirement | Why Manual | Test Instructions |
 |----------|-------------|------------|-------------------|
-| HistData.com data download covers 24m+ of XAUUSD M1 | DATA (offline bootstrap) | Requires downloaded vendor archives | Run `./.venv/bin/python scripts/histdata_phase5_loader.py qa` — checks archive row counts and resampled M15/H1/H4/D1 counts |
+| retired bootstrap archive data download covers 24m+ of XAUUSD M1 | DATA (offline bootstrap) | Requires downloaded vendor archives | Run `./.venv/bin/python scripts/retired_bootstrap_archive_phase5_loader.py qa` — checks archive row counts and resampled M15/H1/H4/D1 counts |
 | WFE > 50% achieved on real 6m/2m XAUUSD window | OPTIM-02 | Requires real historical data (not synthetic) | Verified: `liquidity_sweep` active with WFE `1.8478` |
 | Full test suite stays green after Phase 5 | All | Regression check | Verified: `212 passed in 9.21s` |
 

@@ -52,7 +52,7 @@ metrics:
 
 # Phase 7 Plan 5: Wire full Phase 7 system — main.py startup, dashboard, health, tests
 
-One-liner: Wire Bot initialization in main.py lifespan with full service injection (SignalSender, TelegramBot, ExecutionRouter, PipelineRunner), register CB alert hook, create /api/dashboard (7-field JSON) and /dashboard (Jinja2 HTML) routes, replace hardcoded strategies_active in /health with live DB query, add jinja2 dependency, and build operator dashboard template per UI-SPEC with 18 passing tests.
+One-liner: Wire Bot initialization in main.py lifespan with full service injection (SignalSender, NotificationAdapter, ExecutionRouter, PipelineRunner), register CB alert hook, create /api/dashboard (7-field JSON) and /dashboard (Jinja2 HTML) routes, replace hardcoded strategies_active in /health with live DB query, add jinja2 dependency, and build operator dashboard template per UI-SPEC with 18 passing tests.
 
 ## Tasks
 
@@ -69,7 +69,7 @@ One-liner: Wire Bot initialization in main.py lifespan with full service injecti
   - Graceful degradation: all errors caught and logged, sections return empty/default values
 - Updated `src/main.py` lifespan:
   - Bot initialization before scheduler start: `Bot(token=...)` + `await bot.initialize()`
-  - Service wiring: SignalSender, TelegramBot, register_alert_hook, ExecutionRouter
+  - Service wiring: SignalSender, NotificationAdapter, register_alert_hook, ExecutionRouter
   - PipelineRunner with injected router via `_set_pipeline_runner()`
   - Bot shutdown after scheduler shutdown
   - Dashboard router registration after health_router
@@ -109,7 +109,7 @@ Auto-approved (`auto_advance: true`). Dashboard verifiable by starting the app w
 
 **None.** Plan executed exactly as written. All acceptance criteria met.
 
-**Note on verification grep:** The plan's verification step `grep -v '^#' src/main.py | grep -c "telegram_bot_token"` expected 0, but the file contains 1 occurrence at `bot = Bot(token=settings.telegram_bot_token)` (line 56) — this is the required Bot constructor call per D-11, not a log call. The token is never logged (T-07-05-01 satisfied). The grep is a coarse approximation that catches both legitimate and problematic token references.
+**Note on verification grep:** The plan's verification step `grep -v '^#' src/main.py | grep -c "external_notification_token"` expected 0, but the file contains 1 occurrence at `bot = Bot(token=settings.external_notification_token)` (line 56) — this is the required Bot constructor call per D-11, not a log call. The token is never logged (T-07-05-01 satisfied). The grep is a coarse approximation that catches both legitimate and problematic token references.
 
 ## Known Stubs
 

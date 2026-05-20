@@ -4,8 +4,8 @@ These Pydantic v2 data transfer objects cross phase boundaries:
 - PositionSizing is returned by the ATR sizer (Plan 04 / RISK-04).
 - RiskDecision is returned by RiskGateRunner.evaluate (Plan 07).
 - CircuitBreakerAlert is emitted when the circuit breaker trips (Plan 06 / CONTEXT D-13).
-  Phase 7 NOTIF-03 registers a Telegram-sender callable against the hook surface in
-  src/risk/hooks.py, which receives CircuitBreakerAlert as its sole argument.
+  Startup code may register alert adapters against the hook surface in src/risk/hooks.py;
+  each adapter receives CircuitBreakerAlert as its sole argument.
 
 Intentional deviation from src/models/signal_data.py: ALL three DTOs here are
 frozen (ConfigDict with frozen=True). signal_data.py omits that setting because
@@ -73,9 +73,9 @@ class RiskDecision(BaseModel):
 class CircuitBreakerAlert(BaseModel):
     """Event emitted when the circuit breaker trips (CONTEXT D-13).
 
-    Phase 7 NOTIF-03 will register a Telegram-sender callable against
-    src/risk/hooks._alert_hooks. That callable receives this DTO as its sole
-    argument. The DTO is frozen (T-06-02-02) so no hook can mutate it.
+    Startup code may register alert adapters against src/risk/hooks._alert_hooks.
+    Each adapter receives this DTO as its sole argument. The DTO is frozen
+    (T-06-02-02) so no hook can mutate it.
 
     Attributes:
         tripped_at: UTC timestamp when the breaker tripped.

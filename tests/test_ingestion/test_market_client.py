@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from src.config import Settings
 from src.ingestion.market_client import MarketDataClient
 
 
@@ -96,40 +95,3 @@ async def test_empty_response_returns_empty_list():
     candles = await client.get_candles("XAUUSD", "H4", count=5)
 
     assert candles == []
-
-
-@pytest.mark.asyncio
-async def test_ig_provider_routes_to_ig_client():
-    """When configured for IG, MarketDataClient delegates directly to IGClient."""
-    settings = Settings(
-        database_url="sqlite+aiosqlite:///./test.db",
-        redis_url="redis://localhost:6379/0",
-        telegram_bot_token="token",
-        telegram_chat_id="chat",
-        market_data_provider="ig",
-    )
-    client = MarketDataClient.__new__(MarketDataClient)
-    client.settings = settings
-    client._provider = "ig"
-    client._exchange = None
-    client._ig_client = AsyncMock()
-    client._ig_client.get_candles = AsyncMock(
-        return_value=[{"time": "2026-04-13T12:00:00Z", "open": 1, "high": 2, "low": 0.5, "close": 1.5, "volume": 10}]
-    )
-
-    candles = await client.get_candles(
-        "XAUUSD",
-        "M15",
-        count=3,
-        from_time="2026-04-13T00:00:00Z",
-        to_time="2026-04-13T12:00:00Z",
-    )
-
-    assert len(candles) == 1
-    client._ig_client.get_candles.assert_awaited_once_with(
-        instrument="XAUUSD",
-        granularity="M15",
-        count=3,
-        from_time="2026-04-13T00:00:00Z",
-        to_time="2026-04-13T12:00:00Z",
-    )

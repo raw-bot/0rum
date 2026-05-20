@@ -2,7 +2,7 @@
 
 ## What This Is
 
-0rum (prononcé « orum », from *aurum* — gold in Latin) is a 24/7 autonomous trading bot for XAUUSD (Gold/USD) built around a split provider architecture: market data and order execution are decoupled. The current target for real XAUUSD development is IG in demo first, then live; the Phase 2 Binance/CCXT PAXG/USDT ingestion remains an interim plumbing path only and must not be treated as validation-grade XAUUSD data. The bot runs 4 parallel technical strategies, filters and ranks signals through a pipeline, validates parameters via walk-forward optimization, and executes either as a Telegram signal sender (mode signal) or a fully automated order executor (mode auto). The system is entirely code-generated — the author is a non-developer.
+0rum (prononcé « orum », from *aurum* — gold in Latin) is a 24/7 autonomous trading bot for XAUUSD (Gold/USD) built around a split provider architecture: market data and order execution are decoupled. Runtime plumbing currently uses Binance/CCXT PAXG/USDT only as a continuity proxy; research/backtest validation uses Dukascopy public `.bi5` for XAUUSD. The bot runs 4 parallel technical strategies, filters and ranks signals through a pipeline, validates parameters via walk-forward optimization, and executes either as local signal-mode audit surfaced in the web dashboard or as a fully automated order executor. The system is entirely code-generated — the author is a non-developer.
 
 ## Core Value
 
@@ -17,7 +17,7 @@ The bot must reliably generate validated XAUUSD signals in mode signal, with eve
 ### Active
 
 - [ ] Docker Compose stack (postgres, redis, app) starts cleanly and `/health` responds
-- [ ] XAUUSD-aligned candle ingestion for M15, H1, H4, D1 with auto-backfill and gap detection, with IG demo as the current target provider
+- [ ] XAUUSD-aligned candle ingestion for M15, H1, H4, D1 with runtime auto-backfill/gap detection and Dukascopy research/backtest ingestion
 - [ ] 4 strategies (Liquidity Sweep, Trend Continuation, Breakout Expansion, EMA Momentum) generate CandidateSignals
 - [ ] Signal pipeline (dedup, conflict filter, ranker, quota) produces ApprovedSignals
 - [ ] Walk-forward optimizer (LHS × 100, WFE > 50%) activates best params per strategy every 24h
@@ -25,10 +25,10 @@ The bot must reliably generate validated XAUUSD signals in mode signal, with eve
 - [ ] Market regime detection (TRENDING_UP/DOWN, RANGING, HIGH_VOL) feeds signal ranking
 - [ ] Risk gates: daily loss limit (−3%), max positions (5), concentration check
 - [ ] ATR-based position sizing with volatility adjustment and 2% hard cap
-- [ ] Circuit breaker: 8 consecutive stops → 24h shutdown with Telegram alert
-- [ ] Mode signal: Telegram formatted signal + theoretical trade tracking in DB
+- [ ] Circuit breaker: 8 consecutive stops → 24h shutdown visible in health and dashboard state
+- [ ] Mode signal: approved signal persisted locally + theoretical trade tracking in DB
 - [ ] Mode auto: broker-native order placement, partial close at TP1, ATR trailing stop
-- [ ] Telegram notifications for all event types (signal, TP, SL, circuit breaker, daily summary)
+- [ ] Local dashboard and structured logs expose signal, TP, SL, circuit breaker, and daily summary state
 - [ ] Structured JSON logging via structlog throughout
 - [ ] Real XAUUSD provider validation completed before Phase 5 optimizer/backtest runs
 
@@ -36,7 +36,7 @@ The bot must reliably generate validated XAUUSD signals in mode signal, with eve
 
 - ML/neural networks (LSTM, sklearn, etc.) — pure technical strategies only, no AI in signal generation
 - Multi-asset — XAUUSD exclusively, no instrument loop
-- Frontend/dashboard — `/health` endpoint is sufficient for v1
+- Remote operator notifications — local web dashboard is the active v1 surface
 - External data APIs (Fear & Greed, news) — no external dependencies beyond the selected market-data/execution providers
 - RSI/MACD — explicitly eliminated to reduce parameter count
 - More than 3 optimizable parameters per strategy — overfitting protection
@@ -45,7 +45,7 @@ The bot must reliably generate validated XAUUSD signals in mode signal, with eve
 
 - **Author is non-developer**: all code produced by Claude Code from this spec
 - **Provider split**: market data provider and execution broker are decoupled by design; ingestion must not force the future execution choice
-- **Current target**: IG demo → live is the preferred path for true XAUUSD market data and eventual auto-execution
+- **Current provider truth**: Binance/PAXG is runtime plumbing only; Dukascopy public `.bi5` is the research/backtest source for true XAUUSD data; execution broker selection remains separate
 - **Temporary proxy restriction**: Binance/CCXT PAXG/USDT from Phase 2 is acceptable for plumbing and provider-agnostic Phase 4 work only, not for Phase 5+ validation
 - **Optimization discipline**: 3 params max per strategy, WFE > 50% required, 6-month train / 2-month OOS windows, multi-window test (2/3 profitable)
 - **Risk is fixed**: all risk parameters (`RISK_PER_TRADE`, `DAILY_LOSS_LIMIT`, etc.) are env vars, never optimized
@@ -55,7 +55,7 @@ The bot must reliably generate validated XAUUSD signals in mode signal, with eve
 
 ## Constraints
 
-- **Tech Stack**: Python 3.12, FastAPI, PostgreSQL 16, Redis, Docker Compose, SQLAlchemy 2.0 async, Pydantic v2, httpx, APScheduler, structlog, scipy/numpy/pandas, python-telegram-bot — no deviations
+- **Tech Stack**: Python 3.12, FastAPI, PostgreSQL 16, Redis, Docker Compose, SQLAlchemy 2.0 async, Pydantic v2, httpx, APScheduler, structlog, scipy/numpy/pandas — no deviations
 - **Code Style**: async everywhere, type hints everywhere, Google-style docstrings, structured logging, no bare `except:`
 - **Optimization**: max 3 params/strategy, WFE > 50% gate, no structural params (EMA50/200, swing order=10) in optimizer
 - **Capital Safety**: risk gates are not optional — no trade executes without passing all 3 gates
@@ -67,7 +67,7 @@ The bot must reliably generate validated XAUUSD signals in mode signal, with eve
 | Signal mode before auto | Validate strategy quality with 4 weeks of real market signals before risking capital autonomously | — Pending |
 | 4 pure technical strategies, no ML | Avoid overfitting, keep interpretability, reduce parameter explosion | — Pending |
 | Separate market data from execution | Avoid locking the bot to a weak data source or a premature broker choice | Chosen |
-| IG demo → live is the preferred XAUUSD path | Better alignment with true XAUUSD development than the temporary proxy feed | Chosen |
+| Dukascopy research/backtest path is the preferred XAUUSD validation source | Better alignment with true XAUUSD development than the temporary proxy feed | Chosen |
 | Binance proxy is plumbing-only | Preserve current momentum without letting PAXG/USDT contaminate optimizer/backtest validation | Chosen |
 | LHS over grid search | Latin Hypercube Sampling covers parameter space more efficiently with same 100-combo budget | — Pending |
 | Max 3 params per strategy | Prevents correlated/redundant parameters and overfitting | — Pending |
@@ -91,4 +91,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-10 after provider realignment*
+*Last updated: 2026-05-20 after provider truth cleanup*

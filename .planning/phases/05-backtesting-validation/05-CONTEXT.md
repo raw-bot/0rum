@@ -9,7 +9,7 @@
 
 Phase 5 delivers the walk-forward optimizer, Monte Carlo validation, and parameter activation pipeline that makes strategy parameters verifiable before any live signal is generated. It does NOT deliver live signal emission (Phase 7) or risk gates (Phase 6).
 
-The central unresolved question for this phase is the **data strategy**: the optimizer requires historical candle windows (6m train / 2m OOS) that exceed what IG-light warm-up delivers. This question must be structured as a decision gate — not assumed away.
+The central unresolved question for this phase is the **data strategy**: the optimizer requires historical candle windows (6m train / 2m OOS) that exceed what retired-provider warm-up delivers. This question must be structured as a decision gate — not assumed away.
 
 What this phase is NOT:
 - A live data provider switch (data provider architecture stays as-is)
@@ -54,9 +54,9 @@ These two objectives are NOT the same delivery. The framework can be built and v
 ### Locked: Data Strategy Constraints (what NOT to assume)
 
 - **Binance/PAXG is NOT acceptable** for Phase 5 optimization or validation
-- **IG warm-up bars alone are NOT sufficient** for a 6-month training window: IG-light provides 300 M15 bars (~3 days), 250 H1 bars (~10 days), 80 H4 bars (~13 days), 60 D1 bars (60 days). A 6-month train window requires ~175 D1 bars, ~1050 H4 bars, ~4380 H1 bars — far beyond current IG-light limits
-- **IG historical API MAY support larger requests** than IG-light warm-up, but this has not been validated for optimizer-scale volume. Only one minimal test (max=1) was confirmed working on 2026-04-22
-- Do NOT assume IG can automatically supply 6m/2m windows without rate-limit or quota risk assessment
+- **retired-provider warm-up bars alone are NOT sufficient** for a 6-month training window: retired-provider provides 300 M15 bars (~3 days), 250 H1 bars (~10 days), 80 H4 bars (~13 days), 60 D1 bars (60 days). A 6-month train window requires ~175 D1 bars, ~1050 H4 bars, ~4380 H1 bars — far beyond current retired-provider limits
+- **retired-provider historical API MAY support larger requests** than retired-provider warm-up, but this has not been validated for optimizer-scale volume. Only one minimal test (max=1) was confirmed working on 2026-04-22
+- Do NOT assume retired provider can automatically supply 6m/2m windows without rate-limit or quota risk assessment
 
 ### Locked: Architecture Constraints
 
@@ -67,9 +67,9 @@ These two objectives are NOT the same delivery. The framework can be built and v
 
 ### Decision Gate: Historical Bootstrap Source (locked by 05-04)
 
-IG is insufficient for Phase 5 historical validation: the account is no longer
+retired provider is insufficient for Phase 5 historical validation: the account is no longer
 available and prior `/prices` probes failed even for 1-bar historical requests.
-OANDA remains proscribed from earlier testing. HistData XAUUSD M1 Generic ASCII
+OANDA_RETIRED remains proscribed from earlier testing. retired bootstrap archive XAUUSD M1 Generic ASCII
 archives are the selected offline bootstrap source for Phase 5 only.
 
 Runtime provider selection remains deferred. Dukascopy is the likely candidate
@@ -100,9 +100,9 @@ offline walk-forward validation.
 ### Existing implementation to understand first
 - `src/strategies/runner.py` — how strategies are called and how params are loaded from DB (this is what the optimizer feeds)
 - `src/models/` — ORM models, especially `optimizer_results` table if it exists
-- `src/ingestion/candle_fetcher.py` — provider runtime ingestion, intentionally unchanged by HistData bootstrap
-- `src/backtesting/historical_loader.py` — HistData offline bootstrap parser/resampler/import helper
-- `scripts/histdata_phase5_loader.py` — read-only QA and explicit import command
+- `src/ingestion/candle_fetcher.py` — provider runtime ingestion, intentionally unchanged by retired bootstrap archive bootstrap
+- `src/backtesting/historical_loader.py` — retired bootstrap archive offline bootstrap parser/resampler/import helper
+- `scripts/retired_bootstrap_archive_phase5_loader.py` — read-only QA and explicit import command
 - `src/scheduler/jobs.py` — how to add the optimizer job (create_scheduler pattern)
 
 ### Planning references
@@ -123,12 +123,12 @@ offline walk-forward validation.
 6. The optimizer runs automatically every 24 hours via the APScheduler job
 
 ### Data reality check (key facts for planner):
-- IG-light warm-up provides: 300 M15 bars (~3 days), 250 H1 bars (~10 days), 80 H4 bars (~13 days), 60 D1 bars (60 trading days ≈ 3 months)
-- A 6-month training window at D1 = ~175 bars — IG-light D1 warmup (60 bars) covers ~34% of this
-- A 6-month training window at H1 = ~4380 bars — IG-light H1 warmup (250 bars) covers ~6% of this
-- IG daily incremental refreshes add only ~10 bars per timeframe per scheduled run
-- At current IG-light rates: reaching 6m of H1 data takes ~4380/24 ≈ 6 months of continuous operation
-- Conclusion: Chemin A (runtime accumulation) cannot produce full WFE validation for many months; HistData offline bootstrap is the current path to immediate Phase 5 validation
+- retired-provider warm-up provides: 300 M15 bars (~3 days), 250 H1 bars (~10 days), 80 H4 bars (~13 days), 60 D1 bars (60 trading days ≈ 3 months)
+- A 6-month training window at D1 = ~175 bars — retired-provider D1 warmup (60 bars) covers ~34% of this
+- A 6-month training window at H1 = ~4380 bars — retired-provider H1 warmup (250 bars) covers ~6% of this
+- retired provider daily incremental refreshes add only ~10 bars per timeframe per scheduled run
+- At current retired-provider rates: reaching 6m of H1 data takes ~4380/24 ≈ 6 months of continuous operation
+- Conclusion: Chemin A (runtime accumulation) cannot produce full WFE validation for many months; retired bootstrap archive offline bootstrap is the current path to immediate Phase 5 validation
 
 ### User preference (from brief):
 > "Je préfère un plan honnête et exécutable plutôt qu'un plan 'idéal' mais irréaliste. Si la validation complète ne peut pas raisonnablement être le premier run, dis-le clairement et structure la Phase 5 en conséquence."

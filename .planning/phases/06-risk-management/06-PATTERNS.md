@@ -380,7 +380,7 @@ class CandidateSignal(BaseModel):
 """In-process hook surface for cross-phase event delivery.
 
 Phase 6 publishes CircuitBreakerAlert via _publish_alert(); Phase 7 NOTIF-03
-appends a Telegram-sender callable to _alert_hooks. No telegram import lives here.
+appends a External notification channel-sender callable to _alert_hooks. No external notification channel import lives here.
 """
 
 from typing import Awaitable, Callable
@@ -396,7 +396,7 @@ _alert_hooks: list[BreakerAlertHook] = []
 
 
 def register_alert_hook(hook: BreakerAlertHook) -> None:
-    """Phase 7 NOTIF-03 calls this at startup to register the Telegram sender."""
+    """Phase 7 NOTIF-03 calls this at startup to register the External notification channel sender."""
     _alert_hooks.append(hook)
 
 
@@ -667,7 +667,7 @@ async def test_register_then_publish_invokes_hook():
 
 @pytest.mark.asyncio
 async def test_hook_failure_does_not_propagate():
-    failing = AsyncMock(side_effect=RuntimeError("telegram down"))
+    failing = AsyncMock(side_effect=RuntimeError("external notification channel down"))
     working = AsyncMock()
     register_alert_hook(failing)
     register_alert_hook(working)

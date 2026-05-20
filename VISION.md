@@ -14,9 +14,10 @@ This file is the intended end-state.
 
 ## Provider target
 
-- Target real `XAUUSD` through `IG demo -> live`.
-- Treat Binance `PAXG/USDT` as a temporary proxy for plumbing only.
-- Do not use the Binance proxy as the validation target for later phases.
+- Current runtime plumbing uses Binance `PAXG/USDT` proxy only for continuity.
+- Current research/backtest validation source for real `XAUUSD` is Dukascopy public `.bi5`.
+- Execution broker selection is separate from market-data provider selection.
+- Keep provider and execution broker as separate concerns so provider can be swapped later.
 
 ## Target architecture
 
@@ -33,7 +34,7 @@ This file is the intended end-state.
 - Layer 6: execution.
   Signal mode first. Auto mode later.
 - Layer 7: monitoring.
-  Telegram notifications, health API, alerts, daily summary.
+  Local web dashboard, health API, operational alerts, daily summary.
 
 ## Trading model target
 
@@ -65,7 +66,7 @@ This file is the intended end-state.
   `signal`
   `auto`
 - In signal mode:
-  send formatted signals and track theoretical outcomes.
+  persist approved signals, expose them in the local dashboard, and track theoretical outcomes.
 - In auto mode:
   place orders, attach SL/TP, partial at TP1, then trail.
 - Gate the switch from signal to auto behind validation criteria.
@@ -73,7 +74,8 @@ This file is the intended end-state.
 ## Monitoring target
 
 - Keep `/health`.
-- Add Telegram notifications for signals, executions, TP/SL events, circuit breaker, mode changes, and daily summary.
+- Keep `/dashboard` and `/api/dashboard` as the active operator surface.
+- Persist local signal-mode decisions and lifecycle state before considering any external notification channel.
 - Keep Redis in the design for rate limiting, cache, and circuit-breaker state.
 
 ## Planned build path
@@ -92,7 +94,7 @@ This file is the intended end-state.
 ## Non-negotiables from existing project docs
 
 - Stay on Python 3.12.
-- Keep FastAPI, PostgreSQL, Redis, Docker Compose, SQLAlchemy async, Pydantic v2, APScheduler, structlog, `httpx`, `scipy`, `numpy`, `pandas`, and `python-telegram-bot` in the project stack.
+- Keep FastAPI, PostgreSQL, Redis, Docker Compose, SQLAlchemy async, Pydantic v2, APScheduler, structlog, `httpx`, `jinja2`, `scipy`, `numpy`, and `pandas` in the project stack.
 - Keep `XAUUSD` as the only asset.
 - Keep risk parameters out of the optimizer.
-- Keep the provider/broker separation introduced by the IG realignment.
+- Keep provider/broker separation so the market-data source can change without rewriting execution.

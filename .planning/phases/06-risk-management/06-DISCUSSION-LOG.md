@@ -62,13 +62,13 @@
 | Postgres state via new `circuit_breaker_state` table | Survives Redis flushes; queryable history | |
 | Counter reset on first winning trade OR cooldown expiry | Per AGENTS.md §12.3 | ✓ |
 | Counter reset only on cooldown expiry | Stricter — winning trade alone doesn't reset | |
-| Telegram in Phase 6 (build minimal client) | `src/monitoring/telegram_bot.py` shipped in this phase | |
-| Phase 6 emits structured event; Phase 7 wires Telegram | Hook surface defined now, delivery deferred | ✓ |
+| External notification channel in Phase 6 (build minimal client) | `src/monitoring/notification_adapter.py` shipped in this phase | |
+| Phase 6 emits structured event; Phase 7 wires External notification channel | Hook surface defined now, delivery deferred | ✓ |
 | RISK-01 trips the breaker (per AGENTS §12.1) | Daily-loss limit triggers cooldown | |
 | RISK-01 only blocks (per ROADMAP) | Strict ROADMAP reading; breaker only on RISK-05's 8 stops | ✓ |
 
-**User's choice:** Redis state, hooks-based alert (Phase 7 wires Telegram), reset on win OR cooldown expiry, signal-mode theoretical stops only.
-**Notes:** "Redis est prévu pour l'état mutable du breaker. Comme Telegram n'est pas encore implémenté, Phase 6 peut logguer/retourner un event d'alerte, et Phase 7 branchera Telegram." `BreakerManager` exposes `is_tripped`, `record_stop`, `record_win`, `reset_if_expired`. `record_stop` returns a `CircuitBreakerAlert` Pydantic event ONLY when this stop is the trip; an in-process hook surface lets Phase 7 register Telegram delivery against it without changes to risk code. While tripped, the gate evaluator short-circuits all candidates to REJECTED with reason `circuit_breaker_active`. RISK-01 does NOT trip the breaker in Phase 6 (deferred — easy to add later). "Consecutive stops" = theoretical stops in signal mode (`TradeORM.close_reason='sl_hit' AND status='CLOSED'`); Phase 7 calls `record_stop`/`record_win` from the lifecycle handlers. → CONTEXT.md D-10, D-11, D-12, D-13, D-13b, D-15.
+**User's choice:** Redis state, hooks-based alert (Phase 7 wires External notification channel), reset on win OR cooldown expiry, signal-mode theoretical stops only.
+**Notes:** "Redis est prévu pour l'état mutable du breaker. Comme External notification channel n'est pas encore implémenté, Phase 6 peut logguer/retourner un event d'alerte, et Phase 7 branchera External notification channel." `BreakerManager` exposes `is_tripped`, `record_stop`, `record_win`, `reset_if_expired`. `record_stop` returns a `CircuitBreakerAlert` Pydantic event ONLY when this stop is the trip; an in-process hook surface lets Phase 7 register External notification channel delivery against it without changes to risk code. While tripped, the gate evaluator short-circuits all candidates to REJECTED with reason `circuit_breaker_active`. RISK-01 does NOT trip the breaker in Phase 6 (deferred — easy to add later). "Consecutive stops" = theoretical stops in signal mode (`TradeORM.close_reason='sl_hit' AND status='CLOSED'`); Phase 7 calls `record_stop`/`record_win` from the lifecycle handlers. → CONTEXT.md D-10, D-11, D-12, D-13, D-13b, D-15.
 
 ---
 
@@ -84,7 +84,7 @@
 
 ## Deferred Ideas
 
-- Telegram client (`src/monitoring/telegram_bot.py`) — Phase 7 (NOTIF-01..04).
+- External notification channel client (`src/monitoring/notification_adapter.py`) — Phase 7 (NOTIF-01..04).
 - Theoretical-trade lifecycle (open → TP1 → trailing → close) populating `TradeORM` — Phase 7 (SIG-01..03).
 - Auto-mode risk handling (real broker fills, real positions) — Phase 8/9.
 - Daily-loss-limit tripping the circuit breaker (AGENTS.md §12.1 Gate 1 hint) — possible v2.

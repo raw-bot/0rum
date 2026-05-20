@@ -8,23 +8,23 @@ tags: [pytest, respx, aiosqlite, unit-tests, httpx-mock, sqlite-in-memory, async
 requires:
   - phase: 02-data-ingestion
     plan: 02-01
-    provides: OandaClient, CandleFetcher with _parse_candle(), backfill_timeframe()
+    provides: RetiredProviderClient, CandleFetcher with _parse_candle(), backfill_timeframe()
   - phase: 02-data-ingestion
     plan: 02-02
     provides: GapDetector with find_gaps(), detect_and_fill()
 provides:
-  - Unit tests for OandaClient (5 tests, httpx mocked via respx)
-  - Unit tests for CandleFetcher (4 tests, OandaClient mocked)
+  - Unit tests for RetiredProviderClient (5 tests, httpx mocked via respx)
+  - Unit tests for CandleFetcher (4 tests, RetiredProviderClient mocked)
   - Unit tests for GapDetector (4 tests, in-memory SQLite via aiosqlite)
   - tests/conftest.py with env var setup for offline test collection
 affects:
-  - CI pipeline (13 tests pass without live OANDA or PostgreSQL)
+  - CI pipeline (13 tests pass without live OANDA_RETIRED or PostgreSQL)
 
 # Tech tracking
 tech-stack:
   added: [respx>=0.20.0 (httpx mock transport), aiosqlite>=0.19.0 (SQLite async driver)]
   patterns:
-    - "respx.mock decorator intercepts all httpx.AsyncClient calls in OandaClient tests"
+    - "respx.mock decorator intercepts all httpx.AsyncClient calls in RetiredProviderClient tests"
     - "GapDetector tests use raw SQLite DDL fixture — avoids PostgreSQL JSONB/gen_random_uuid incompatibilities"
     - "AsyncSessionLocal patched via pytest.MonkeyPatch.context() inside each GapDetector test"
     - "CandleFetcher.__new__(CandleFetcher) instantiates without __init__ to avoid DB engine creation"
@@ -36,7 +36,7 @@ key-files:
     - tests/__init__.py
     - tests/conftest.py
     - tests/test_ingestion/__init__.py
-    - tests/test_ingestion/test_oanda_client.py
+    - tests/test_ingestion/test_retired_provider_client.py
     - tests/test_ingestion/test_candle_fetcher.py
     - tests/test_ingestion/test_gap_detector.py
   modified:
@@ -57,7 +57,7 @@ completed: 2026-04-06
 
 # Phase 02 Plan 03: Ingestion Unit Tests Summary
 
-**13 unit tests across 3 files covering OandaClient (respx-mocked httpx), CandleFetcher (mocked OandaClient), and GapDetector (in-memory SQLite via aiosqlite) — all pass without live OANDA connection or PostgreSQL**
+**13 unit tests across 3 files covering RetiredProviderClient (respx-mocked httpx), CandleFetcher (mocked RetiredProviderClient), and GapDetector (in-memory SQLite via aiosqlite) — all pass without live OANDA_RETIRED connection or PostgreSQL**
 
 ## Performance
 
@@ -69,7 +69,7 @@ completed: 2026-04-06
 
 ## Accomplishments
 
-- test_oanda_client.py (5 tests): candle list return, D1→D granularity mapping, from_time removes count param, HTTP 401 raises HTTPStatusError, empty response returns []
+- test_retired_provider_client.py (5 tests): candle list return, D1→D granularity mapping, from_time removes count param, HTTP 401 raises HTTPStatusError, empty response returns []
 - test_candle_fetcher.py (4 tests): parse valid candle returns Candle ORM, missing mid returns None, missing timestamp returns None, backfill terminates immediately on empty API response
 - test_gap_detector.py (4 tests): no gaps in consecutive sequence, gap detected when 2+ candles missing, detect_and_fill calls fetch_and_store once per gap, empty table returns []
 - tests/conftest.py: sets required env vars via os.environ.setdefault before any src.* module collection
@@ -79,7 +79,7 @@ completed: 2026-04-06
 
 Each task was committed atomically:
 
-1. **Task 1: OandaClient and CandleFetcher unit tests** - `5417f15` (test)
+1. **Task 1: RetiredProviderClient and CandleFetcher unit tests** - `5417f15` (test)
 2. **Task 2: GapDetector unit tests with in-memory fixture** - `3387c6d` (test)
 
 ## Files Created/Modified
@@ -87,8 +87,8 @@ Each task was committed atomically:
 - `tests/__init__.py` — package marker
 - `tests/conftest.py` — env var setup for offline test collection (Rule 2: missing critical for test collection)
 - `tests/test_ingestion/__init__.py` — package marker
-- `tests/test_ingestion/test_oanda_client.py` — 5 OandaClient tests with respx mock
-- `tests/test_ingestion/test_candle_fetcher.py` — 4 CandleFetcher tests with mocked OandaClient
+- `tests/test_ingestion/test_retired_provider_client.py` — 5 RetiredProviderClient tests with respx mock
+- `tests/test_ingestion/test_candle_fetcher.py` — 4 CandleFetcher tests with mocked RetiredProviderClient
 - `tests/test_ingestion/test_gap_detector.py` — 4 GapDetector tests with SQLite in-memory fixture
 - `pyproject.toml` — added aiosqlite>=0.19.0 and respx>=0.20.0
 
@@ -140,7 +140,7 @@ No new security-relevant surface introduced. Tests are offline-only: no network 
 Files verified:
 - tests/test_ingestion/__init__.py: FOUND
 - tests/conftest.py: FOUND
-- tests/test_ingestion/test_oanda_client.py: FOUND (5 test functions)
+- tests/test_ingestion/test_retired_provider_client.py: FOUND (5 test functions)
 - tests/test_ingestion/test_candle_fetcher.py: FOUND (4 test functions)
 - tests/test_ingestion/test_gap_detector.py: FOUND (4 test functions)
 - pyproject.toml: aiosqlite and respx added: FOUND

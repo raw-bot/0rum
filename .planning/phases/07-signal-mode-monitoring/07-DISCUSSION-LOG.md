@@ -77,9 +77,9 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| src/execution/ + src/monitoring/telegram_bot.py | Both modules created. Matches AGENTS.md layout. | ✓ |
-| Everything in src/monitoring/telegram_bot.py | Simpler but contradicts AGENTS.md and requires Phase 8 refactor. | |
-| src/execution/ only | telegram_bot.py stays empty placeholder. | |
+| src/execution/ + src/monitoring/notification_adapter.py | Both modules created. Matches AGENTS.md layout. | ✓ |
+| Everything in src/monitoring/notification_adapter.py | Simpler but contradicts AGENTS.md and requires Phase 8 refactor. | |
+| src/execution/ only | notification_adapter.py stays empty placeholder. | |
 
 **User's choice:** Create both modules.
 
@@ -87,10 +87,10 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| signal_sender = signal msg only; telegram_bot = everything else | Clean split. Pipeline imports signal_sender; monitor imports telegram_bot. | ✓ |
-| signal_sender = all outbound sends; telegram_bot = bot command handling | Puts all Telegram I/O in one place. | |
+| signal_sender = signal msg only; notification_adapter = everything else | Clean split. Pipeline imports signal_sender; monitor imports notification_adapter. | ✓ |
+| signal_sender = all outbound sends; notification_adapter = bot command handling | Puts all External notification channel I/O in one place. | |
 
-**User's choice:** signal_sender.py owns initial signal message only. telegram_bot.py owns all lifecycle notifications + CB + daily summary.
+**User's choice:** signal_sender.py owns initial signal message only. notification_adapter.py owns all lifecycle notifications + CB + daily summary.
 
 ---
 
@@ -106,7 +106,7 @@
 | Option | Description | Selected |
 |--------|-------------|----------|
 | In main.py application startup | register_alert_hook() at startup alongside scheduler setup. | ✓ |
-| In monitor job, lazy registration | Delayed but avoids importing telegram_bot at startup. | |
+| In monitor job, lazy registration | Delayed but avoids importing notification_adapter at startup. | |
 
 **User's choice:** CB hook registered in main.py at app startup.
 
@@ -117,7 +117,7 @@
 | Singleton Bot via dependency injection | One Bot() in main.py, injected into both constructors. | ✓ |
 | Each class instantiates its own Bot | Two separate client objects for same token. | |
 
-**User's choice:** Single Bot instance instantiated in main.py, injected into SignalSender and TelegramBot.
+**User's choice:** Single Bot instance instantiated in main.py, injected into SignalSender and NotificationAdapter.
 
 ---
 
@@ -147,7 +147,7 @@
 | Update execution_status to SENT after successful send | Auditable. AGENTS.md enum value. | ✓ (corrected) |
 | Keep PENDING | TradeORM.status=OPEN as source of truth. | |
 
-**User's choice:** execution_status → SENT after successful Telegram send.
+**User's choice:** execution_status → SENT after successful External notification channel send.
 **Correction:** Use AGENTS.md enum values (PENDING, SENT, EXECUTED, SKIPPED) — not SIGNAL_SENT. Failed send keeps PENDING + structured log event.
 
 ---
@@ -193,9 +193,9 @@
 ## Deferred Ideas
 
 - Auto-mode broker order placement, partial close, live trailing stop — Phase 8.
-- Telegram bot interactive commands — Phase 8 / v2.
+- External notification channel bot interactive commands — Phase 8 / v2.
 - strategies_performance array in /health — too heavy for a health probe.
 - Rolling window stats (30-day, 7-day) in strategy_stats — Phase 8 / v2.
-- Retry mechanism for failed Telegram sends — deferred.
+- Retry mechanism for failed External notification channel sends — deferred.
 - broker_executor.py stub — Phase 8.
 - Daily loss limit tripping circuit breaker — deferred per Phase 6 D-15.

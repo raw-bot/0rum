@@ -1,1 +1,1 @@
-"""src/execution package — ExecutionRouter and SignalSender."""
+"""src/execution package — local execution routing."""

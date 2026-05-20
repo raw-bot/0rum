@@ -115,6 +115,17 @@ class TestDashboardApi:
         assert isinstance(mode, str)
         assert len(mode) > 0
 
+    def test_dashboard_api_web_monitoring_shape(self, client):
+        """Response JSON contains web-only monitoring fields."""
+        response = client.get("/api/dashboard")
+        data = response.json()
+        assert "closed_trades" in data
+        assert "candidate_signals" in data
+        assert "operational_events" in data
+        assert isinstance(data["closed_trades"], list)
+        assert isinstance(data["candidate_signals"], list)
+        assert isinstance(data["operational_events"], list)
+
 
 class TestDashboardPage:
     """Tests for the /dashboard HTML page."""
@@ -198,3 +209,17 @@ class TestDashboardPage:
         body = response.text
         assert "container.innerHTML = html" not in body
         assert "textContent" in body
+
+    def test_dashboard_page_has_web_monitoring_sections(self, client):
+        """Dashboard page contains sections for web-only monitoring."""
+        response = client.get("/dashboard")
+        html = response.text
+        assert "CLOSED TRADES" in html
+        assert "CANDIDATE DECISIONS" in html
+        assert "Operational Events" in html
+
+    def test_dashboard_page_is_web_only(self, client):
+        """Dashboard should expose the local web monitoring surface."""
+        response = client.get("/dashboard")
+        assert response.status_code == 200
+        assert "Operational Events" in response.text

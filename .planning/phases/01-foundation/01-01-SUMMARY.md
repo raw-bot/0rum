@@ -32,7 +32,7 @@ tech-stack:
     - scipy>=1.13.0
     - numpy>=1.26.0
     - pandas>=2.2.0
-    - python-telegram-bot>=21.0
+    - external-notification-client>=21.0
     - apscheduler>=3.10.0
     - pytest>=8.2.0
     - pytest-asyncio>=0.23.0
@@ -88,7 +88,7 @@ completed: 2026-04-05
 ## Accomplishments
 
 - Docker Compose stack with postgres:16-alpine, redis:7-alpine, and app container — all with healthchecks, app waits for both postgres and redis to be healthy before starting
-- Pydantic Settings class loading all 21 env vars (OANDA, DB, Telegram, execution mode, risk params, optimizer params) via model_config env_file wiring
+- Pydantic Settings class loading all 21 env vars (OANDA_RETIRED, DB, External notification channel, execution mode, risk params, optimizer params) via model_config env_file wiring
 - Alembic async migration environment using async_engine_from_config, reading DATABASE_URL from Settings at runtime — ready for first migration in Plan 02
 - pyproject.toml with all 17 required libraries and Python 3.12 constraint
 - .gitignore and .env.example implementing T-01-01 threat mitigation (secrets never committed)
@@ -105,7 +105,7 @@ completed: 2026-04-05
 - `docker-compose.yml` - Postgres, Redis, app containers with healthchecks and depends_on service_healthy
 - `Dockerfile` - python:3.12-slim, installs deps via pip -e ., runs uvicorn src.main:app
 - `pyproject.toml` - Python package manifest with all 17 required dependencies
-- `.env.example` - Template with all 21 env vars including OANDA, DB, Telegram, risk, optimizer settings
+- `.env.example` - Template with all 21 env vars including OANDA_RETIRED, DB, External notification channel, risk, optimizer settings
 - `.gitignore` - Prevents .env and Python artifacts from being committed
 - `src/__init__.py` - Empty package marker
 - `src/config.py` - ExecutionMode enum + Settings BaseSettings class with all fields
@@ -150,7 +150,7 @@ completed: 2026-04-05
 
 ## User Setup Required
 
-None - no external service configuration required for this plan. The `.env.example` template is ready; users will copy it to `.env` and fill in OANDA credentials before running `docker compose up`.
+None - no external service configuration required for this plan. The `.env.example` template is ready; users will copy it to `.env` and fill in OANDA_RETIRED credentials before running `docker compose up`.
 
 ## Next Phase Readiness
 

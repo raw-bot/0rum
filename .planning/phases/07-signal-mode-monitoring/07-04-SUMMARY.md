@@ -6,7 +6,7 @@ tags: [scheduler, monitor_trades, daily_summary, strategy_stats, circuit_breaker
 dependency_graph:
   requires:
     - "07-01"  # TradeORM with trailing_stop_price
-    - "07-02"  # TelegramBot.send_lifecycle_notification + DailySummaryPayload
+    - "07-02"  # NotificationAdapter.send_lifecycle_notification + DailySummaryPayload
     - "07-03"  # ExecutionRouter + PipelineRunner creating trades
   provides:
     - monitor_trades APScheduler job (15-min interval, OPEN/TP1_HIT state machine)
@@ -44,7 +44,7 @@ metrics:
 
 # Phase 7 Plan 04: Monitor Trades + Daily Summary Summary
 
-Implemented the two new APScheduler jobs that drive the SIG-02 and SIG-03 requirements: `monitor_trades` (15-min interval, full OPEN→TP1_HIT→CLOSED state machine) and `daily_summary` (cron 00:00 UTC, D-19 payload sent via TelegramBot).
+Implemented the two new APScheduler jobs that drive the SIG-02 and SIG-03 requirements: `monitor_trades` (15-min interval, full OPEN→TP1_HIT→CLOSED state machine) and `daily_summary` (cron 00:00 UTC, D-19 payload sent via NotificationAdapter).
 
 ## Tasks Completed
 
@@ -69,7 +69,7 @@ Implemented the two new APScheduler jobs that drive the SIG-02 and SIG-03 requir
 
 - Queries: signals sent today, trades by close_reason, daily P&L sum, MTD P&L sum, per-strategy stats ordered by win_rate
 - Reads `BreakerManager.is_tripped()` and new `get_consecutive_stops()` for CB state
-- Builds `DailySummaryPayload` and calls `_telegram_bot.send_daily_summary(payload)` (NOTIF-04)
+- Builds `DailySummaryPayload` and calls `_notification_adapter.send_daily_summary(payload)` (NOTIF-04)
 - Registered with `CronTrigger(hour=0, minute=0, timezone="UTC")`, `max_instances=1`
 
 ### `BreakerManager.get_consecutive_stops()`
@@ -111,7 +111,7 @@ tests/test_monitoring/ (full suite)           — 28 tests (all pass)
 
 ## Known Stubs
 
-None — all fields in `daily_summary` are wired to live DB queries. `_telegram_bot` and `_breaker_manager` default to `None` / fresh `BreakerManager()` until `_set_monitor_services()` is called from `main.py` (that wiring is a Phase 7 integration task, not a stub in this plan's scope).
+None — all fields in `daily_summary` are wired to live DB queries. `_notification_adapter` and `_breaker_manager` default to `None` / fresh `BreakerManager()` until `_set_monitor_services()` is called from `main.py` (that wiring is a Phase 7 integration task, not a stub in this plan's scope).
 
 ## Threat Flags
 

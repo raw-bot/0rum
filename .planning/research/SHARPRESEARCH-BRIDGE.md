@@ -42,7 +42,7 @@ Concrete 0rum mapping:
 
 - `ApprovedSignal` should become an immutable paper/live signal record.
 - Theoretical trades should be linked back to the exact approved signal.
-- Daily summaries should be reconstructable from database records, not only Telegram messages.
+- Daily summaries should be reconstructable from database records, not only External notification channel messages.
 - Any later report should distinguish backtest, optimizer OOS, signal-mode paper, and real execution.
 
 ### 2. Anti-Lookahead As A Hard Gate
@@ -140,7 +140,7 @@ SharpResearch's public evidence dashboard is a good product lesson, but 0rum v1 
 Do now:
 
 - store evidence in DB
-- export CLI/log/Telegram summaries
+- export CLI/log/External notification channel summaries
 - make artifacts easy to query
 
 Do later:
@@ -175,7 +175,7 @@ Suggested Phase 6 additions:
 Bridge requirements:
 
 - Signal mode is 0rum's first true forward-test record.
-- Every Telegram signal should correspond to an immutable DB row.
+- Every External notification channel signal should correspond to an immutable DB row.
 - Theoretical trade lifecycle should produce an audit trail.
 - Daily summary should include evidence metrics, not just event counts.
 
