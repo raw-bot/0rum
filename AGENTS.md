@@ -9,7 +9,7 @@ Les anciennes références broker/provider dans ce document sont désormais **le
 
 Règles de priorité :
 - `market data provider` et `execution broker` sont **deux concerns séparés**
-- la cible prioritaire pour le vrai `XAUUSD` est désormais **IG demo → live**
+- la cible historique **IG demo → live** ne pilote plus l'implémentation courante
 - l'implémentation Binance/CCXT `PAXG/USDT` de la Phase 2 reste **tolérée uniquement pour la plomberie et la Phase 4 provider-agnostic**
 - **Phase 5 et au-delà** ne doivent pas être validées sur le proxy `PAXG/USDT`
 - en cas de conflit avec une section plus bas qui suppose un ancien provider ou broker, cet addendum l'emporte
@@ -20,9 +20,21 @@ Le flux **IG demo -> live** est désormais sorti de la trajectoire active du pro
 
 Règles de priorité :
 - IG est considéré **legacy / inactif** pour le runtime et la validation (data insuffisante + cooldown incompatible)
-- la voie active actuelle pour ingestion/validation reste le proxy `Binance/CCXT PAXG/USDT` tant qu'aucun nouveau provider n'est validé
+- la voie runtime actuelle reste le proxy `Binance/CCXT PAXG/USDT` uniquement pour la plomberie
+- la source active research/backtest validée pour le vrai `XAUUSD` est **Dukascopy public `.bi5`**
+- Dukascopy ne doit pas être traité comme provider live/runtime
 - toute section plus bas qui présente IG comme cible prioritaire doit être lue comme historique
 - la séparation `market data provider` / `execution broker` reste obligatoire
+
+## Monitoring Surface Override — 2026-05-20
+
+La surface opérateur Telegram est abandonnée au profit d'une UI web locale.
+
+Règles de priorité :
+- `signal mode` ne dépend plus d'aucun canal externe de notification
+- la surface active est `GET /dashboard` + `GET /api/dashboard`
+- les signaux approuvés doivent être persistés, traçables localement, puis visibles dans la UI web
+- toute section plus bas qui présente Telegram comme surface active doit être lue comme historique
 
 ---
 
@@ -33,7 +45,7 @@ Règles de priorité :
 | Nom | **0rum** (prononcé « orum ») |
 | Origine | 0 → lien avec 0xBot · rum → *aurum* (or en latin) |
 | Asset unique | XAUUSD (Gold / US Dollar) |
-| Provider cible | Binance/CCXT `PAXG/USDT` (proxy actif actuel) |
+| Provider cible | Runtime plumbing : Binance/CCXT `PAXG/USDT` proxy · Research/backtest : Dukascopy `.bi5` |
 | Objectif | Bot de trading 24/7, signal-only puis auto-execution |
 | Auteur | Non-développeur — tout le code est produit par Codex |
 
@@ -54,14 +66,14 @@ httpx (clients broker/provider async)
 ccxt (implémentation temporaire de proxy data en Phase 2)
 scipy (argrelextrema pour swing detection)
 numpy / pandas (calculs indicateurs)
-python-telegram-bot (notifications)
+jinja2 (dashboard web local)
 ```
 
 ### Déploiement
 
 - Docker Compose : `app` (bot), `postgres`, `redis`
 - Cible : VPS ou Mac Studio M3 Ultra local
-- Pas de frontend en v1
+- Surface opérateur : dashboard web local read-only
 
 ---
 
@@ -70,10 +82,10 @@ python-telegram-bot (notifications)
 ```
 ┌─────────────────────────────────────────────────────┐
 │                    MONITORING (L7)                   │
-│          Telegram · Health API · Alerting            │
+│       Dashboard local · Health API · Alerting        │
 ├─────────────────────────────────────────────────────┤
 │               EXECUTION ENGINE (L6)                  │
-│   Mode signal (Telegram) │ Mode auto (broker natif)  │
+│ Mode signal (local/web) │ Mode auto (broker natif)   │
 ├─────────────────────────────────────────────────────┤
 │               RISK MANAGEMENT (L5)                   │
 │   Daily loss limit · Max positions · ATR sizing      │
@@ -152,12 +164,13 @@ python-telegram-bot (notifications)
 │   ├── execution/
 │   │   ├── __init__.py
 │   │   ├── executor.py            # Mode router (signal vs auto)
-│   │   ├── broker_executor.py     # Broker order placement
-│   │   └── signal_sender.py       # Telegram signal formatter
+│   │   └── broker_executor.py     # Broker order placement
 │   ├── monitoring/
 │   │   ├── __init__.py
-│   │   ├── telegram_bot.py        # Telegram notifications
+│   │   ├── dashboard.py           # /dashboard + /api/dashboard
 │   │   └── health.py              # /health endpoint
+│   ├── templates/
+│   │   └── dashboard.html         # UI locale read-only
 │   └── scheduler/
 │       ├── __init__.py
 │       └── jobs.py                # APScheduler tasks
@@ -189,10 +202,6 @@ IG_XAUUSD_EPIC=CS.D.CFEGOLD.CFE.IP
 # === DATABASE ===
 DATABASE_URL=postgresql+asyncpg://orum:orum@postgres:5432/orum
 REDIS_URL=redis://redis:6379/0
-
-# === TELEGRAM ===
-TELEGRAM_BOT_TOKEN=your-bot-token
-TELEGRAM_CHAT_ID=your-chat-id
 
 # === EXECUTION MODE ===
 EXECUTION_MODE=signal  # "signal" ou "auto"
@@ -230,7 +239,7 @@ class ExecutionMode(str, Enum):
 class Settings(BaseSettings):
     market_data_provider: str = "binance"
 
-    # IG demo/provider validation
+    # IG legacy/debug only
     ig_api_key: str = ""
     ig_identifier: str = ""
     ig_password: str = ""
@@ -241,10 +250,6 @@ class Settings(BaseSettings):
     # Database
     database_url: str
     redis_url: str = "redis://redis:6379/0"
-
-    # Telegram
-    telegram_bot_token: str
-    telegram_chat_id: str
 
     # Execution
     execution_mode: ExecutionMode = ExecutionMode.SIGNAL
@@ -528,9 +533,9 @@ class MarketDataClient:
         ...
 ```
 
-- Cible prioritaire pour le vrai `XAUUSD` : **IG demo → live**
-- Implémentation actuelle du repo : `market_client.py` avec proxy `Binance/CCXT PAXG/USDT`
-- Règle projet : ce proxy reste acceptable pour la plomberie, pas pour la validation Phase 5+
+- Runtime actuel : `market_client.py` avec proxy `Binance/CCXT PAXG/USDT`
+- Research/backtest actuel : Dukascopy public `.bi5` validé pour `XAUUSD`
+- Règle projet : le proxy Binance/PAXG reste acceptable pour la plomberie, pas pour la validation stratégique
 
 ### 8.2 Candle Fetcher
 
@@ -849,7 +854,7 @@ def calculate_position_size(
 - Pendant le shutdown :
   - Aucun nouveau trade accepté
   - Les positions ouvertes restent (pas de close forcé)
-  - Telegram notification immédiate
+  - État visible immédiatement dans `/health` et `/api/dashboard`
   - Log structuré avec durée restante
 - Reset du compteur au premier trade gagnant ou à la fin du cooldown
 
@@ -859,18 +864,7 @@ def calculate_position_size(
 
 ### 13.1 Mode `signal` (défaut)
 
-Le pipeline tourne normalement jusqu'à l'ApprovedSignal. Au lieu d'exécuter, le bot envoie un message Telegram formaté :
-
-```
-🟢 BUY XAUUSD
-Entry: 2340.50
-SL: 2325.20 (-0.65%)
-TP1: 2358.80 (+0.78%)
-TP2: 2377.10 (+1.56%)
-Strategy: Liquidity Sweep
-Confidence: 0.82
-Size suggestion: 0.15 lots (1% risk)
-```
+Le pipeline tourne normalement jusqu'à l'ApprovedSignal. Au lieu d'exécuter chez un broker, le bot persiste le signal, l'expose via `/api/dashboard`, et l'affiche dans `/dashboard`.
 
 - Le signal est loggé en DB avec `execution_status = 'SENT'`
 - L'utilisateur décide manuellement d'exécuter ou non via le broker choisi
@@ -904,40 +898,35 @@ Le pipeline exécute automatiquement via l'API du broker choisi :
   - Le profit factor théorique doit être > 1.3
   - Le WFE moyen des stratégies actives doit être > 50%
 - Le switch se fait en changeant `EXECUTION_MODE=auto` dans `.env`
-- Telegram notification au switch : `⚡ Mode switched to AUTO — live trading active`
+- Le changement de mode doit être visible dans `/health`, `/api/dashboard`, et les logs structurés
 
 ### 13.4 Router d'exécution
 
 ```python
 # src/execution/executor.py
 class ExecutionRouter:
-    def __init__(self, settings: Settings, broker: BrokerExecutor, telegram: SignalSender):
+    def __init__(self, settings: Settings, broker: BrokerExecutor):
         self.mode = settings.execution_mode
         self.broker = broker
-        self.telegram = telegram
 
     async def execute(self, signal: ApprovedSignal, size: float):
         if self.mode == ExecutionMode.SIGNAL:
-            await self.telegram.send_signal(signal, size)
+            await self._record_signal_mode(signal, size)
             await self._start_theoretical_tracking(signal)
         elif self.mode == ExecutionMode.AUTO:
             await self.broker.place_order(signal, size)
-            await self.telegram.notify_execution(signal, size)
 ```
 
 ---
 
 ## 14. Layer 7 — Monitoring
 
-### 14.1 Telegram Notifications
+### 14.1 Dashboard local
 
-Types de messages :
-- `🟢 BUY` / `🔴 SELL` — signal (mode signal)
-- `✅ EXECUTED` — ordre placé (mode auto)
-- `💰 TP1 HIT` / `💰 TP2 HIT` / `🎯 CLOSED +X%` — profit
-- `❌ STOPPED -X%` — loss
-- `🚨 CIRCUIT BREAKER` — shutdown activé
-- `⚡ Mode switched to AUTO` — transition de mode
+Surface active :
+- `GET /dashboard` — UI opérateur locale read-only
+- `GET /api/dashboard` — JSON agrégé pour health, signaux, trades, P&L, circuit breaker, stratégies actives
+- aucun canal Telegram requis pour le mode signal
 - `📊 Daily Summary` — résumé quotidien à 00:00 UTC
 - `🏥 Health Alert` — problème système
 
@@ -992,7 +981,7 @@ Mode: SIGNAL
 | `run_optimizer` | 24h | Walk-forward optimization |
 | `run_backtest` | 8h | Backtesting validation |
 | `detect_regime` | 4h | Market regime detection |
-| `daily_summary` | 1j (00:00 UTC) | Résumé quotidien Telegram |
+| `daily_summary` | 1j (00:00 UTC) | Résumé quotidien local/dashboard |
 | `prune_candles` | 1j | Nettoyer les incomplètes > 24h |
 
 ---
@@ -1014,7 +1003,7 @@ Mode: SIGNAL
 
 - ❌ **Pas d'IA/ML** : pas de LSTM, pas de neural networks, pas de sklearn — les 4 stratégies sont purement techniques
 - ❌ **Pas de multi-asset** : XAUUSD uniquement, jamais de boucle sur instruments
-- ❌ **Pas de frontend** : API /health suffit en v1
+- ❌ **Pas de frontend externe** : la seule surface active est le dashboard web local
 - ❌ **Pas de backtesting maison complexe** : utiliser le walk-forward + Monte Carlo décrits ici, pas de framework externe
 - ❌ **Pas de paramètres magiques** : chaque nombre doit avoir une justification dans le doc
 - ❌ **Pas d'overfitting** : 3 paramètres max par stratégie, WFE > 50% obligatoire
@@ -1078,14 +1067,14 @@ Mode: SIGNAL
 - **Livrable** : Aucun trade ne passe sans passer les 3 gates
 
 ### Phase 7 : Execution Engine
-- Mode signal : Telegram sender
+- Mode signal : persistance locale + dashboard
 - Mode auto : broker order executor + partial close + trailing stop
 - Routing mode signal/auto
 - Theoretical tracking (mode signal)
 - **Livrable** : Bot fonctionnel en mode signal avec tracking
 
 ### Phase 8 : Monitoring & Polish
-- Telegram bot complet (tous les types de messages)
+- Dashboard local complet
 - Daily summary
 - Health endpoint enrichi
 - Logging structuré finalisé
@@ -1096,9 +1085,10 @@ Mode: SIGNAL
 
 ## 19. Provider Integration Notes
 
-- La cible prioritaire pour le vrai `XAUUSD` est **IG demo → live**
+- La source research/backtest prioritaire pour le vrai `XAUUSD` est **Dukascopy public `.bi5`**
 - `market data provider` et `execution broker` doivent rester découplés dans l'architecture
 - Le proxy `Binance/CCXT PAXG/USDT` ne doit pas être utilisé pour valider la qualité stratégique en Phase 5+
+- IG demo/live est legacy/inactif
 - Toute future intégration broker doit préserver les timeframes `M15`, `H1`, `H4`, `D1`, le stockage uniforme dans `candles`, et l'abstraction `ExecutionRouter`
 
 ---

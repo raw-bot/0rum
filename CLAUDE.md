@@ -27,11 +27,11 @@ Implemented in `src/`:
 - scheduler wiring
 - risk module (`src/risk/`)
 - execution module (`src/execution/`) for signal mode
-- Telegram monitoring module (`src/monitoring/telegram_bot.py`)
 - live `/health` wiring (postgres, redis, risk, signals, active strategies)
+- local web dashboard (`GET /dashboard`, `GET /api/dashboard`) for operator monitoring
 - Dukascopy research ingestion helpers for public `.bi5` planning, guarded batch fetches, cache QA, and Postgres import.
 
-The repo currently covers the foundation through Phase 5 backtesting/validation plumbing, not the full target system described in `AGENTS.md`.
+The repo currently covers the foundation through local signal-mode monitoring plumbing, not the full auto-execution target system described in `AGENTS.md`.
 
 ## Core Runtime
 
@@ -39,7 +39,7 @@ The repo currently covers the foundation through Phase 5 backtesting/validation 
   Configures `structlog`, launches startup ingestion as a background task (Binance path uses `backfill_all()`; IG warm-up path remains legacy), starts APScheduler, then serves FastAPI.
 - `src/ingestion/`
   `MarketDataClient` normalizes provider output to candle dicts.
-  Default runtime provider is Binance via `XAUUSD -> PAXG/USDT`.
+  Default runtime plumbing provider is Binance via `XAUUSD -> PAXG/USDT`; this remains a proxy and is not validation-grade XAUUSD data.
   `IGClient` remains in-repo as a legacy/additive path, not the active validation route.
 - `src/ingestion/candle_fetcher.py`
   Parses normalized candle dicts into ORM rows and writes with PostgreSQL `INSERT ... ON CONFLICT DO NOTHING`.
@@ -66,14 +66,25 @@ The repo currently covers the foundation through Phase 5 backtesting/validation 
 ## Current Trading Truth
 
 - IG demo/live path is currently out of scope (legacy/inactive).
-- Active runtime/validation path currently uses Binance `PAXG/USDT` proxy.
+- Runtime plumbing currently uses Binance `PAXG/USDT` proxy for continuity only; do not use it as strategy validation-grade XAUUSD data.
+- Research/backtest validation now uses Dukascopy public `.bi5` for `XAUUSD` where available.
 - Provider and execution broker stay decoupled so a future provider swap stays low-friction.
 - Dukascopy public `.bi5` is validated for `XAUUSD` research/backtest ingestion with price scale `/1000`; it is not a runtime live provider.
 - Stooq is not part of the current XAUUSD research path.
 - Capital.com and cTrader remain candidates for future `paper_live` or execution research, separate from historical data.
-- Phase 5 validation is backed by local HistData XAUUSD M1 archives resampled into M15/H1/H4/D1.
+- Local HistData XAUUSD M1 archives are historical/bootstrap validation material; prefer Dukascopy for new XAUUSD research ingestion.
 - Latest real optimizer rerun persisted one active strategy: `liquidity_sweep` with WFE `1.8478`, PF `2.5744`, 108 OOS trades.
 - `trend_continuation` and `ema_momentum` failed Monte Carlo; `breakout_expansion` had no passing combo. Runtime skips these unvalidated strategies until an optimizer run activates them.
+
+Provider matrix:
+
+| Concern | Current status |
+|---|---|
+| Runtime market-data plumbing | Binance/CCXT `PAXG/USDT` proxy only |
+| Research/backtest XAUUSD data | Dukascopy public `.bi5` |
+| Legacy inactive path | IG demo/live |
+| Execution broker | Undecided; Capital.com/cTrader remain candidates |
+| Operator surface | Local web dashboard, not Telegram |
 
 ## Invariants
 

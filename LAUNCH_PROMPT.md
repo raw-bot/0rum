@@ -4,6 +4,12 @@
 > Deux modes : autonome (full build) et phase-by-phase (incrémental).
 > Chaque prompt est auto-suffisant — copier-coller directement dans Claude Code.
 
+> **Statut 2026-05-20** : ce fichier est historique. Pour l'état courant, lire d'abord
+> `CLAUDE.md`. La surface active est le dashboard web local, pas Telegram.
+> IG est legacy/inactif. Dukascopy public `.bi5` est la source research/backtest
+> XAUUSD validée. Binance/PAXG reste un proxy de plomberie runtime, pas une source
+> de validation stratégique.
+
 ---
 
 ## Mode 1 : Full Build Autonome
@@ -77,7 +83,9 @@ Exécute la Phase 2 — Data Ingestion :
 
 1. Crée src/ingestion/market_client.py (section 8.1)
    - Client async pour le provider de marché retenu
-   - Priorité: IG demo → live pour le vrai XAUUSD
+   - Garder Binance/PAXG comme proxy de plomberie runtime si nécessaire
+   - Ne pas réactiver IG sans décision explicite
+   - Pour la recherche/backtest XAUUSD, utiliser Dukascopy public `.bi5`
    - Garder le mapping interne des timeframes M15 / H1 / H4 / D1
    - Rate limiting respecté côté provider
 2. Crée src/ingestion/candle_fetcher.py (section 8.2)
@@ -246,7 +254,7 @@ Exécute la Phase 6 — Risk Management :
    - 8 stops → 24h shutdown
    - Pas de close forcé des positions ouvertes
    - Reset au premier gain ou fin cooldown
-   - Notification Telegram immédiate
+   - État visible via `/health` et `/api/dashboard`
 
 4. Crée les tests dans tests/test_risk/
 
@@ -263,8 +271,9 @@ Tu es un développeur senior Python. Lis CLAUDE.md dans ce répertoire.
 
 Exécute la Phase 7 — Execution Engine :
 
-1. Crée src/execution/signal_sender.py (section 13.1)
-   - Formatte les signaux pour Telegram (emoji + prix + SL/TP + confidence)
+1. Finalise le mode signal local (section 13.1)
+   - Persiste les signaux approuvés
+   - Expose les signaux dans `/api/dashboard`
    - Démarre le tracking théorique post-signal
 
 2. Crée src/execution/broker_executor.py (section 13.2)
@@ -275,8 +284,8 @@ Exécute la Phase 7 — Execution Engine :
 
 3. Crée src/execution/executor.py (section 13.4)
    - ExecutionRouter : switch signal/auto selon EXECUTION_MODE
-   - Mode signal → telegram sender + theoretical tracking
-   - Mode auto → broker executor + telegram notification
+   - Mode signal → persistance locale + theoretical tracking
+   - Mode auto → broker executor, sans couplage à un canal de notification
 
 4. Intègre le tracking théorique en mode signal :
    - Surveille le prix post-signal
@@ -286,7 +295,7 @@ Exécute la Phase 7 — Execution Engine :
 5. Crée les tests dans tests/test_execution/
 
 Livrable attendu : le bot est fonctionnel en mode signal avec tracking,
-les signaux arrivent sur Telegram avec le bon format.
+les signaux sont persistés et visibles dans le dashboard local.
 ```
 
 ---
@@ -298,8 +307,9 @@ Tu es un développeur senior Python. Lis CLAUDE.md dans ce répertoire.
 
 Exécute la Phase 8 — Monitoring & Polish :
 
-1. Finalise src/monitoring/telegram_bot.py (section 14.1)
-   - Tous les types de messages : BUY/SELL, EXECUTED, TP/SL, CIRCUIT BREAKER, etc.
+1. Finalise le dashboard web local
+   - `/dashboard` affiche l'état opérateur
+   - `/api/dashboard` expose health, signaux, trades, P&L, circuit breaker
    
 2. Implémente le Daily Summary (section 14.3)
    - Envoyé à 00:00 UTC
@@ -326,7 +336,7 @@ Exécute la Phase 8 — Monitoring & Polish :
    - Vérifie les conventions de code (section 16)
 
 Livrable attendu : bot complet, prêt pour le mode signal en production.
-`docker compose up` et le bot commence à envoyer des signaux Telegram.
+`docker compose up` et le bot expose `/dashboard`, `/api/dashboard`, et `/health`.
 ```
 
 ---
@@ -362,7 +372,7 @@ Checklist de vérification :
    - [ ] ATR sizing avec vol adjustment
 
 4. EXECUTION MODES
-   - [ ] Mode signal : Telegram + theoretical tracking
+   - [ ] Mode signal : dashboard local + theoretical tracking
    - [ ] Mode auto : broker natif + partial close + trailing
    - [ ] Switch via .env uniquement
    - [ ] Transition recommandée : 4 semaines minimum
