@@ -1,12 +1,17 @@
 """Unit tests for src/pipeline/dedup.py — signal deduplication logic."""
 
+from decimal import Decimal
+
+import pytest
+
+from src.models.signal import ApprovedSignalORM, CandidateSignalORM
 from src.models.signal_data import (
     CandidateSignal,
     Direction,
     StrategyName,
     Timeframe,
 )
-from src.pipeline.dedup import dedup_signals
+from src.pipeline.dedup import dedup_against_recent_approvals, dedup_signals
 
 
 def make_signal(
@@ -73,3 +78,47 @@ def test_dedup_different_strategy_not_deduped():
     survivors, deduped = dedup_signals([sig1, sig2])
     assert len(survivors) == 2
     assert len(deduped) == 0
+
+
+@pytest.mark.asyncio
+async def test_dedup_against_recent_approvals_removes_recent_duplicate(monkeypatch):
+    """A signal matching a recently approved DB signal is deduped before approval."""
+    signal = make_signal(entry_price=2340.5)
+
+    class FakeResult:
+        def all(self):
+            existing_candidate = CandidateSignalORM(
+                strategy="liquidity_sweep",
+                direction="BUY",
+                entry_price=Decimal("2340.0"),
+                sl_price=Decimal("2325.0"),
+                tp1_price=Decimal("2358.0"),
+                confidence=Decimal("0.750"),
+                timeframe="M15",
+                params_snapshot={},
+                status="APPROVED",
+            )
+            existing_approved = ApprovedSignalORM(
+                candidate_signal_id="00000000-0000-0000-0000-000000000000",
+                rank_score=Decimal("0.8"),
+                risk_check_passed=True,
+                execution_status="SENT",
+            )
+            return [(existing_candidate, existing_approved)]
+
+    class FakeSession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def execute(self, stmt):
+            return FakeResult()
+
+    monkeypatch.setattr("src.pipeline.dedup.AsyncSessionLocal", lambda: FakeSession())
+
+    survivors, deduped = await dedup_against_recent_approvals([signal])
+
+    assert survivors == []
+    assert deduped == [signal]

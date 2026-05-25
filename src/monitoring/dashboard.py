@@ -1,11 +1,13 @@
-"""Dashboard API endpoint and HTML route — read-only operator dashboard.
+"""Dashboard API endpoint and HTML route — local operator dashboard.
 
 Routes:
     GET /api/dashboard — JSON payload per UI-SPEC Data Source Contract.
     GET /dashboard     — Jinja2 HTML template (static shell; JS polls /api/dashboard).
+    POST /api/kill     — Manual kill switch activation.
+    POST /api/resume   — Manual kill switch clear.
 
-No authentication (D-25 — operator tool, runs locally or behind firewall).
-Read-only: no mutations on any endpoint.
+GET routes are rate-limited. Mutating operator routes require X-Dashboard-Token
+when DASHBOARD_TOKEN is configured.
 """
 
 from datetime import datetime, timezone
@@ -20,10 +22,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import get_settings
 from src.database import AsyncSessionLocal, get_db
+from src.monitoring.auth import rate_limit, require_dashboard_token
 from src.models.optimizer_result import OptimizerResultORM
 from src.models.signal import ApprovedSignalORM, CandidateSignalORM
 from src.models.strategy_stats import StrategyStatsORM
 from src.models.trade import TradeORM
+from src.execution.paper.service import (
+    compute_current_paper_state,
+    compute_current_paper_exposure,
+    get_equity_curve,
+    paper_account_payload,
+)
 from src.risk.breaker import BreakerManager
 
 log = structlog.get_logger(__name__)
@@ -32,7 +41,11 @@ dashboard_router = APIRouter()
 templates = Jinja2Templates(directory="src/templates")
 
 
-@dashboard_router.get("/dashboard", response_class=HTMLResponse)
+@dashboard_router.get(
+    "/dashboard",
+    response_class=HTMLResponse,
+    dependencies=[Depends(rate_limit)],
+)
 async def dashboard_page(request: Request) -> HTMLResponse:
     """Serve the operator dashboard HTML page.
 
@@ -42,7 +55,7 @@ async def dashboard_page(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request=request, name="dashboard.html", context={})
 
 
-@dashboard_router.get("/api/dashboard")
+@dashboard_router.get("/api/dashboard", dependencies=[Depends(rate_limit)])
 async def dashboard_api(db: AsyncSession = Depends(get_db)) -> dict:
     """Aggregate and return dashboard data JSON.
 
@@ -86,6 +99,43 @@ async def dashboard_api(db: AsyncSession = Depends(get_db)) -> dict:
         "risk_per_trade": float(settings.risk_per_trade),
         "daily_loss_limit": float(settings.daily_loss_limit),
     }
+
+    # --- Internal Paper Account ---
+    try:
+        paper_state = await compute_current_paper_state(
+            db,
+            starting_balance=settings.theoretical_equity_usd,
+        )
+        paper_exposure = await compute_current_paper_exposure(
+            db,
+            starting_balance=settings.theoretical_equity_usd,
+        )
+        result["paper_account"] = paper_account_payload(
+            starting_balance=settings.theoretical_equity_usd,
+            state=paper_state,
+            exposure=paper_exposure,
+        )
+        result["equity_curve"] = await get_equity_curve(
+            db,
+            current_state=paper_state,
+        )
+    except Exception as exc:
+        log.warning("dashboard.paper_account_failed", error=str(exc))
+        result["paper_account"] = {
+            "starting_balance_usd": float(settings.theoretical_equity_usd),
+            "cash_balance_usd": float(settings.theoretical_equity_usd),
+            "equity_usd": float(settings.theoretical_equity_usd),
+            "realized_pnl_usd": 0.0,
+            "unrealized_pnl_usd": 0.0,
+            "open_positions": 0,
+            "closed_trades_missing_pnl": 0,
+            "notional_exposure_usd": 0.0,
+            "stop_risk_usd": 0.0,
+            "total_lots": 0.0,
+            "exposure_multiple": 0.0,
+            "stop_risk_pct": 0.0,
+        }
+        result["equity_curve"] = []
 
     # --- Circuit Breaker ---
     cb_tripped = False
@@ -211,6 +261,7 @@ async def dashboard_api(db: AsyncSession = Depends(get_db)) -> dict:
                 "strategy": strategy,
                 "entry_price": float(trade.entry_price),
                 "close_reason": trade.close_reason,
+                "pnl_usd": float(trade.pnl) if trade.pnl is not None else None,
                 "pnl_pct": float(trade.pnl_pct) if trade.pnl_pct is not None else None,
                 "opened_at": trade.opened_at.isoformat() if trade.opened_at else None,
                 "closed_at": trade.closed_at.isoformat() if trade.closed_at else None,
@@ -279,3 +330,41 @@ async def dashboard_api(db: AsyncSession = Depends(get_db)) -> dict:
     result["strategy_stats"] = strategy_stats
 
     return result
+
+
+@dashboard_router.post(
+    "/api/kill",
+    dependencies=[Depends(rate_limit), Depends(require_dashboard_token)],
+)
+async def activate_kill_switch() -> dict:
+    """Activate manual kill switch for all new risk approvals."""
+    settings = get_settings()
+    redis_client = aioredis.from_url(
+        settings.redis_url,
+        decode_responses=True,
+        socket_connect_timeout=2,
+    )
+    try:
+        await BreakerManager(redis=redis_client).activate_kill_switch()
+    finally:
+        await redis_client.aclose()
+    return {"kill_switch": True}
+
+
+@dashboard_router.post(
+    "/api/resume",
+    dependencies=[Depends(rate_limit), Depends(require_dashboard_token)],
+)
+async def clear_kill_switch() -> dict:
+    """Clear manual kill switch so risk approvals can resume."""
+    settings = get_settings()
+    redis_client = aioredis.from_url(
+        settings.redis_url,
+        decode_responses=True,
+        socket_connect_timeout=2,
+    )
+    try:
+        await BreakerManager(redis=redis_client).clear_kill_switch()
+    finally:
+        await redis_client.aclose()
+    return {"kill_switch": False}

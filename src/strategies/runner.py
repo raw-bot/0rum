@@ -25,6 +25,23 @@ CANDLES_PER_TIMEFRAME = 500  # per D-06: uniform 500-candle window across all ti
 INSTRUMENT = "XAUUSD"
 
 
+def validate_params_against_ranges(
+    params: dict,
+    ranges: dict[str, tuple[float, float]],
+) -> dict:
+    """Validate optimizer params against the strategy-declared ranges."""
+    validated = {}
+    for name, (lo, hi) in ranges.items():
+        try:
+            value = float(params[name])
+        except KeyError as exc:
+            raise ValueError(f"Missing required parameter {name}") from exc
+        if value < lo or value > hi:
+            raise ValueError(f"Parameter {name}={value} outside range [{lo}, {hi}]")
+        validated[name] = value
+    return validated
+
+
 class StrategyRunner:
     """Coordinates all 4 strategies: loads params, fetches candles, runs in parallel.
 
@@ -71,6 +88,7 @@ class StrategyRunner:
             Dict of param_name → value from DB or computed midpoints, or None
             when optimizer history exists but this strategy has no active row.
         """
+        optimizer_result_count = 0
         async with AsyncSessionLocal() as session:
             stmt = (
                 select(OptimizerResultORM)
@@ -94,7 +112,7 @@ class StrategyRunner:
                 )
 
         if row is not None:
-            return dict(row.params)
+            return validate_params_against_ranges(dict(row.params), param_ranges)
 
         if optimizer_result_count > 0:
             log.info(
@@ -114,7 +132,7 @@ class StrategyRunner:
             strategy=strategy_name,
             midpoints=midpoints,
         )
-        return midpoints
+        return validate_params_against_ranges(midpoints, param_ranges)
 
     async def _fetch_candles(self) -> dict[str, list]:
         """Fetch the most recent 500 complete candles per timeframe from the DB.

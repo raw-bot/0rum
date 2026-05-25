@@ -24,6 +24,7 @@ _INSTRUMENT_MAP: dict[str, str] = {
 
 # Binance hard limit per request
 BINANCE_MAX_CANDLES = 1000
+RUNTIME_PROXY_SOURCE_KIND = "runtime_proxy"
 
 
 class MarketDataClient:
@@ -90,12 +91,22 @@ class MarketDataClient:
                 since=since_ms,
                 limit=min(count, BINANCE_MAX_CANDLES),
             )
-            candles = [self._normalize(c) for c in (raw or [])]
+            source_metadata = {
+                "source_kind": RUNTIME_PROXY_SOURCE_KIND,
+                "proxy_symbol": symbol,
+                "canonical_instrument": instrument,
+            }
+            candles = [
+                self._normalize(c, source_metadata=source_metadata)
+                for c in (raw or [])
+            ]
             log.info(
                 "market_client.fetched",
                 provider=provider,
+                source_kind=RUNTIME_PROXY_SOURCE_KIND,
                 instrument=instrument,
-                symbol=symbol,
+                proxy_symbol=symbol,
+                canonical_instrument=instrument,
                 granularity=granularity,
                 count=len(candles),
                 from_time=from_time,
@@ -118,11 +129,11 @@ class MarketDataClient:
             raise
 
     @staticmethod
-    def _normalize(ohlcv: list) -> dict:
+    def _normalize(ohlcv: list, *, source_metadata: dict | None = None) -> dict:
         """Normalize a ccxt OHLCV row [ts_ms, open, high, low, close, volume] to a dict."""
         ts_ms, open_, high, low, close, volume = ohlcv
         ts = datetime.fromtimestamp(ts_ms / 1000.0, tz=timezone.utc)
-        return {
+        normalized = {
             "time": ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "open": float(open_),
             "high": float(high),
@@ -130,3 +141,6 @@ class MarketDataClient:
             "close": float(close),
             "volume": float(volume),
         }
+        if source_metadata:
+            normalized.update(source_metadata)
+        return normalized

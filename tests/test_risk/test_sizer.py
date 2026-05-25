@@ -35,7 +35,7 @@ def test_baseline_normal_vol_no_concentration():
     assert s.risk_pct == pytest.approx(0.01)
     assert s.concentration_reduced is False
     assert s.risk_amount_usd == Decimal("100")
-    assert s.size_lots > 0
+    assert s.size_lots == Decimal("0.07")
 
 
 def test_high_vol_reduces_30_percent():
@@ -96,6 +96,19 @@ def test_concentration_halves_after_cap():
     assert s.concentration_reduced is True
 
 
+def test_concentration_reduce_threshold_is_configurable():
+    """A caller can reduce risk before the historical default count of 4."""
+    s = calculate_position_size(
+        **COMMON,
+        risk_per_trade=0.01,
+        atr_pctile=0.5,
+        same_direction_open_count=2,
+        concentration_reduce_at=2,
+    )
+    assert s.risk_pct == pytest.approx(0.005)
+    assert s.concentration_reduced is True
+
+
 def test_atr_pctile_scale_invariant():
     """atr_pctile=0.95 (0.0-1.0 scale, NOT 95) triggers high-vol branch.
 
@@ -127,6 +140,24 @@ def test_size_lots_zero_when_no_sl_distance():
     )
     assert s.size_lots == Decimal("0")
     assert s.risk_pct == pytest.approx(0.01)
+
+
+def test_unsupported_instrument_rejected_even_with_no_sl_distance():
+    """Instrument validation must happen before the zero-distance sizing guard."""
+    with pytest.raises(ValueError, match="Unsupported instrument: EURUSD"):
+        calculate_position_size(
+            equity=Decimal("10000"),
+            entry_price=Decimal("2340.00"),
+            sl_price=Decimal("2340.00"),
+            atr_value=Decimal("15.0"),
+            atr_high_vol_pctile=90,
+            atr_low_vol_pctile=10,
+            hard_cap=0.02,
+            risk_per_trade=0.01,
+            atr_pctile=0.5,
+            same_direction_open_count=0,
+            instrument="EURUSD",
+        )
 
 
 def test_size_lots_quantized_to_two_decimals():

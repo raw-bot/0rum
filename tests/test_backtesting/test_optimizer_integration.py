@@ -42,6 +42,8 @@ def _sufficient_candles() -> dict[str, list]:
         mocks = [MagicMock() for _ in range(minimum + 10)]
         for m in mocks:
             m.timestamp = ts
+            m.source_kind = "research"
+            m.research_source = "dukascopy"
         candles[tf] = mocks
     return candles
 
@@ -242,7 +244,13 @@ async def test_optimizer_retains_previous_when_monte_carlo_gate_fails() -> None:
 
     mock_activate.assert_not_called()
     assert optimizer.last_run_diagnostics
-    for diagnostics in optimizer.last_run_diagnostics.values():
+    strategy_diagnostics = {
+        key: value
+        for key, value in optimizer.last_run_diagnostics.items()
+        if not key.startswith("_")
+    }
+    assert strategy_diagnostics
+    for diagnostics in strategy_diagnostics.values():
         assert diagnostics["final_stage"] == "mc_gate_failed"
         assert diagnostics["monte_carlo"]["dd_gate_passed"] is False
         assert diagnostics["monte_carlo"]["pf_gate_passed"] is False

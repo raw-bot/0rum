@@ -55,6 +55,7 @@ def _make_tripped_breaker():
     mock = MagicMock()
     mock.reset_if_expired = AsyncMock(return_value=False)
     mock.is_tripped = AsyncMock(return_value=True)
+    mock.is_kill_switch_active = AsyncMock(return_value=False)
     mock.record_stop = AsyncMock(return_value=None)
     return mock
 
@@ -63,6 +64,7 @@ def _make_clear_breaker():
     mock = MagicMock()
     mock.reset_if_expired = AsyncMock(return_value=False)
     mock.is_tripped = AsyncMock(return_value=False)
+    mock.is_kill_switch_active = AsyncMock(return_value=False)
     mock.record_stop = AsyncMock(return_value=None)
     return mock
 
@@ -82,9 +84,12 @@ async def test_breaker_short_circuits_all_gates():
     """D-12: when breaker is tripped, none of the gates or sizer run."""
     mock_breaker = _make_tripped_breaker()
     with (
+        patch("src.risk.runner.get_current_equity", new_callable=AsyncMock) as mock_equity,
         patch("src.risk.runner.evaluate_daily_loss", new_callable=AsyncMock) as mock_dl,
         patch("src.risk.runner.evaluate_max_positions", new_callable=AsyncMock) as mock_mp,
+        patch("src.risk.runner.get_max_drawdown_pct", new_callable=AsyncMock) as mock_dd,
         patch("src.risk.runner.count_same_direction_open", new_callable=AsyncMock) as mock_cd,
+        patch("src.risk.runner.get_open_exposure", new_callable=AsyncMock) as mock_exp,
         patch("src.risk.runner.calculate_position_size") as mock_sz,
     ):
         runner = RiskGateRunner(breaker=mock_breaker)
@@ -92,9 +97,69 @@ async def test_breaker_short_circuits_all_gates():
 
     assert result.passed is False
     assert result.reason == "circuit_breaker_active"
+    mock_equity.assert_not_called()
     mock_dl.assert_not_called()
     mock_mp.assert_not_called()
+    mock_dd.assert_not_called()
     mock_cd.assert_not_called()
+    mock_exp.assert_not_called()
+    mock_sz.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_kill_switch_short_circuits_before_equity_gates_and_sizing():
+    """Manual kill switch blocks new risk approvals before account gates run."""
+    mock_breaker = _make_clear_breaker()
+    mock_breaker.is_kill_switch_active.return_value = True
+    with (
+        patch("src.risk.runner.get_current_equity", new_callable=AsyncMock) as mock_equity,
+        patch("src.risk.runner.evaluate_daily_loss", new_callable=AsyncMock) as mock_dl,
+        patch("src.risk.runner.evaluate_max_positions", new_callable=AsyncMock) as mock_mp,
+        patch("src.risk.runner.get_max_drawdown_pct", new_callable=AsyncMock) as mock_dd,
+        patch("src.risk.runner.count_same_direction_open", new_callable=AsyncMock) as mock_cd,
+        patch("src.risk.runner.get_open_exposure", new_callable=AsyncMock) as mock_exp,
+        patch("src.risk.runner.calculate_position_size") as mock_sz,
+    ):
+        runner = RiskGateRunner(breaker=mock_breaker)
+        result = await runner.evaluate(make_signal(), make_regime(), session=MagicMock())
+
+    assert result.passed is False
+    assert result.reason == "kill_switch_active"
+    mock_breaker.reset_if_expired.assert_awaited_once()
+    mock_breaker.is_tripped.assert_awaited_once()
+    mock_breaker.is_kill_switch_active.assert_awaited_once()
+    mock_equity.assert_not_called()
+    mock_dl.assert_not_called()
+    mock_mp.assert_not_called()
+    mock_dd.assert_not_called()
+    mock_cd.assert_not_called()
+    mock_exp.assert_not_called()
+    mock_sz.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_non_positive_equity_short_circuits_before_gates_and_sizing():
+    mock_breaker = _make_clear_breaker()
+    with (
+        patch("src.risk.runner.get_current_equity", new_callable=AsyncMock, return_value=Decimal("0")),
+        patch("src.risk.runner.evaluate_daily_loss", new_callable=AsyncMock) as mock_dl,
+        patch("src.risk.runner.evaluate_max_positions", new_callable=AsyncMock) as mock_mp,
+        patch("src.risk.runner.get_max_drawdown_pct", new_callable=AsyncMock) as mock_dd,
+        patch("src.risk.runner.count_same_direction_open", new_callable=AsyncMock) as mock_cd,
+        patch("src.risk.runner.get_open_exposure", new_callable=AsyncMock) as mock_exp,
+        patch("src.risk.runner.calculate_position_size") as mock_sz,
+    ):
+        runner = RiskGateRunner(breaker=mock_breaker)
+        result = await runner.evaluate(make_signal(), make_regime(), session=MagicMock())
+
+    assert result.passed is False
+    assert result.reason == "non_positive_equity"
+    assert result.equity_usd == Decimal("0")
+    mock_dl.assert_not_called()
+    mock_mp.assert_not_called()
+    mock_dd.assert_not_called()
+    mock_cd.assert_not_called()
+    mock_exp.assert_not_called()
     mock_sz.assert_not_called()
 
 
@@ -102,9 +167,12 @@ async def test_breaker_short_circuits_all_gates():
 async def test_daily_loss_rejection_short_circuits_max_positions_and_sizer():
     mock_breaker = _make_clear_breaker()
     with (
+        patch("src.risk.runner.get_current_equity", new_callable=AsyncMock, return_value=Decimal("10000")),
         patch("src.risk.runner.evaluate_daily_loss", new_callable=AsyncMock, return_value=(False, -0.04)) as mock_dl,
         patch("src.risk.runner.evaluate_max_positions", new_callable=AsyncMock) as mock_mp,
+        patch("src.risk.runner.get_max_drawdown_pct", new_callable=AsyncMock) as mock_dd,
         patch("src.risk.runner.count_same_direction_open", new_callable=AsyncMock) as mock_cd,
+        patch("src.risk.runner.get_open_exposure", new_callable=AsyncMock) as mock_exp,
         patch("src.risk.runner.calculate_position_size") as mock_sz,
     ):
         runner = RiskGateRunner(breaker=mock_breaker)
@@ -114,7 +182,9 @@ async def test_daily_loss_rejection_short_circuits_max_positions_and_sizer():
     assert result.reason == "daily_loss_limit"
     mock_dl.assert_called_once()
     mock_mp.assert_not_called()
+    mock_dd.assert_not_called()
     mock_cd.assert_not_called()
+    mock_exp.assert_not_called()
     mock_sz.assert_not_called()
 
 
@@ -123,9 +193,12 @@ async def test_daily_loss_does_not_trip_breaker():
     """D-15: RISK-01 rejection must never call breaker.record_stop."""
     mock_breaker = _make_clear_breaker()
     with (
+        patch("src.risk.runner.get_current_equity", new_callable=AsyncMock, return_value=Decimal("10000")),
         patch("src.risk.runner.evaluate_daily_loss", new_callable=AsyncMock, return_value=(False, -0.04)),
         patch("src.risk.runner.evaluate_max_positions", new_callable=AsyncMock),
+        patch("src.risk.runner.get_max_drawdown_pct", new_callable=AsyncMock),
         patch("src.risk.runner.count_same_direction_open", new_callable=AsyncMock),
+        patch("src.risk.runner.get_open_exposure", new_callable=AsyncMock),
         patch("src.risk.runner.calculate_position_size"),
     ):
         runner = RiskGateRunner(breaker=mock_breaker)
@@ -139,9 +212,12 @@ async def test_daily_loss_does_not_trip_breaker():
 async def test_max_positions_rejection_short_circuits_sizer():
     mock_breaker = _make_clear_breaker()
     with (
+        patch("src.risk.runner.get_current_equity", new_callable=AsyncMock, return_value=Decimal("10000")),
         patch("src.risk.runner.evaluate_daily_loss", new_callable=AsyncMock, return_value=(True, 0.0)),
         patch("src.risk.runner.evaluate_max_positions", new_callable=AsyncMock, return_value=(False, 5)),
+        patch("src.risk.runner.get_max_drawdown_pct", new_callable=AsyncMock) as mock_dd,
         patch("src.risk.runner.count_same_direction_open", new_callable=AsyncMock) as mock_cd,
+        patch("src.risk.runner.get_open_exposure", new_callable=AsyncMock) as mock_exp,
         patch("src.risk.runner.calculate_position_size") as mock_sz,
     ):
         runner = RiskGateRunner(breaker=mock_breaker)
@@ -149,20 +225,48 @@ async def test_max_positions_rejection_short_circuits_sizer():
 
     assert result.passed is False
     assert result.reason == "max_positions"
+    mock_dd.assert_not_called()
     mock_cd.assert_not_called()
+    mock_exp.assert_not_called()
     mock_sz.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_concentration_passes_with_reduced_size():
-    """D-04: concentration is not a block — sets concentration_reduced=True on the decision."""
+async def test_max_equity_drawdown_rejection_short_circuits_concentration_and_sizer():
+    mock_breaker = _make_clear_breaker()
+    with (
+        patch("src.risk.runner.get_current_equity", new_callable=AsyncMock, return_value=Decimal("10000")),
+        patch("src.risk.runner.evaluate_daily_loss", new_callable=AsyncMock, return_value=(True, 0.0)),
+        patch("src.risk.runner.evaluate_max_positions", new_callable=AsyncMock, return_value=(True, 1)),
+        patch("src.risk.runner.get_max_drawdown_pct", new_callable=AsyncMock, return_value=Decimal("0.10")) as mock_dd,
+        patch("src.risk.runner.count_same_direction_open", new_callable=AsyncMock) as mock_cd,
+        patch("src.risk.runner.get_open_exposure", new_callable=AsyncMock) as mock_exp,
+        patch("src.risk.runner.calculate_position_size") as mock_sz,
+    ):
+        runner = RiskGateRunner(breaker=mock_breaker)
+        result = await runner.evaluate(make_signal(), make_regime(), session=MagicMock())
+
+    assert result.passed is False
+    assert result.reason == "max_equity_drawdown"
+    mock_dd.assert_awaited_once()
+    mock_cd.assert_not_called()
+    mock_exp.assert_not_called()
+    mock_sz.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_concentration_reduce_threshold_passes_with_reduced_size():
+    """Concentration reduction starts before the hard block threshold."""
     sizing = _normal_sizing(concentration_reduced=True)
     mock_breaker = _make_clear_breaker()
     with (
+        patch("src.risk.runner.get_current_equity", new_callable=AsyncMock, return_value=Decimal("10000")),
         patch("src.risk.runner.evaluate_daily_loss", new_callable=AsyncMock, return_value=(True, 0.0)),
         patch("src.risk.runner.evaluate_max_positions", new_callable=AsyncMock, return_value=(True, 2)),
-        patch("src.risk.runner.count_same_direction_open", new_callable=AsyncMock, return_value=4),
-        patch("src.risk.runner.calculate_position_size", return_value=sizing),
+        patch("src.risk.runner.get_max_drawdown_pct", new_callable=AsyncMock, return_value=Decimal("0")),
+        patch("src.risk.runner.count_same_direction_open", new_callable=AsyncMock, return_value=2),
+        patch("src.risk.runner.get_open_exposure", new_callable=AsyncMock, return_value=(Decimal("0"), Decimal("0"))),
+        patch("src.risk.runner.calculate_position_size", return_value=sizing) as mock_sz,
     ):
         runner = RiskGateRunner(breaker=mock_breaker)
         result = await runner.evaluate(make_signal(), make_regime(), session=MagicMock())
@@ -170,6 +274,83 @@ async def test_concentration_passes_with_reduced_size():
     assert result.passed is True
     assert result.concentration_reduced is True
     assert result.sizing is sizing
+    assert mock_sz.call_args.kwargs["same_direction_open_count"] == 2
+    assert mock_sz.call_args.kwargs["concentration_reduce_at"] == 2
+
+
+@pytest.mark.asyncio
+async def test_concentration_blocks_at_limit():
+    mock_breaker = _make_clear_breaker()
+    with (
+        patch("src.risk.runner.get_current_equity", new_callable=AsyncMock, return_value=Decimal("10000")),
+        patch("src.risk.runner.evaluate_daily_loss", new_callable=AsyncMock, return_value=(True, 0.0)),
+        patch("src.risk.runner.evaluate_max_positions", new_callable=AsyncMock, return_value=(True, 3)),
+        patch("src.risk.runner.get_max_drawdown_pct", new_callable=AsyncMock, return_value=Decimal("0")),
+        patch("src.risk.runner.count_same_direction_open", new_callable=AsyncMock, return_value=4),
+        patch("src.risk.runner.get_open_exposure", new_callable=AsyncMock) as mock_exp,
+        patch("src.risk.runner.calculate_position_size") as mock_sz,
+    ):
+        runner = RiskGateRunner(breaker=mock_breaker)
+        result = await runner.evaluate(make_signal(), make_regime(), session=MagicMock())
+
+    assert result.passed is False
+    assert result.reason == "concentration_limit"
+    mock_exp.assert_not_called()
+    mock_sz.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_post_trade_exposure_above_max_leverage_is_rejected():
+    sizing = PositionSizing(
+        risk_pct=0.01,
+        risk_amount_usd=Decimal("100"),
+        size_lots=Decimal("0.50"),
+        vol_factor=1.0,
+        concentration_reduced=False,
+    )
+    mock_breaker = _make_clear_breaker()
+    with (
+        patch("src.risk.runner.get_current_equity", new_callable=AsyncMock, return_value=Decimal("10000")),
+        patch("src.risk.runner.evaluate_daily_loss", new_callable=AsyncMock, return_value=(True, 0.0)),
+        patch("src.risk.runner.evaluate_max_positions", new_callable=AsyncMock, return_value=(True, 1)),
+        patch("src.risk.runner.get_max_drawdown_pct", new_callable=AsyncMock, return_value=Decimal("0")),
+        patch("src.risk.runner.count_same_direction_open", new_callable=AsyncMock, return_value=0),
+        patch("src.risk.runner.get_open_exposure", new_callable=AsyncMock, return_value=(Decimal("0"), Decimal("0"))),
+        patch("src.risk.runner.calculate_position_size", return_value=sizing),
+    ):
+        runner = RiskGateRunner(breaker=mock_breaker)
+        result = await runner.evaluate(make_signal(), make_regime(), session=MagicMock())
+
+    assert result.passed is False
+    assert result.reason == "max_account_leverage"
+    assert result.equity_usd == Decimal("10000")
+
+
+@pytest.mark.asyncio
+async def test_post_trade_stop_risk_above_limit_is_rejected():
+    sizing = PositionSizing(
+        risk_pct=0.01,
+        risk_amount_usd=Decimal("100"),
+        size_lots=Decimal("0.05"),
+        vol_factor=1.0,
+        concentration_reduced=False,
+    )
+    mock_breaker = _make_clear_breaker()
+    with (
+        patch("src.risk.runner.get_current_equity", new_callable=AsyncMock, return_value=Decimal("10000")),
+        patch("src.risk.runner.evaluate_daily_loss", new_callable=AsyncMock, return_value=(True, 0.0)),
+        patch("src.risk.runner.evaluate_max_positions", new_callable=AsyncMock, return_value=(True, 1)),
+        patch("src.risk.runner.get_max_drawdown_pct", new_callable=AsyncMock, return_value=Decimal("0")),
+        patch("src.risk.runner.count_same_direction_open", new_callable=AsyncMock, return_value=0),
+        patch("src.risk.runner.get_open_exposure", new_callable=AsyncMock, return_value=(Decimal("0"), Decimal("450"))),
+        patch("src.risk.runner.calculate_position_size", return_value=sizing),
+    ):
+        runner = RiskGateRunner(breaker=mock_breaker)
+        result = await runner.evaluate(make_signal(), make_regime(), session=MagicMock())
+
+    assert result.passed is False
+    assert result.reason == "max_stop_risk"
+    assert result.equity_usd == Decimal("10000")
 
 
 @pytest.mark.asyncio
@@ -177,9 +358,12 @@ async def test_all_pass_normal_path():
     sizing = _normal_sizing(concentration_reduced=False)
     mock_breaker = _make_clear_breaker()
     with (
+        patch("src.risk.runner.get_current_equity", new_callable=AsyncMock, return_value=Decimal("10000")),
         patch("src.risk.runner.evaluate_daily_loss", new_callable=AsyncMock, return_value=(True, 0.0)),
         patch("src.risk.runner.evaluate_max_positions", new_callable=AsyncMock, return_value=(True, 1)),
+        patch("src.risk.runner.get_max_drawdown_pct", new_callable=AsyncMock, return_value=Decimal("0")),
         patch("src.risk.runner.count_same_direction_open", new_callable=AsyncMock, return_value=0),
+        patch("src.risk.runner.get_open_exposure", new_callable=AsyncMock, return_value=(Decimal("1000"), Decimal("50"))),
         patch("src.risk.runner.calculate_position_size", return_value=sizing),
     ):
         runner = RiskGateRunner(breaker=mock_breaker)
@@ -189,6 +373,11 @@ async def test_all_pass_normal_path():
     assert result.reason is None
     assert result.sizing is not None
     assert result.concentration_reduced is False
+    assert result.equity_usd == Decimal("10000")
+    assert result.candidate_notional_usd == Decimal("11700.000")
+    assert result.notional_after_usd == Decimal("12700.000")
+    assert result.stop_risk_after_usd == Decimal("125.000")
+    assert result.exposure_multiple_after == Decimal("1.270")
 
 
 @pytest.mark.asyncio
@@ -196,9 +385,12 @@ async def test_daily_loss_emits_structured_log():
     """Rejection must emit risk.gate.rejected with gate, reason, and daily_pnl_pct fields."""
     mock_breaker = _make_clear_breaker()
     with (
+        patch("src.risk.runner.get_current_equity", new_callable=AsyncMock, return_value=Decimal("10000")),
         patch("src.risk.runner.evaluate_daily_loss", new_callable=AsyncMock, return_value=(False, -0.04)),
         patch("src.risk.runner.evaluate_max_positions", new_callable=AsyncMock),
+        patch("src.risk.runner.get_max_drawdown_pct", new_callable=AsyncMock),
         patch("src.risk.runner.count_same_direction_open", new_callable=AsyncMock),
+        patch("src.risk.runner.get_open_exposure", new_callable=AsyncMock),
         patch("src.risk.runner.calculate_position_size"),
     ):
         runner = RiskGateRunner(breaker=mock_breaker)

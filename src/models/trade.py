@@ -19,6 +19,7 @@ class TradeORM(Base):
     __table_args__ = (
         Index("idx_trades_status", "status"),
         Index("idx_trades_opened", "opened_at"),
+        Index("idx_trades_expired_at", "expired_at"),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -37,6 +38,9 @@ class TradeORM(Base):
     tp2_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 5), nullable=True)
     trailing_stop_price: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 5), nullable=True)
     size_lots: Mapped[Decimal] = mapped_column(Numeric(8, 4), nullable=False)
+    equity_at_open: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
+    notional_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(14, 2), nullable=True)
+    risk_amount_usd: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
     status: Mapped[str] = mapped_column(String(15), nullable=False, default="OPEN")
     pnl: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 5), nullable=True)
     pnl_pct: Mapped[Optional[Decimal]] = mapped_column(Numeric(8, 5), nullable=True)
@@ -46,4 +50,5 @@ class TradeORM(Base):
         server_default="NOW()",
     )
     closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    expired_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     close_reason: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)

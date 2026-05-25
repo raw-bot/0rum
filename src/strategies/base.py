@@ -9,6 +9,7 @@ import numpy as np
 import structlog
 from scipy.signal import argrelextrema
 
+from src.indicators.atr import atr_wilder
 from src.models.signal_data import CandidateSignal
 
 log = structlog.get_logger(__name__)
@@ -80,37 +81,7 @@ class AbstractStrategy(ABC):
         Returns:
             ATR value as float. Returns 0.0 if candles list is empty.
         """
-        if not candles:
-            return 0.0
-
-        highs = np.array([float(c.high) for c in candles])
-        lows = np.array([float(c.low) for c in candles])
-        closes = np.array([float(c.close) for c in candles])
-
-        if len(candles) < 2:
-            return float(highs[0] - lows[0])
-
-        prev_closes = closes[:-1]
-        cur_highs = highs[1:]
-        cur_lows = lows[1:]
-
-        tr = np.maximum(
-            cur_highs - cur_lows,
-            np.maximum(
-                np.abs(cur_highs - prev_closes),
-                np.abs(cur_lows - prev_closes),
-            ),
-        )
-
-        if len(tr) < period:
-            return float(np.mean(tr))
-
-        # Wilder's smoothing: seed with SMA of first `period` TRs, then EMA
-        atr = float(np.mean(tr[:period]))
-        alpha = 1.0 / period
-        for val in tr[period:]:
-            atr = alpha * float(val) + (1.0 - alpha) * atr
-        return atr
+        return atr_wilder(candles, period=period)
 
     def detect_swing_levels(
         self, candles: list, order: int = 10

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import get_settings
 from src.database import get_db
+from src.monitoring.auth import rate_limit
 from src.risk.breaker import BreakerManager
 from src.risk.gates import get_daily_pnl_pct, get_open_positions
 from src.models.optimizer_result import OptimizerResultORM
@@ -24,7 +25,7 @@ health_router = APIRouter()
 _start_time = time.monotonic()
 
 
-@health_router.get("/health")
+@health_router.get("/health", dependencies=[Depends(rate_limit)])
 async def health_check(db: AsyncSession = Depends(get_db)) -> dict:
     """Return service health status with postgres and redis connectivity flags.
 

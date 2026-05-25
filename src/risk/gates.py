@@ -8,33 +8,37 @@ AsyncSessionLocal internally; the caller (RiskGateRunner / health endpoint)
 owns the session lifecycle.
 """
 
+from decimal import Decimal
+
 import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.config import get_settings
 from src.models.trade import TradeORM
+from src.risk.account import get_daily_equity_pnl_pct
 
 log = structlog.get_logger(__name__)
 
+ACTIVE_POSITION_STATUSES = ("OPEN", "TP1_HIT")
+
 
 async def evaluate_daily_loss(
-    session: AsyncSession, daily_loss_limit: float
-) -> tuple[bool, float]:
+    session: AsyncSession,
+    daily_loss_limit: float | Decimal,
+    fallback_equity: Decimal | None = None,
+) -> tuple[bool, Decimal]:
     """RISK-01 — return (passed, daily_pnl_pct).
 
     passed=True iff daily_pnl_pct > daily_loss_limit.
     Empty trades → coalesced SUM is 0.0 → passed=True (Pitfall 3).
-    UTC-day boundary computed server-side to avoid app-clock skew (D-14).
+    Daily P&L is now equity-return based: money P&L / equity_at_open.
     """
-    stmt = select(
-        func.coalesce(func.sum(TradeORM.pnl_pct), 0)
-    ).where(
-        TradeORM.closed_at >= func.date_trunc("day", func.timezone("UTC", func.now())),
-        TradeORM.status == "CLOSED",
-    )
-    result = await session.execute(stmt)
-    daily_pnl_pct = float(result.scalar_one())
-    passed = daily_pnl_pct > daily_loss_limit
+    if fallback_equity is None:
+        fallback_equity = get_settings().theoretical_equity_usd
+
+    daily_pnl_pct = await get_daily_equity_pnl_pct(session, fallback_equity)
+    passed = daily_pnl_pct > Decimal(str(daily_loss_limit))
     return passed, daily_pnl_pct
 
 
@@ -46,7 +50,11 @@ async def evaluate_max_positions(
     passed=True iff open_count < max_positions.
     Empty TradeORM → 0 → passed=True.
     """
-    stmt = select(func.count()).select_from(TradeORM).where(TradeORM.status == "OPEN")
+    stmt = (
+        select(func.count())
+        .select_from(TradeORM)
+        .where(TradeORM.status.in_(ACTIVE_POSITION_STATUSES))
+    )
     result = await session.execute(stmt)
     open_count = int(result.scalar_one())
     passed = open_count < max_positions
@@ -56,7 +64,7 @@ async def evaluate_max_positions(
 async def count_same_direction_open(
     session: AsyncSession, direction: str
 ) -> int:
-    """RISK-03 — return count of OPEN trades in the given direction (BUY or SELL).
+    """RISK-03 — return active trade count in the given direction (BUY or SELL).
 
     The 4+ threshold lives in the sizer (per D-04), not here.
     direction comes from CandidateSignal.direction.value (enum-validated upstream).
@@ -64,7 +72,10 @@ async def count_same_direction_open(
     stmt = (
         select(func.count())
         .select_from(TradeORM)
-        .where(TradeORM.status == "OPEN", TradeORM.direction == direction)
+        .where(
+            TradeORM.status.in_(ACTIVE_POSITION_STATUSES),
+            TradeORM.direction == direction,
+        )
     )
     result = await session.execute(stmt)
     return int(result.scalar_one())
@@ -72,18 +83,21 @@ async def count_same_direction_open(
 
 async def get_open_positions(session: AsyncSession) -> int:
     """Thin wrapper for /health endpoint — returns just the count, no threshold."""
-    stmt = select(func.count()).select_from(TradeORM).where(TradeORM.status == "OPEN")
+    stmt = (
+        select(func.count())
+        .select_from(TradeORM)
+        .where(TradeORM.status.in_(ACTIVE_POSITION_STATUSES))
+    )
     result = await session.execute(stmt)
     return int(result.scalar_one())
 
 
 async def get_daily_pnl_pct(session: AsyncSession) -> float:
     """Thin wrapper for /health endpoint — returns just the daily P&L pct, no threshold."""
-    stmt = select(
-        func.coalesce(func.sum(TradeORM.pnl_pct), 0)
-    ).where(
-        TradeORM.closed_at >= func.date_trunc("day", func.timezone("UTC", func.now())),
-        TradeORM.status == "CLOSED",
+    settings = get_settings()
+    return float(
+        await get_daily_equity_pnl_pct(
+            session,
+            fallback_equity=settings.theoretical_equity_usd,
+        )
     )
-    result = await session.execute(stmt)
-    return float(result.scalar_one())

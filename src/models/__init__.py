@@ -7,6 +7,7 @@ from src.models.trade import TradeORM
 from src.models.optimizer_result import OptimizerResultORM
 from src.models.regime import MarketRegimeORM
 from src.models.strategy_stats import StrategyStatsORM
+from src.models.paper import PaperAccountSnapshotORM
 
 __all__ = [
     "Base",
@@ -17,4 +18,5 @@ __all__ = [
     "OptimizerResultORM",
     "MarketRegimeORM",
     "StrategyStatsORM",
+    "PaperAccountSnapshotORM",
 ]

@@ -175,6 +175,40 @@ class TestMidpointFallback:
 
         assert params == db_params
 
+    def test_validate_params_against_ranges_rejects_out_of_range(self) -> None:
+        """Optimizer params outside declared strategy ranges must be rejected."""
+        from src.strategies.runner import validate_params_against_ranges
+
+        with pytest.raises(ValueError, match="outside range"):
+            validate_params_against_ranges(
+                {"fast_ema": 4.0, "slow_ema": 21.0},
+                {"fast_ema": (5.0, 15.0), "slow_ema": (15.0, 30.0)},
+            )
+
+    async def test_active_params_from_db_are_validated_against_ranges(self) -> None:
+        """Active optimizer rows with impossible params should not silently run."""
+        runner = StrategyRunner()
+
+        mock_row = MagicMock()
+        mock_row.params = {"fast_ema": 4.0, "slow_ema": 21.0, "sl_atr_mult": 0.5}
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_row
+        mock_session.execute = AsyncMock(return_value=mock_result)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+
+        param_ranges = {
+            "fast_ema": (5.0, 15.0),
+            "slow_ema": (15.0, 30.0),
+            "sl_atr_mult": (0.2, 0.8),
+        }
+
+        with patch("src.strategies.runner.AsyncSessionLocal", return_value=mock_session):
+            with pytest.raises(ValueError, match="fast_ema"):
+                await runner._load_active_params("ema_momentum", param_ranges)
+
 
 # ---------------------------------------------------------------------------
 # run() integration tests (patch _fetch_candles + _load_active_params)

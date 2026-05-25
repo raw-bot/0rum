@@ -8,6 +8,7 @@ from __future__ import annotations
 import numpy as np
 import structlog
 
+from src.indicators.ema import ema
 from src.models.signal_data import CandidateSignal, Direction, StrategyName, Timeframe
 from src.strategies.base import AbstractStrategy
 
@@ -271,22 +272,7 @@ class TrendContinuationStrategy(AbstractStrategy):
             numpy array of EMA values, same length as `values`.
             If fewer values than `period`, returns array filled with the mean.
         """
-        arr = np.array(values, dtype=float)
-        if len(arr) < period:
-            mean_val = float(np.mean(arr)) if len(arr) > 0 else 0.0
-            return np.full(len(arr), mean_val)
-
-        alpha = 2.0 / (period + 1)
-        ema_arr = np.empty(len(arr))
-
-        # Seed with SMA of first `period` values
-        seed = float(np.mean(arr[:period]))
-        ema_arr[:period] = seed
-
-        for i in range(period, len(arr)):
-            ema_arr[i] = alpha * arr[i] + (1.0 - alpha) * ema_arr[i - 1]
-
-        return ema_arr
+        return np.array(ema(values, period), dtype=float)
 
     def _compute_adx(self, candles: list, period: int = 14) -> float:
         """Compute ADX(period) using Wilder-smoothed directional movement.

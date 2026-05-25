@@ -38,6 +38,18 @@ def test_parse_candle_valid():
     assert candle.complete is True  # Historical provider candles are treated as complete
 
 
+def test_parse_candle_persists_runtime_proxy_metadata():
+    """Runtime proxy metadata from MarketDataClient must map onto Candle columns."""
+    fetcher = CandleFetcher.__new__(CandleFetcher)
+    raw = make_raw_candle() | {"source_kind": "runtime_proxy"}
+
+    candle = fetcher._parse_candle(raw, "XAUUSD", "M15")
+
+    assert candle is not None
+    assert candle.source_kind == "runtime_proxy"
+    assert candle.research_source is None
+
+
 def test_parse_candle_missing_ohlc_returns_none():
     """_parse_candle returns None when OHLC keys are absent."""
     fetcher = CandleFetcher.__new__(CandleFetcher)

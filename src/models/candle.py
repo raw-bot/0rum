@@ -29,6 +29,8 @@ class Candle(Base):
     close: Mapped[Decimal] = mapped_column(Numeric(12, 5), nullable=False)
     volume: Mapped[int] = mapped_column(Integer, nullable=False)
     complete: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    source_kind: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    research_source: Mapped[str | None] = mapped_column(String(30), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

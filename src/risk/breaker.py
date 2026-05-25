@@ -37,12 +37,27 @@ class BreakerManager:
         )
         self._stops_threshold = settings.circuit_breaker_stops
         self._cooldown_seconds = settings.circuit_breaker_cooldown_hours * 3600
+        self._kill_switch_key = settings.kill_switch_redis_key
 
     async def is_tripped(self) -> bool:
         cooldown = await self._redis.get(CB_COOLDOWN_UNTIL)
         if cooldown is None:
             return False
         return datetime.fromisoformat(cooldown) > datetime.now(timezone.utc)
+
+    async def is_kill_switch_active(self) -> bool:
+        value = await self._redis.get(self._kill_switch_key)
+        if value is None:
+            return False
+        return str(value).strip().lower() not in {"", "0", "false", "off", "no"}
+
+    async def activate_kill_switch(self) -> None:
+        await self._redis.set(self._kill_switch_key, "1")
+        log.warning("risk.kill_switch.activated")
+
+    async def clear_kill_switch(self) -> None:
+        await self._redis.delete(self._kill_switch_key)
+        log.info("risk.kill_switch.cleared")
 
     async def reset_if_expired(self) -> bool:
         """Idempotent: returns False (no-op) when cooldown is absent or still in the future."""
