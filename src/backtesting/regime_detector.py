@@ -12,6 +12,8 @@ from datetime import datetime, timezone
 import numpy as np
 import structlog
 
+from src.indicators.atr import atr_wilder
+from src.indicators.ema import ema
 from src.models.signal_data import MarketRegime, MarketRegimeType
 
 log = structlog.get_logger(__name__)
@@ -94,16 +96,7 @@ class RegimeDetector:
         if len(candles) < period + 1:
             return 0.0
 
-        true_ranges = []
-        for i in range(1, len(candles)):
-            high = float(candles[i].high)
-            low = float(candles[i].low)
-            prev_close = float(candles[i - 1].close)
-            tr = max(high - low, abs(high - prev_close), abs(low - prev_close))
-            true_ranges.append(tr)
-
-        # Use last `period` TR values
-        return float(np.mean(true_ranges[-period:]))
+        return atr_wilder(candles, period=period)
 
     def _calculate_adx(self, candles: list, period: int = 14) -> float:
         """Compute ADX(14) using Wilder's EMA smoothing.
@@ -243,10 +236,7 @@ class RegimeDetector:
         if len(values) < period:
             return 0.0
 
-        alpha = 2.0 / (period + 1)
-        ema = float(np.mean(values[:period]))
-
-        for value in values[period:]:
-            ema = ema * (1.0 - alpha) + value * alpha
-
-        return ema
+        ema_values = ema(values, period)
+        if not ema_values or np.isnan(ema_values[-1]):
+            return 0.0
+        return float(ema_values[-1])

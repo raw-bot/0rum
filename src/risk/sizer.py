@@ -11,6 +11,7 @@ stop-distance sanity checks); it is not used in v1 sizing math.
 
 from decimal import Decimal
 
+from src.market.instruments import get_instrument_spec
 from src.risk.events import PositionSizing
 
 
@@ -26,6 +27,8 @@ def calculate_position_size(
     atr_high_vol_pctile: int,
     atr_low_vol_pctile: int,
     same_direction_open_count: int,
+    concentration_reduce_at: int = 4,
+    instrument: str = "XAUUSD",
 ) -> PositionSizing:
     """Compute position size using ATR-regime-adjusted risk percentage.
 
@@ -34,12 +37,12 @@ def calculate_position_size(
       2. Determine vol_factor from atr_pctile vs thresholds (0.7 / 1.0 / 1.3).
       3. risk_pct = risk_per_trade * vol_factor
       4. risk_pct = min(risk_pct, hard_cap)     — cap AFTER vol bump (D-07).
-      5. concentration_reduced = same_direction_open_count >= 4
+      5. concentration_reduced = same_direction_open_count >= concentration_reduce_at
       6. risk_pct *= 0.5  if concentration_reduced — halve AFTER cap (D-04).
       7. risk_amount = equity * Decimal(str(risk_pct))  — Pitfall 5 guard.
       8. sl_distance = abs(entry_price - sl_price)
-      9. size_lots = risk_amount / (sl_distance * 100) quantized to 0.01,
-         or Decimal("0") when sl_distance == 0 (XAUUSD: 1 lot = 100 oz).
+      9. size_lots = risk_amount / (sl_distance * contract_size) quantized
+         to 0.01, or Decimal("0") when sl_distance == 0.
 
     Args:
         equity: Account equity in USD.
@@ -52,6 +55,8 @@ def calculate_position_size(
         atr_high_vol_pctile: High-vol threshold in whole numbers (e.g. 90 -> 0.90).
         atr_low_vol_pctile: Low-vol threshold in whole numbers (e.g. 10 -> 0.10).
         same_direction_open_count: Number of open positions in the same direction.
+        concentration_reduce_at: Same-direction count where size is reduced.
+        instrument: Instrument symbol used to resolve contract metadata.
 
     Returns:
         PositionSizing with risk_pct, risk_amount_usd, size_lots, vol_factor,
@@ -76,7 +81,7 @@ def calculate_position_size(
     risk_pct = min(risk_pct, hard_cap)
 
     # Step 5-6: Concentration halving AFTER cap (D-04 REDUCE semantics).
-    concentration_reduced = same_direction_open_count >= 4
+    concentration_reduced = same_direction_open_count >= concentration_reduce_at
     if concentration_reduced:
         risk_pct *= 0.5
 
@@ -85,11 +90,11 @@ def calculate_position_size(
 
     # Step 8-9: Compute lot size; guard against zero sl_distance (T-06-04-04).
     sl_distance = abs(entry_price - sl_price)
+    spec = get_instrument_spec(instrument)
     if sl_distance == 0:
         size_lots = Decimal("0")
     else:
-        # XAUUSD: 1 lot = 100 oz (AGENTS.md §12.2).
-        size_lots = (risk_amount / (sl_distance * Decimal("100"))).quantize(
+        size_lots = (risk_amount / (sl_distance * spec.contract_size)).quantize(
             Decimal("0.01")
         )
 

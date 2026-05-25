@@ -22,6 +22,8 @@ log = structlog.get_logger(__name__)
 INSTRUMENT = "XAUUSD"
 SUPPORTED_TIMEFRAMES = ("M15", "H1", "H4", "D1")
 POSTGRES_MAX_BIND_PARAMS = 32767
+RESEARCH_SOURCE_KIND = "research"
+DUKASCOPY_RESEARCH_SOURCE = "dukascopy"
 
 
 @dataclass(frozen=True)
@@ -37,6 +39,8 @@ class HistoricalCandleRecord:
     close: Decimal
     volume: int
     complete: bool = True
+    source_kind: str = RESEARCH_SOURCE_KIND
+    research_source: str = DUKASCOPY_RESEARCH_SOURCE
 
 
 def dataframe_to_candle_records(
@@ -80,6 +84,8 @@ def _row_dict(record: HistoricalCandleRecord) -> dict[str, Any]:
         "close": record.close,
         "volume": record.volume,
         "complete": record.complete,
+        "source_kind": record.source_kind,
+        "research_source": record.research_source,
     }
 
 
@@ -104,8 +110,26 @@ def _insert_statement_for_dialect(dialect_name: str, rows: list[dict[str, Any]])
         insert_stmt = sqlite_insert(Candle)
     else:
         insert_stmt = pg_insert(Candle)
-    return insert_stmt.values(rows).on_conflict_do_nothing(
-        index_elements=["instrument", "timeframe", "timestamp"]
+    stmt = insert_stmt.values(rows)
+    excluded = stmt.excluded
+    return stmt.on_conflict_do_update(
+        index_elements=["instrument", "timeframe", "timestamp"],
+        set_={
+            "open": excluded.open,
+            "high": excluded.high,
+            "low": excluded.low,
+            "close": excluded.close,
+            "volume": excluded.volume,
+            "complete": excluded.complete,
+            "source_kind": excluded.source_kind,
+            "research_source": excluded.research_source,
+        },
+        where=(
+            (Candle.source_kind.is_(None))
+            | (Candle.source_kind != RESEARCH_SOURCE_KIND)
+            | (Candle.research_source.is_(None))
+            | (Candle.research_source != DUKASCOPY_RESEARCH_SOURCE)
+        ),
     )
 
 
@@ -139,5 +163,10 @@ async def bulk_insert_candles(
             total_inserted += result.rowcount or 0
         await session.commit()
 
-    log.info("historical_loader.candles_inserted", count=total_inserted)
+    log.info(
+        "historical_loader.candles_inserted",
+        count=total_inserted,
+        source_kind=records[0].source_kind,
+        research_source=records[0].research_source,
+    )
     return total_inserted

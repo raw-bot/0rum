@@ -68,6 +68,11 @@ class RiskDecision(BaseModel):
     reason: Optional[str] = None
     sizing: Optional[PositionSizing] = None
     concentration_reduced: bool = False
+    equity_usd: Optional[Decimal] = None
+    notional_after_usd: Optional[Decimal] = None
+    stop_risk_after_usd: Optional[Decimal] = None
+    exposure_multiple_after: Optional[Decimal] = None
+    candidate_notional_usd: Optional[Decimal] = None
 
 
 class CircuitBreakerAlert(BaseModel):

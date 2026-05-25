@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     database_url: str
     redis_url: str = "redis://redis:6379/0"
 
+    # Local operator surface
+    dashboard_token: str = ""
+    dashboard_rate_limit_per_minute: int = 120
+    kill_switch_redis_key: str = "risk:kill_switch"
+
     # Execution
     execution_mode: ExecutionMode = ExecutionMode.SIGNAL
 
@@ -45,7 +50,13 @@ class Settings(BaseSettings):
     atr_high_vol_percentile: int = 90
     atr_low_vol_percentile: int = 10
     hard_cap_risk: float = 0.02
+    trade_expiry_hours: int = 72
     theoretical_equity_usd: Decimal = Decimal("10000")
+    max_account_leverage: Decimal = Decimal("10")
+    max_stop_risk_pct: Decimal = Decimal("0.05")
+    max_equity_drawdown_pct: Decimal = Decimal("0.10")
+    concentration_reduce_at: int = 2
+    concentration_block_at: int = 4
 
     # Optimizer
     optimizer_interval_hours: int = 24

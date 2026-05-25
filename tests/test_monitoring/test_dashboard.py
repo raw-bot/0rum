@@ -4,6 +4,9 @@ Uses FastAPI TestClient with dependency overrides to avoid requiring a live
 PostgreSQL or Redis instance. All DB and Redis interactions are mocked.
 """
 
+from datetime import datetime, timezone
+from decimal import Decimal
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -11,7 +14,32 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.execution.paper.account import PaperAccountState, PaperExposureState
 from src.monitoring.dashboard import dashboard_router
+
+
+class FakeRedis:
+    def __init__(self):
+        self.values = {}
+        self.incr_calls = {}
+        self.expire_calls = []
+        self.closed = False
+
+    async def incr(self, key):
+        self.incr_calls[key] = self.incr_calls.get(key, 0) + 1
+        return self.incr_calls[key]
+
+    async def expire(self, key, seconds):
+        self.expire_calls.append((key, seconds))
+
+    async def set(self, key, value):
+        self.values[key] = value
+
+    async def delete(self, key):
+        self.values.pop(key, None)
+
+    async def aclose(self):
+        self.closed = True
 
 
 @pytest.fixture
@@ -135,6 +163,160 @@ class TestDashboardApi:
         assert account["risk_per_trade"] == 0.01
         assert account["daily_loss_limit"] == -0.03
 
+    def test_dashboard_api_exposes_internal_paper_account(self, client):
+        """Response JSON exposes live internal paper account state."""
+        response = client.get("/api/dashboard")
+        data = response.json()
+
+        assert "paper_account" in data
+        assert data["paper_account"]["starting_balance_usd"] == 10000.0
+        assert data["paper_account"]["cash_balance_usd"] == 10000.0
+        assert data["paper_account"]["equity_usd"] == 10000.0
+        assert data["paper_account"]["realized_pnl_usd"] == 0.0
+        assert data["paper_account"]["unrealized_pnl_usd"] == 0.0
+        assert data["paper_account"]["open_positions"] == 0
+        assert data["paper_account"]["notional_exposure_usd"] == 0.0
+        assert data["paper_account"]["stop_risk_usd"] == 0.0
+        assert data["paper_account"]["exposure_multiple"] == 0.0
+        assert data["paper_account"]["closed_trades_missing_pnl"] == 0
+
+    def test_dashboard_api_exposes_equity_curve(self, client):
+        """Response JSON exposes equity curve points for the dashboard chart."""
+        response = client.get("/api/dashboard")
+        data = response.json()
+
+        assert "equity_curve" in data
+        assert isinstance(data["equity_curve"], list)
+
+    def test_dashboard_api_closed_trades_include_usd_pnl(self, client, mock_db):
+        """Closed trade rows expose realized USD P&L alongside account return."""
+        default_result = MagicMock()
+        default_result.scalar_one.return_value = 0
+        default_result.scalar_one_or_none.return_value = None
+        default_result.all.return_value = []
+        default_result.scalars.return_value.all.return_value = []
+
+        closed_trade = SimpleNamespace(
+            id="trade-1",
+            direction="BUY",
+            entry_price=Decimal("3300"),
+            close_reason="SL",
+            pnl=Decimal("-100.00"),
+            pnl_pct=Decimal("-0.01000"),
+            opened_at=datetime(2026, 5, 23, 10, 0, tzinfo=timezone.utc),
+            closed_at=datetime(2026, 5, 23, 11, 0, tzinfo=timezone.utc),
+        )
+        closed_result = MagicMock()
+        closed_result.all.return_value = [(closed_trade, "liquidity_sweep")]
+        closed_result.scalars.return_value.all.return_value = []
+        closed_result.scalar_one.return_value = 0
+        closed_result.scalar_one_or_none.return_value = None
+
+        mock_db.execute.side_effect = [
+            default_result,  # health
+            default_result,  # strategies active
+            default_result,  # daily pnl
+            default_result,  # open trades
+            default_result,  # latest signals
+            closed_result,   # closed trades
+            default_result,  # candidate signals
+            default_result,  # strategy stats
+        ]
+
+        with (
+            patch(
+                "src.monitoring.dashboard.compute_current_paper_state",
+                new_callable=AsyncMock,
+                return_value=PaperAccountState(
+                    cash_balance=Decimal("10000.00"),
+                    realized_pnl=Decimal("0.00"),
+                    unrealized_pnl=Decimal("0.00"),
+                    equity=Decimal("10000.00"),
+                    open_positions=0,
+                ),
+            ),
+            patch(
+                "src.monitoring.dashboard.compute_current_paper_exposure",
+                new_callable=AsyncMock,
+                return_value=PaperExposureState(
+                    notional_exposure=Decimal("0.00"),
+                    stop_risk=Decimal("0.00"),
+                    total_lots=Decimal("0.0000"),
+                    exposure_multiple=Decimal("0.00"),
+                    stop_risk_pct=Decimal("0.0000"),
+                ),
+            ),
+            patch("src.monitoring.dashboard.get_equity_curve", new_callable=AsyncMock, return_value=[]),
+        ):
+            response = client.get("/api/dashboard")
+
+        assert response.status_code == 200
+        closed = response.json()["closed_trades"][0]
+        assert closed["pnl_usd"] == -100.0
+        assert closed["pnl_pct"] == -0.01
+
+    def test_dashboard_api_rate_limited_by_client_ip_and_endpoint(self, client):
+        """GET monitoring routes use the Redis fixed-window limiter."""
+        fake_redis = FakeRedis()
+        settings = SimpleNamespace(
+            redis_url="redis://localhost",
+            dashboard_rate_limit_per_minute=1,
+            dashboard_token="",
+        )
+
+        with (
+            patch("src.monitoring.auth.get_settings", return_value=settings),
+            patch("src.monitoring.auth.aioredis.from_url", return_value=fake_redis),
+        ):
+            first = client.get("/api/dashboard")
+            second = client.get("/api/dashboard")
+
+        assert first.status_code == 200
+        assert second.status_code == 429
+        assert fake_redis.expire_calls
+
+
+class TestKillSwitchApi:
+    """Tests for manual operator kill/resume endpoints."""
+
+    def test_kill_switch_endpoint_requires_configured_token(self, client):
+        settings = SimpleNamespace(
+            redis_url="redis://localhost",
+            dashboard_rate_limit_per_minute=120,
+            dashboard_token="secret",
+            kill_switch_redis_key="risk:kill_switch",
+        )
+
+        with patch("src.monitoring.auth.get_settings", return_value=settings):
+            response = client.post("/api/kill")
+
+        assert response.status_code == 403
+
+    def test_kill_and_resume_toggle_redis_key_with_valid_token(self, client):
+        rate_redis = FakeRedis()
+        kill_redis = FakeRedis()
+        settings = SimpleNamespace(
+            redis_url="redis://localhost",
+            dashboard_rate_limit_per_minute=120,
+            dashboard_token="secret",
+            kill_switch_redis_key="risk:kill_switch",
+        )
+
+        with (
+            patch("src.monitoring.auth.get_settings", return_value=settings),
+            patch("src.monitoring.auth.aioredis.from_url", return_value=rate_redis),
+            patch("src.monitoring.dashboard.get_settings", return_value=settings),
+            patch("src.monitoring.dashboard.aioredis.from_url", return_value=kill_redis),
+        ):
+            kill_response = client.post("/api/kill", headers={"x-dashboard-token": "secret"})
+            resume_response = client.post("/api/resume", headers={"x-dashboard-token": "secret"})
+
+        assert kill_response.status_code == 200
+        assert kill_response.json() == {"kill_switch": True}
+        assert resume_response.status_code == 200
+        assert resume_response.json() == {"kill_switch": False}
+        assert kill_redis.values == {}
+
 
 class TestDashboardPage:
     """Tests for the /dashboard HTML page."""
@@ -242,3 +424,15 @@ class TestDashboardPage:
         assert "RISK/TRADE" in html
         assert 'id="account-equity"' in html
         assert 'id="risk-per-trade"' in html
+
+    def test_dashboard_page_has_equity_chart(self, client):
+        """Dashboard page contains the internal paper equity chart."""
+        response = client.get("/dashboard")
+        html = response.text
+
+        assert "PAPER EQUITY" in html
+        assert 'id="equity-chart"' in html
+        assert "renderEquityChart" in html
+        assert 'id="paper-notional"' in html
+        assert 'id="paper-stop-risk"' in html
+        assert 'id="paper-leverage"' in html

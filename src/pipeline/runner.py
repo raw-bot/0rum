@@ -24,7 +24,7 @@ from src.models.signal import ApprovedSignalORM, CandidateSignalORM
 from src.models.signal_data import CandidateSignal, MarketRegime
 from src.models.trade import TradeORM
 from src.pipeline.conflict_filter import filter_conflicts
-from src.pipeline.dedup import dedup_signals
+from src.pipeline.dedup import dedup_against_recent_approvals, dedup_signals
 from src.pipeline.quota import apply_quota
 from src.pipeline.ranker import rank_signals
 from src.risk import RiskGateRunner
@@ -34,6 +34,15 @@ if TYPE_CHECKING:
     from src.execution.executor import ExecutionRouter
 
 log = structlog.get_logger(__name__)
+
+
+def _validate_approved_risk_decision(decision: RiskDecision) -> None:
+    if (
+        decision.sizing is None
+        or decision.equity_usd is None
+        or decision.candidate_notional_usd is None
+    ):
+        raise ValueError("approved risk decision missing accounting fields")
 
 
 class PipelineRunner:
@@ -84,10 +93,13 @@ class PipelineRunner:
 
         # Step 1: Dedup
         survivors, deduped = dedup_signals(candidates)
+        survivors, historical_deduped = await dedup_against_recent_approvals(survivors)
+        deduped.extend(historical_deduped)
         log.info(
             "pipeline.runner.after_dedup",
             survivors=len(survivors),
             deduped=len(deduped),
+            historical_deduped=len(historical_deduped),
         )
 
         # Step 2: Conflict filter
@@ -102,12 +114,14 @@ class PipelineRunner:
         regime = await RegimeDetector().detect(h1_candles)
 
         # Step 4: Rank
-        ranked = await rank_signals(kept, regime)
+        ranked = await rank_signals(kept, regime) if kept else []
 
         # Step 5: Quota
         settings = get_settings()
-        approved_ranked, quota_rejected = await apply_quota(
-            ranked, max_per_day=settings.max_signals_per_day
+        approved_ranked, quota_rejected = (
+            await apply_quota(ranked, max_per_day=settings.max_signals_per_day)
+            if ranked
+            else ([], [])
         )
 
         # Step 5.5: Risk gates (D-03 / D-04 / D-12)
@@ -250,6 +264,7 @@ class PipelineRunner:
 
                 # D-14: Create TradeORM rows in same transaction as ApprovedSignalORM
                 for (sig, score, decision), approved_orm in zip(approved_ranked, approved_orms):
+                    _validate_approved_risk_decision(decision)
                     cand_orm = candidate_orms[id(sig)]
                     trade_orm = TradeORM(
                         approved_signal_id=approved_orm.id,
@@ -259,6 +274,9 @@ class PipelineRunner:
                         tp1_price=cand_orm.tp1_price,
                         tp2_price=cand_orm.tp2_price,
                         size_lots=decision.sizing.size_lots,
+                        equity_at_open=decision.equity_usd,
+                        notional_usd=decision.candidate_notional_usd,
+                        risk_amount_usd=decision.sizing.risk_amount_usd,
                         status="OPEN",
                     )
                     session.add(trade_orm)

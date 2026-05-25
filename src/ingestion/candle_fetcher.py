@@ -72,10 +72,28 @@ class CandleFetcher:
                 close=Decimal(str(raw["close"])),
                 volume=int(raw.get("tickVolume", raw.get("volume", 0))),
                 complete=True,  # Historical fetches are treated as complete bars
+                source_kind=self._source_marker(raw, "source_kind"),
+                research_source=self._source_marker(raw, "research_source"),
             )
         except (KeyError, ValueError, TypeError) as exc:
             log.warning("candle_fetcher.parse_error", error=str(exc))
             return None
+
+    @staticmethod
+    def _source_marker(raw: dict, marker_name: str) -> str | None:
+        value = raw.get(marker_name)
+        if isinstance(value, str) and value:
+            return value
+
+        for metadata_name in ("source_metadata", "metadata"):
+            metadata = raw.get(metadata_name)
+            if not isinstance(metadata, dict):
+                continue
+            metadata_value = metadata.get(marker_name)
+            if isinstance(metadata_value, str) and metadata_value:
+                return metadata_value
+
+        return None
 
     async def fetch_and_store(
         self,
@@ -134,6 +152,8 @@ class CandleFetcher:
                     "close": c.close,
                     "volume": c.volume,
                     "complete": c.complete,
+                    "source_kind": c.source_kind,
+                    "research_source": c.research_source,
                 }
                 for c in candles
             ]

@@ -123,6 +123,34 @@ class TestCalculateAtr:
         # TR for candle2: max(2030-2025=5, |2030-2005|=25, |2025-2005|=20) = 25
         assert atr == pytest.approx(25.0)
 
+    def test_atr_is_shared_across_strategy_regime_and_walk_forward(self):
+        """ATR implementations must agree on the same known candle sequence."""
+        from src.backtesting.regime_detector import RegimeDetector
+        from src.backtesting.walk_forward import _calculate_atr as walk_forward_atr
+        from src.strategies.base import AbstractStrategy
+
+        class ConcreteStrategy(AbstractStrategy):
+            PARAM_RANGES = {}
+
+            async def generate_signals(self, candles: dict) -> list:
+                return []
+
+        candles = []
+        close = 2000.0
+        for i in range(30):
+            high = close + 2.0 + (i % 5) * 0.7
+            low = close - 1.0 - (i % 3) * 0.4
+            next_close = low + (high - low) * (0.35 + (i % 4) * 0.1)
+            candles.append(make_candle(high=high, low=low, close=next_close, open_=close))
+            close = next_close + (1.5 if i % 2 == 0 else -0.8)
+
+        strategy_atr = ConcreteStrategy(params={}).calculate_atr(candles, period=14)
+        regime_atr = RegimeDetector()._calculate_atr(candles, period=14)
+        wf_atr = walk_forward_atr(candles, period=14)
+
+        assert regime_atr == pytest.approx(strategy_atr)
+        assert wf_atr == pytest.approx(strategy_atr)
+
 
 class TestDetectSwingLevels:
     """Test 3: detect_swing_levels() returns (highs, lows) tuple on 100 candles."""

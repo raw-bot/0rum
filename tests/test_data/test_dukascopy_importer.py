@@ -51,6 +51,8 @@ async def _sqlite_session_factory():
                     close NUMERIC(12, 5) NOT NULL,
                     volume INTEGER NOT NULL,
                     complete BOOLEAN NOT NULL,
+                    source_kind VARCHAR(20),
+                    research_source VARCHAR(30),
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE (instrument, timeframe, timestamp)
                 )
@@ -116,6 +118,61 @@ async def test_import_is_idempotent_with_sqlite(tmp_path: Path):
         assert len(rows) == 2
         assert {row.instrument for row in rows} == {"XAUUSD"}
         assert {row.timeframe for row in rows} == {"M15"}
+        assert {row.source_kind for row in rows} == {"research"}
+        assert {row.research_source for row in rows} == {"dukascopy"}
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_import_upgrades_existing_runtime_proxy_rows(tmp_path: Path):
+    """Research import replaces proxy candles for matching instrument/timeframe/timestamp."""
+    start = datetime(2026, 5, 18, 9, tzinfo=UTC)
+    end = datetime(2026, 5, 18, 10, tzinfo=UTC)
+    _write_ohlcv(ohlcv_cache_path(tmp_path, "XAUUSD", start, end, "M15"))
+    engine, async_session = await _sqlite_session_factory()
+
+    try:
+        async with async_session() as session:
+            session.add(
+                Candle(
+                    instrument="XAUUSD",
+                    timeframe="M15",
+                    timestamp=start,
+                    open=1,
+                    high=1,
+                    low=1,
+                    close=1,
+                    volume=1,
+                    complete=True,
+                    source_kind="runtime_proxy",
+                    research_source=None,
+                )
+            )
+            await session.commit()
+
+        report = await import_dukascopy_ohlcv_cache(
+            cache_dir=tmp_path,
+            symbol="XAUUSD",
+            start=start,
+            end=end,
+            timeframes=("M15",),
+            session_factory=async_session,
+        )
+
+        async with async_session() as session:
+            rows = list((await session.execute(select(Candle))).scalars().all())
+            upgraded = next(
+                row
+                for row in rows
+                if row.timestamp.replace(tzinfo=UTC) == start
+            )
+
+        assert report["M15"].inserted_rows == 2
+        assert len(rows) == 2
+        assert upgraded.close == 2001
+        assert upgraded.source_kind == "research"
+        assert upgraded.research_source == "dukascopy"
     finally:
         await engine.dispose()
 

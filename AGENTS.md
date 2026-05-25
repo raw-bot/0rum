@@ -181,6 +181,11 @@ MARKET_DATA_PROVIDER=binance
 DATABASE_URL=postgresql+asyncpg://orum:orum@postgres:5432/orum
 REDIS_URL=redis://redis:6379/0
 
+# === LOCAL DASHBOARD ===
+DASHBOARD_TOKEN=
+DASHBOARD_RATE_LIMIT_PER_MINUTE=120
+KILL_SWITCH_REDIS_KEY=risk:kill_switch
+
 # === EXECUTION MODE ===
 EXECUTION_MODE=signal  # "signal" ou "auto"
 
@@ -194,6 +199,17 @@ CIRCUIT_BREAKER_COOLDOWN_HOURS=24
 ATR_HIGH_VOL_PERCENTILE=90
 ATR_LOW_VOL_PERCENTILE=10
 HARD_CAP_RISK=0.02
+THEORETICAL_EQUITY_USD=10000
+MAX_ACCOUNT_LEVERAGE=10
+MAX_STOP_RISK_PCT=0.05
+MAX_EQUITY_DRAWDOWN_PCT=0.10
+CONCENTRATION_REDUCE_AT=2
+CONCENTRATION_BLOCK_AT=4
+TRADE_EXPIRY_HOURS=72
+
+# === EXECUTION COST ASSUMPTIONS ===
+SPREAD_USD=0.30
+SLIPPAGE_USD=0.10
 
 # === OPTIMIZER ===
 OPTIMIZER_INTERVAL_HOURS=24
@@ -208,6 +224,7 @@ WFE_MINIMUM=0.50
 
 ```python
 from pydantic_settings import BaseSettings
+from decimal import Decimal
 from enum import Enum
 
 class ExecutionMode(str, Enum):
@@ -220,6 +237,11 @@ class Settings(BaseSettings):
     # Database
     database_url: str
     redis_url: str = "redis://redis:6379/0"
+
+    # Local dashboard
+    dashboard_token: str = ""
+    dashboard_rate_limit_per_minute: int = 120
+    kill_switch_redis_key: str = "risk:kill_switch"
 
     # Execution
     execution_mode: ExecutionMode = ExecutionMode.SIGNAL
@@ -234,6 +256,13 @@ class Settings(BaseSettings):
     atr_high_vol_percentile: int = 90
     atr_low_vol_percentile: int = 10
     hard_cap_risk: float = 0.02
+    trade_expiry_hours: int = 72
+    theoretical_equity_usd: Decimal = Decimal("10000")
+    max_account_leverage: Decimal = Decimal("10")
+    max_stop_risk_pct: Decimal = Decimal("0.05")
+    max_equity_drawdown_pct: Decimal = Decimal("0.10")
+    concentration_reduce_at: int = 2
+    concentration_block_at: int = 4
 
     # Optimizer
     optimizer_interval_hours: int = 24

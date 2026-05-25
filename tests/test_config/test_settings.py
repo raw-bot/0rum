@@ -15,15 +15,30 @@ def test_theoretical_equity_default():
     s = Settings()
     assert s.theoretical_equity_usd == Decimal("10000")
     assert isinstance(s.theoretical_equity_usd, Decimal)
+    assert s.max_account_leverage == Decimal("10")
+    assert s.max_stop_risk_pct == Decimal("0.05")
+    assert s.max_equity_drawdown_pct == Decimal("0.10")
+    assert s.concentration_reduce_at == 2
+    assert s.concentration_block_at == 4
 
 
 def test_theoretical_equity_env_override(monkeypatch):
     """THEORETICAL_EQUITY_USD env var is parsed to Decimal by pydantic-settings."""
     monkeypatch.setenv("THEORETICAL_EQUITY_USD", "20000")
+    monkeypatch.setenv("MAX_ACCOUNT_LEVERAGE", "5")
+    monkeypatch.setenv("MAX_STOP_RISK_PCT", "0.025")
+    monkeypatch.setenv("MAX_EQUITY_DRAWDOWN_PCT", "0.08")
+    monkeypatch.setenv("CONCENTRATION_REDUCE_AT", "3")
+    monkeypatch.setenv("CONCENTRATION_BLOCK_AT", "6")
     # Read Settings() directly to keep this test independent of get_settings() cache behavior.
     s = Settings()
     assert s.theoretical_equity_usd == Decimal("20000")
     assert isinstance(s.theoretical_equity_usd, Decimal)
+    assert s.max_account_leverage == Decimal("5")
+    assert s.max_stop_risk_pct == Decimal("0.025")
+    assert s.max_equity_drawdown_pct == Decimal("0.08")
+    assert s.concentration_reduce_at == 3
+    assert s.concentration_block_at == 6
 
 
 def test_theoretical_equity_decimal_arithmetic_works():

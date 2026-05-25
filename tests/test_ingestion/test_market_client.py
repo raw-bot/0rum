@@ -39,6 +39,17 @@ async def test_get_candles_returns_normalized_dicts():
 
 
 @pytest.mark.asyncio
+async def test_get_candles_marks_binance_paxg_as_runtime_proxy():
+    """Runtime Binance/PAXG candles must expose proxy-source metadata."""
+    client = _make_client([_raw_candle()])
+    candles = await client.get_candles("XAUUSD", "M15", count=1)
+
+    assert candles[0]["source_kind"] == "runtime_proxy"
+    assert candles[0]["proxy_symbol"] == "PAXG/USDT"
+    assert candles[0]["canonical_instrument"] == "XAUUSD"
+
+
+@pytest.mark.asyncio
 async def test_xauusd_mapped_to_paxg_usdt():
     """XAUUSD instrument is sent to Binance as PAXG/USDT."""
     client = _make_client([])

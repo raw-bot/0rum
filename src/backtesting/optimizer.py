@@ -11,7 +11,9 @@ from bisect import bisect_left, bisect_right
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from hashlib import sha256
+from math import ceil
 from typing import Any
 
 import numpy as np
@@ -20,21 +22,23 @@ from scipy.stats.qmc import LatinHypercube, scale
 from sqlalchemy import select, update
 
 from src.backtesting.monte_carlo import monte_carlo_passes, run_monte_carlo
+from src.backtesting.regime_detector import RegimeDetector
 from src.backtesting.walk_forward import (
     MIN_CANDLES_FOR_OPTIMIZER,
-    TradeOutcome,
     WalkForwardWindow,
     _check_sufficient_data,
     _compute_profit_factor,
     _compute_wfe,
     build_windows,
     multi_window_gate_passes,
-    simulate_trade_outcome,
+    simulate_signal_mode_trade_outcome,
 )
 from src.config import get_settings
 from src.database import AsyncSessionLocal
+from src.market.instruments import get_instrument_spec
 from src.models.candle import Candle
 from src.models.optimizer_result import OptimizerResultORM
+from src.risk.sizer import calculate_position_size
 
 log = structlog.get_logger(__name__)
 
@@ -42,9 +46,12 @@ INSTRUMENT = "XAUUSD"
 TIMEFRAMES = ["M15", "H1", "H4", "D1"]
 BACKTEST_WINDOW_CANDLES = 500
 BACKTEST_STEP_CANDLES = 1  # step one H1 candle per window position — per plan 05-02 spec
+BACKTEST_DEDUP_COOLDOWN = timedelta(minutes=60)
 MIN_TRADES_FOR_EVALUATION = 5
 N_WALK_FORWARD_WINDOWS = 3
 LHS_BASE_SEED = 20260425
+RESEARCH_SOURCE_KIND = "research"
+RUNTIME_PROXY_SOURCE_KIND = "runtime_proxy"
 
 
 @dataclass(frozen=True)
@@ -53,6 +60,9 @@ class SimulatedTradeResult:
 
     signal_timestamp: datetime
     pnl: float
+    pnl_usd: Decimal | None = None
+    closed_at: datetime | None = None
+    direction: str | None = None
 
 
 def _compute_aggregate_scores(
@@ -78,9 +88,9 @@ def _build_daily_pnl_series(
     start: datetime,
     end: datetime,
 ) -> np.ndarray:
-    """Aggregate simulated trade P&L into a dense UTC daily vector.
+    """Aggregate simulated account returns into a dense UTC daily vector.
 
-    The Monte Carlo module is defined in terms of daily P&L, so this helper
+    The Monte Carlo module consumes per-period return-like P&L values, so this helper
     groups all simulated trade outcomes by UTC calendar day and fills missing
     days with 0.0 across the evaluation span.
     """
@@ -99,7 +109,7 @@ def _build_daily_pnl_series(
 
     daily_totals: dict[date, float] = {}
     for trade in trade_results:
-        ts = trade.signal_timestamp
+        ts = trade.closed_at or trade.signal_timestamp
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=timezone.utc)
         else:
@@ -157,6 +167,113 @@ def _strategy_lhs_seed(strategy_name: str) -> int:
     """
     digest = sha256(strategy_name.encode("utf-8")).digest()
     return (LHS_BASE_SEED + int.from_bytes(digest[:4], "big")) % (2**32)
+
+
+def _candle_source_marker(candle: Any, marker_name: str) -> str | None:
+    """Read a string provenance marker from a candle or its source metadata."""
+    value = getattr(candle, marker_name, None)
+    if isinstance(value, str) and value:
+        return value
+
+    for metadata_name in ("source_metadata", "metadata"):
+        metadata = getattr(candle, metadata_name, None)
+        if not isinstance(metadata, dict):
+            continue
+        metadata_value = metadata.get(marker_name)
+        if isinstance(metadata_value, str) and metadata_value:
+            return metadata_value
+
+    return None
+
+
+def _research_source_diagnostics(candles_by_tf: dict[str, list]) -> dict[str, Any]:
+    """Return optimizer source-gate diagnostics for the supplied candle history."""
+    source_kind_counts: dict[str, int] = {}
+    research_sources: set[str] = set()
+    missing_source_kind = 0
+    missing_research_source = 0
+    total_candles = 0
+
+    for candles in candles_by_tf.values():
+        for candle in candles:
+            total_candles += 1
+            source_kind = _candle_source_marker(candle, "source_kind")
+            research_source = _candle_source_marker(candle, "research_source")
+
+            if source_kind is None:
+                missing_source_kind += 1
+            else:
+                source_kind_counts[source_kind] = source_kind_counts.get(source_kind, 0) + 1
+
+            if source_kind == RESEARCH_SOURCE_KIND:
+                if research_source is None:
+                    missing_research_source += 1
+                else:
+                    research_sources.add(research_source)
+
+    if len(source_kind_counts) == 1 and missing_source_kind == 0:
+        source_kind: str | None = next(iter(source_kind_counts))
+    elif source_kind_counts:
+        source_kind = "mixed"
+    else:
+        source_kind = None
+
+    research_source: str | list[str] | None
+    if len(research_sources) == 1:
+        research_source = next(iter(research_sources))
+    elif research_sources:
+        research_source = sorted(research_sources)
+    else:
+        research_source = None
+
+    if total_candles == 0:
+        reason = "empty_candle_set"
+    elif missing_source_kind:
+        reason = "missing_source_kind"
+    elif source_kind_counts.get(RUNTIME_PROXY_SOURCE_KIND, 0) > 0:
+        reason = "runtime_proxy_not_research"
+    elif set(source_kind_counts) != {RESEARCH_SOURCE_KIND}:
+        reason = "non_research_source_kind"
+    elif missing_research_source:
+        reason = "missing_research_source"
+    elif len(research_sources) != 1:
+        reason = "mixed_research_source"
+    else:
+        reason = None
+
+    return {
+        "source_gate_passed": reason is None,
+        "source_kind": source_kind,
+        "research_source": research_source,
+        "reason": reason,
+        "source_kind_counts": source_kind_counts,
+        "missing_source_kind": missing_source_kind,
+        "missing_research_source": missing_research_source,
+        "total_candles": total_candles,
+    }
+
+
+def _is_duplicate_simulated_signal(
+    signal: Any,
+    signal_timestamp: datetime,
+    recent_signals: list[tuple[datetime, Any]],
+    price_tolerance: float = 0.001,
+) -> bool:
+    """Return True when a simulated signal duplicates a recent accepted setup."""
+    cutoff = signal_timestamp - BACKTEST_DEDUP_COOLDOWN
+    for existing_ts, existing in recent_signals:
+        if existing_ts < cutoff:
+            continue
+        if existing.strategy != signal.strategy:
+            continue
+        if existing.direction != signal.direction:
+            continue
+        existing_entry = float(existing.entry_price)
+        if existing_entry <= 0:
+            continue
+        if abs(float(signal.entry_price) - existing_entry) / existing_entry < price_tolerance:
+            return True
+    return False
 
 
 class WalkForwardOptimizer:
@@ -284,10 +401,25 @@ class WalkForwardOptimizer:
             List of simulated trade results tagged with the signal timestamp.
         """
         trade_results: list[SimulatedTradeResult] = []
+        recent_signals: list[tuple[datetime, Any]] = []
         h1_candles = candle_slice.get("H1", [])
         n = len(h1_candles)
+        rolling_equity = Decimal(str(self._settings.theoretical_equity_usd))
+        regime_detector = RegimeDetector()
+        instrument_spec = get_instrument_spec(INSTRUMENT)
+        spread_usd = getattr(
+            instrument_spec,
+            "typical_spread_usd",
+            instrument_spec.default_spread_usd,
+        )
+        slippage_usd = getattr(
+            instrument_spec,
+            "typical_slippage_usd",
+            instrument_spec.default_slippage_usd,
+        )
 
-        if n < BACKTEST_WINDOW_CANDLES + 50:
+        horizon_candles = max(50, int(ceil(self._settings.trade_expiry_hours)))
+        if n < BACKTEST_WINDOW_CANDLES + horizon_candles:
             return trade_results
 
         tf_timestamps: dict[str, list] = {
@@ -295,9 +427,25 @@ class WalkForwardOptimizer:
             for tf, all_tf_candles in candle_slice.items()
         }
 
-        for start in range(0, n - BACKTEST_WINDOW_CANDLES - 50, BACKTEST_STEP_CANDLES):
+        pending_results: list[SimulatedTradeResult] = []
+
+        for start in range(
+            0,
+            n - BACKTEST_WINDOW_CANDLES - horizon_candles,
+            BACKTEST_STEP_CANDLES,
+        ):
             end = start + BACKTEST_WINDOW_CANDLES
             window_end_ts = h1_candles[end - 1].timestamp
+            still_pending: list[SimulatedTradeResult] = []
+            for pending in pending_results:
+                if (
+                    pending.closed_at is not None
+                    and pending.closed_at <= window_end_ts
+                ):
+                    rolling_equity += pending.pnl_usd or Decimal("0.00")
+                else:
+                    still_pending.append(pending)
+            pending_results = still_pending
 
             window_candles: dict[str, list] = {}
             for tf, all_tf_candles in candle_slice.items():
@@ -316,32 +464,151 @@ class WalkForwardOptimizer:
                 )
                 continue
 
-            outcome_candles = h1_candles[end:end + 50]
+            horizon_end_ts = h1_candles[end + horizon_candles - 1].timestamp
+            m15_timestamps = tf_timestamps.get("M15", [])
+            m15_rows = candle_slice.get("M15", [])
+            m15_start = bisect_right(m15_timestamps, window_end_ts)
+            m15_end = bisect_right(m15_timestamps, horizon_end_ts)
+            outcome_m15_candles = m15_rows[m15_start:m15_end]
+            h1_context_candles = h1_candles[: end + horizon_candles]
+            sizing_h1_context = h1_candles[:end]
+            atr_value = Decimal(str(regime_detector._calculate_atr(sizing_h1_context)))
+            atr_pctile = regime_detector._calculate_atr_percentile(sizing_h1_context)
             for signal in signals:
                 try:
+                    recent_signals = [
+                        (ts, recent)
+                        for ts, recent in recent_signals
+                        if ts >= window_end_ts - BACKTEST_DEDUP_COOLDOWN
+                    ]
+                    if _is_duplicate_simulated_signal(
+                        signal,
+                        window_end_ts,
+                        recent_signals,
+                    ):
+                        continue
+                    recent_signals.append((window_end_ts, signal))
+
                     direction = (
                         signal.direction.value
                         if hasattr(signal.direction, "value")
                         else signal.direction
                     )
-                    _, pnl = simulate_trade_outcome(
-                        direction=direction,
-                        entry=float(signal.entry_price),
-                        sl=float(signal.sl_price),
-                        tp1=float(signal.tp1_price),
-                        tp2=float(signal.tp2_price) if signal.tp2_price else None,
-                        subsequent_candles=outcome_candles,
-                    )
-                    trade_results.append(
-                        SimulatedTradeResult(
-                            signal_timestamp=window_end_ts,
-                            pnl=pnl,
+                    entry_price = Decimal(str(signal.entry_price))
+                    sl_price = Decimal(str(signal.sl_price))
+                    same_direction_open_count = sum(
+                        1
+                        for pending in pending_results
+                        if pending.direction == direction
+                        and (
+                            pending.closed_at is None
+                            or pending.closed_at > window_end_ts
                         )
                     )
+                    sizing = calculate_position_size(
+                        equity=rolling_equity,
+                        risk_per_trade=self._settings.risk_per_trade,
+                        entry_price=entry_price,
+                        sl_price=sl_price,
+                        atr_value=atr_value,
+                        atr_pctile=atr_pctile,
+                        hard_cap=self._settings.hard_cap_risk,
+                        atr_high_vol_pctile=self._settings.atr_high_vol_percentile,
+                        atr_low_vol_pctile=self._settings.atr_low_vol_percentile,
+                        same_direction_open_count=same_direction_open_count,
+                        instrument=INSTRUMENT,
+                    )
+                    equity_at_open = rolling_equity
+                    simulation = simulate_signal_mode_trade_outcome(
+                        direction=direction,
+                        entry=entry_price,
+                        sl=sl_price,
+                        tp1=Decimal(str(signal.tp1_price)),
+                        tp2=(
+                            Decimal(str(signal.tp2_price))
+                            if signal.tp2_price is not None
+                            else None
+                        ),
+                        subsequent_m15_candles=outcome_m15_candles,
+                        h1_candles=h1_context_candles,
+                        size_lots=sizing.size_lots,
+                        equity_at_open=equity_at_open,
+                        contract_size=instrument_spec.contract_size,
+                        spread_usd=spread_usd,
+                        slippage_usd=slippage_usd,
+                        opened_at=window_end_ts,
+                        trade_expiry_hours=self._settings.trade_expiry_hours,
+                    )
+                    _, pnl = simulation
+                    pnl_usd = getattr(simulation, "pnl_usd", None)
+                    if pnl_usd is None:
+                        pnl_usd = (Decimal(str(pnl)) * equity_at_open).quantize(
+                            Decimal("0.01")
+                        )
+                    result = SimulatedTradeResult(
+                        signal_timestamp=window_end_ts,
+                        pnl=pnl,
+                        pnl_usd=pnl_usd,
+                        closed_at=getattr(simulation, "closed_at", None),
+                        direction=direction,
+                    )
+                    pending_results.append(result)
+                    trade_results.append(result)
                 except Exception as exc:
                     log.debug("optimizer.outcome_sim_error", error=str(exc))
 
         return trade_results
+
+    def _neighbor_combinations(
+        self,
+        combo: dict[str, float],
+        param_ranges: dict[str, tuple[float, float]],
+    ) -> list[dict[str, float]]:
+        """Build +/- 10%-of-range neighbors for each parameter."""
+        neighbors: list[dict[str, float]] = []
+        seen: set[tuple[tuple[str, float], ...]] = set()
+        for name, value in combo.items():
+            lo, hi = param_ranges[name]
+            delta = (hi - lo) * 0.10
+            for candidate_value in (value - delta, value + delta):
+                neighbor = dict(combo)
+                neighbor[name] = max(lo, min(hi, candidate_value))
+                key = tuple(sorted((k, round(v, 12)) for k, v in neighbor.items()))
+                if key not in seen and neighbor != combo:
+                    seen.add(key)
+                    neighbors.append(neighbor)
+        return neighbors
+
+    async def _robustness_gate_passes(
+        self,
+        strategy_class: Any,
+        combo: dict[str, float],
+        param_ranges: dict[str, tuple[float, float]],
+        window_slices: list[tuple[WalkForwardWindow, dict[str, list], dict[str, list]]],
+    ) -> tuple[bool, int]:
+        """Return True when at least 3 neighboring combos are OOS-profitable."""
+        profitable_neighbors = 0
+        for neighbor in self._neighbor_combinations(combo, param_ranges):
+            neighbor_oos_pnl: list[float] = []
+            for _, _, oos_slice in window_slices:
+                strategy = strategy_class(params=neighbor)
+                strategy.emit_signal_logs = False
+                strategy.emit_diagnostic_logs = False
+                oos_trade_results = await self._run_strategy_backtest_detailed_async(
+                    strategy,
+                    oos_slice,
+                )
+                neighbor_oos_pnl.extend(result.pnl for result in oos_trade_results)
+
+            neighbor_pf = (
+                _compute_profit_factor(np.array(neighbor_oos_pnl, dtype=float))
+                if neighbor_oos_pnl
+                else 0.0
+            )
+            if neighbor_pf > 1.0:
+                profitable_neighbors += 1
+
+        return profitable_neighbors >= 3, profitable_neighbors
 
     async def _evaluate_all_combos(
         self,
@@ -370,7 +637,7 @@ class WalkForwardOptimizer:
         )
 
         best: dict[str, Any] | None = None
-        best_wfe: float = -1.0
+        passing_candidates: list[tuple[dict[str, Any], dict[str, Any]]] = []
         diagnostics: dict[str, Any] = {
             "strategy": strategy_name,
             "combos_evaluated": 0,
@@ -464,33 +731,46 @@ class WalkForwardOptimizer:
             if not combo_snapshot["multi_window_passed"]:
                 continue
 
-            if wfe > best_wfe:
-                oos_arr = np.array(all_oos_pnl, dtype=float)
-                winners = oos_arr[oos_arr > 0]
-                win_rate = float(len(winners) / len(oos_arr)) if len(oos_arr) > 0 else 0.0
-                equity = np.cumsum(oos_arr) if len(oos_arr) > 0 else np.array([0.0])
-                running_max = np.maximum.accumulate(equity)
-                max_dd = float((running_max - equity).max())
+            oos_arr = np.array(all_oos_pnl, dtype=float)
+            winners = oos_arr[oos_arr > 0]
+            win_rate = float(len(winners) / len(oos_arr)) if len(oos_arr) > 0 else 0.0
+            equity = np.cumsum(oos_arr) if len(oos_arr) > 0 else np.array([0.0])
+            running_max = np.maximum.accumulate(equity)
+            max_dd = float((running_max - equity).max())
 
-                best_wfe = wfe
-                best = {
-                    "combo": combo,
-                    "best_wfe": wfe,
-                    "is_score": aggregate_is_pf,
-                    "oos_score": aggregate_oos_pf,
-                    "oos_pf_per_window": oos_pfs,
-                    "trade_count": total_trades,
-                    "win_rate": win_rate,
-                    "max_dd": max_dd,
-                    "train_start": windows[0].train_start,
-                    "train_end": windows[-1].train_end,
-                    "test_start": windows[0].oos_start,
-                    "test_end": windows[-1].oos_end,
-                    "latest_window": windows[-1],
-                    "all_oos_pnl": all_oos_pnl,
-                    "all_oos_trades": all_oos_trades,
-                }
-                diagnostics["best_passing_combo"] = deepcopy(combo_snapshot)
+            candidate_result = {
+                "combo": combo,
+                "best_wfe": wfe,
+                "is_score": aggregate_is_pf,
+                "oos_score": aggregate_oos_pf,
+                "oos_pf_per_window": oos_pfs,
+                "trade_count": total_trades,
+                "win_rate": win_rate,
+                "max_dd": max_dd,
+                "train_start": windows[0].train_start,
+                "train_end": windows[-1].train_end,
+                "test_start": windows[0].oos_start,
+                "test_end": windows[-1].oos_end,
+                "latest_window": windows[-1],
+                "all_oos_pnl": all_oos_pnl,
+                "all_oos_trades": all_oos_trades,
+            }
+            passing_candidates.append((candidate_result, deepcopy(combo_snapshot)))
+
+        passing_candidates.sort(key=lambda item: item[0]["best_wfe"], reverse=True)
+        for candidate, snapshot in passing_candidates[:5]:
+            robustness_passed, profitable_neighbors = await self._robustness_gate_passes(
+                strategy_class=strategy_class,
+                combo=candidate["combo"],
+                param_ranges=strategy_class.PARAM_RANGES,
+                window_slices=window_slices,
+            )
+            snapshot["robustness_passed"] = robustness_passed
+            snapshot["profitable_neighbors"] = profitable_neighbors
+            diagnostics["best_passing_combo"] = deepcopy(snapshot)
+            if robustness_passed:
+                best = candidate
+                break
 
         self.last_run_diagnostics[strategy_name] = diagnostics
         return best
@@ -588,6 +868,21 @@ class WalkForwardOptimizer:
             )
             return
 
+        source_diagnostics = _research_source_diagnostics(candles_by_tf)
+        self.last_run_diagnostics["_data_source"] = source_diagnostics
+        if not source_diagnostics["source_gate_passed"]:
+            log.warning(
+                "optimizer.skipped.unverified_research_source",
+                source_kind=source_diagnostics["source_kind"],
+                research_source=source_diagnostics["research_source"],
+                reason=source_diagnostics["reason"],
+                source_kind_counts=source_diagnostics["source_kind_counts"],
+                missing_source_kind=source_diagnostics["missing_source_kind"],
+                missing_research_source=source_diagnostics["missing_research_source"],
+                total_candles=source_diagnostics["total_candles"],
+            )
+            return
+
         most_recent_ts = max(
             candles_by_tf[tf][-1].timestamp
             for tf in TIMEFRAMES
@@ -615,6 +910,13 @@ class WalkForwardOptimizer:
                     "best_passing_combo": None,
                 },
             )
+            diagnostics.update(
+                {
+                    "source_kind": source_diagnostics["source_kind"],
+                    "research_source": source_diagnostics["research_source"],
+                    "source_gate_passed": source_diagnostics["source_gate_passed"],
+                }
+            )
 
             if best is None:
                 best_combo = diagnostics.get("best_combo") or {}
@@ -627,6 +929,8 @@ class WalkForwardOptimizer:
                     "optimizer.strategy.diagnostics",
                     strategy=strategy_name,
                     final_stage="no_passing_combo",
+                    source_kind=source_diagnostics["source_kind"],
+                    research_source=source_diagnostics["research_source"],
                     combos_evaluated=diagnostics.get("combos_evaluated", 0),
                     best_wfe_seen=best_combo.get("wfe"),
                     best_combo_multi_window_passed=best_combo.get("multi_window_passed"),
@@ -658,6 +962,8 @@ class WalkForwardOptimizer:
                     "optimizer.strategy.diagnostics",
                     strategy=strategy_name,
                     final_stage="mc_skipped_too_few_trades",
+                    source_kind=source_diagnostics["source_kind"],
+                    research_source=source_diagnostics["research_source"],
                     combos_evaluated=diagnostics.get("combos_evaluated", 0),
                     best_wfe_seen=diagnostics["best_passing_combo"].get("wfe"),
                     best_combo_trade_count=diagnostics["best_passing_combo"].get("trade_count"),
@@ -704,6 +1010,8 @@ class WalkForwardOptimizer:
                     "optimizer.strategy.diagnostics",
                     strategy=strategy_name,
                     final_stage="mc_gate_failed",
+                    source_kind=source_diagnostics["source_kind"],
+                    research_source=source_diagnostics["research_source"],
                     combos_evaluated=diagnostics.get("combos_evaluated", 0),
                     best_wfe_seen=diagnostics["best_passing_combo"].get("wfe"),
                     best_combo_trade_count=diagnostics["best_passing_combo"].get("trade_count"),
@@ -721,6 +1029,8 @@ class WalkForwardOptimizer:
                 "optimizer.strategy.diagnostics",
                 strategy=strategy_name,
                 final_stage="activated",
+                source_kind=source_diagnostics["source_kind"],
+                research_source=source_diagnostics["research_source"],
                 combos_evaluated=diagnostics.get("combos_evaluated", 0),
                 best_wfe_seen=diagnostics["best_passing_combo"].get("wfe"),
                 best_combo_trade_count=diagnostics["best_passing_combo"].get("trade_count"),

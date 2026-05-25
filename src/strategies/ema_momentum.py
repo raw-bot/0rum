@@ -14,6 +14,7 @@ from __future__ import annotations
 import numpy as np
 import structlog
 
+from src.indicators.ema import ema
 from src.models.signal_data import (
     CandidateSignal,
     Direction,
@@ -81,19 +82,7 @@ class EmaMomentumStrategy(AbstractStrategy):
             Numpy array of EMA values, same length as `values`.
             Returns an array of NaN if fewer values than `period` are provided.
         """
-        n = len(values)
-        result = np.full(n, np.nan)
-        if n < period:
-            return result
-
-        alpha = 2.0 / (period + 1)
-        seed = float(np.mean(values[:period]))
-        result[period - 1] = seed
-
-        for i in range(period, n):
-            result[i] = alpha * values[i] + (1.0 - alpha) * result[i - 1]
-
-        return result
+        return np.array(ema(values, period), dtype=float)
 
     async def generate_signals(
         self, candles: dict[str, list]

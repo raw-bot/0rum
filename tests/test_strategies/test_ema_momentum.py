@@ -408,3 +408,20 @@ class TestEmaMomentumEmaHelper:
         result = strategy._ema(values, period=period)
         expected_seed = sum(values[:period]) / period  # = 30.0
         assert result[period - 1] == pytest.approx(expected_seed)
+
+    def test_shared_ema_matches_strategy_helper(self) -> None:
+        """Shared EMA must preserve length, NaN seed window, and final value."""
+        import numpy as np
+        from src.indicators.ema import ema
+        from src.strategies.ema_momentum import EmaMomentumStrategy
+
+        strategy = EmaMomentumStrategy(params=PARAMS)
+        values = [100.0 + i * 1.7 + (i % 4) * 0.35 for i in range(80)]
+        period = 13
+
+        strategy_result = strategy._ema(values, period=period)
+        shared_result = ema(values, period=period)
+
+        assert len(shared_result) == len(values)
+        assert np.allclose(shared_result, strategy_result, equal_nan=True)
+        assert shared_result[-1] == pytest.approx(strategy_result[-1])

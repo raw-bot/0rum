@@ -224,6 +224,34 @@ body {
   margin-bottom: 24px;
 }
 
+.chart-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.chart-metrics {
+  display: flex;
+  gap: 16px;
+  color: var(--text-2);
+  flex-wrap: wrap;
+}
+
+.chart-wrap {
+  position: relative;
+  height: 220px;
+  border: 1px solid var(--border);
+  background: #0f1215;
+}
+
+#equity-chart {
+  display: block;
+  width: 100%;
+  height: 220px;
+}
+
 /* Tables */
 table {
   width: 100%;
@@ -386,6 +414,22 @@ tbody tr:nth-child(even) {
   </div>
 </div>
 
+<div class="card-full">
+  <div class="chart-header">
+    <div class="section-heading">PAPER EQUITY</div>
+    <div class="chart-metrics">
+      <span>Cash <span class="data-val" id="paper-cash">--</span></span>
+      <span>Notional <span class="data-val" id="paper-notional">--</span></span>
+      <span>Stop Risk <span class="data-val" id="paper-stop-risk">--</span></span>
+      <span>Lev. <span class="data-val" id="paper-leverage">--</span></span>
+      <span>Open <span class="data-val" id="paper-open-count">0</span></span>
+    </div>
+  </div>
+  <div class="chart-wrap">
+    <canvas id="equity-chart" width="1200" height="220"></canvas>
+  </div>
+</div>
+
 <div class="two-col-grid">
   <div class="card">
     <div class="section-heading">OPEN TRADES</div>
@@ -449,6 +493,7 @@ function renderDashboard(data) {
   renderHeader(data);
   renderStatusRow(data);
   renderOperationalEvents(data.operational_events || []);
+  renderEquityChart(data.equity_curve || [], data.paper_account || {});
   renderOpenTrades(data.open_trades || []);
   renderClosedTrades(data.closed_trades || []);
   renderCandidateSignals(data.candidate_signals || []);
@@ -473,9 +518,10 @@ function renderHeader(data) {
 function renderStatusRow(data) {
   const health = data.health || {};
   const account = data.account || {};
+  const paperAccount = data.paper_account || {};
 
   document.getElementById('account-equity').textContent =
-    formatMoney(account.theoretical_equity_usd);
+    formatMoney(paperAccount.equity_usd ?? account.theoretical_equity_usd);
   document.getElementById('risk-per-trade').textContent =
     formatPercent(account.risk_per_trade, 2);
 
@@ -500,6 +546,77 @@ function renderStatusRow(data) {
   const pnlStr = (pnl >= 0 ? '+' : '') + (pnl * 100).toFixed(2) + '%';
   pnlEl.textContent = pnlStr;
   pnlEl.className = 'data-val ' + (pnl >= 0 ? 'pnl-pos' : 'pnl-neg');
+}
+
+function renderEquityChart(points, paperAccount) {
+  document.getElementById('paper-cash').textContent =
+    formatMoney(paperAccount.cash_balance_usd);
+  document.getElementById('paper-notional').textContent =
+    formatMoney(paperAccount.notional_exposure_usd);
+  document.getElementById('paper-stop-risk').textContent =
+    formatMoney(paperAccount.stop_risk_usd);
+  document.getElementById('paper-leverage').textContent =
+    formatNumber(paperAccount.exposure_multiple, 2) + 'x';
+  document.getElementById('paper-open-count').textContent =
+    paperAccount.open_positions || 0;
+
+  const canvas = document.getElementById('equity-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const width = Math.max(320, Math.floor(rect.width || canvas.clientWidth || 1200));
+  const height = Math.max(180, Math.floor(rect.height || canvas.clientHeight || 220));
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+
+  const values = (points && points.length ? points : [{
+    equity_usd: paperAccount.equity_usd || paperAccount.starting_balance_usd || 0,
+  }]).map(point => Number(point.equity_usd)).filter(Number.isFinite);
+  if (values.length === 0) return;
+
+  const pad = 22;
+  const minRaw = Math.min(...values);
+  const maxRaw = Math.max(...values);
+  const span = Math.max(1, maxRaw - minRaw);
+  const min = minRaw - span * 0.08;
+  const max = maxRaw + span * 0.08;
+  const xStep = values.length > 1 ? (width - pad * 2) / (values.length - 1) : 0;
+
+  ctx.strokeStyle = '#252a31';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 4; i += 1) {
+    const y = pad + ((height - pad * 2) * i / 3);
+    ctx.beginPath();
+    ctx.moveTo(pad, y);
+    ctx.lineTo(width - pad, y);
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle = '#00c896';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  values.forEach((value, index) => {
+    const x = pad + xStep * index;
+    const y = height - pad - ((value - min) / (max - min)) * (height - pad * 2);
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  if (values.length === 1) {
+    const y = height / 2;
+    ctx.fillStyle = '#00c896';
+    ctx.beginPath();
+    ctx.arc(width / 2, y, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const last = values[values.length - 1];
+  ctx.fillStyle = '#d8dce3';
+  ctx.font = '12px "Courier New", monospace';
+  ctx.fillText(formatMoney(last), pad, 16);
 }
 
 function renderOperationalEvents(events) {

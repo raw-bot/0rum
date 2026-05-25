@@ -1,10 +1,13 @@
 """Unit tests for src/backtesting/walk_forward.py."""
 
+import math
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 import numpy as np
 import pytest
 
+from src.backtesting.execution_costs import adjust_entry, adjust_exit
 from src.backtesting.walk_forward import (
     MIN_CANDLES_FOR_OPTIMIZER,
     TradeOutcome,
@@ -14,7 +17,7 @@ from src.backtesting.walk_forward import (
     _compute_wfe,
     build_windows,
     multi_window_gate_passes,
-    simulate_trade_outcome,
+    simulate_signal_mode_trade_outcome,
 )
 from tests.test_backtesting.conftest import make_candle
 
@@ -71,9 +74,9 @@ def test_compute_profit_factor_normal_case():
     assert abs(_compute_profit_factor(pnl) - 3.75) < 1e-9
 
 
-def test_compute_profit_factor_no_losers_returns_zero():
+def test_compute_profit_factor_all_winners_returns_inf():
     pnl = np.array([10.0, 20.0])
-    assert _compute_profit_factor(pnl) == 0.0
+    assert math.isinf(_compute_profit_factor(pnl))
 
 
 def test_compute_profit_factor_all_losers():
@@ -156,49 +159,258 @@ def test_data_guard_fails_missing_timeframe():
 
 
 # ---------------------------------------------------------------------------
-# simulate_trade_outcome — BUY direction
+# execution costs
 # ---------------------------------------------------------------------------
 
 
-def _make_sl_hit_candle(entry, sl):
-    """Candle whose low hits the SL (BUY scenario)."""
-    ts = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    return make_candle(ts, close=entry, high=entry + 5, low=sl - 0.01)
+def test_adjust_entry_applies_half_spread_plus_slippage():
+    assert adjust_entry(
+        "BUY",
+        Decimal("3300"),
+        Decimal("0.30"),
+        Decimal("0.10"),
+    ) == Decimal("3300.25")
+    assert adjust_entry(
+        "SELL",
+        Decimal("3300"),
+        Decimal("0.30"),
+        Decimal("0.10"),
+    ) == Decimal("3299.75")
 
 
-def _make_tp1_hit_candle(entry, tp1):
-    """Candle whose high hits TP1 (BUY scenario)."""
-    ts = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    return make_candle(ts, close=entry, high=tp1 + 0.01, low=entry - 1)
+def test_adjust_exit_is_symmetric_to_entry():
+    assert adjust_exit(
+        "BUY",
+        Decimal("3300"),
+        Decimal("0.30"),
+        Decimal("0.10"),
+    ) == Decimal("3299.75")
+    assert adjust_exit(
+        "SELL",
+        Decimal("3300"),
+        Decimal("0.30"),
+        Decimal("0.10"),
+    ) == Decimal("3300.25")
 
 
-def test_simulate_trade_outcome_buy_sl():
-    candle = _make_sl_hit_candle(entry=2300, sl=2290)
-    outcome, pnl = simulate_trade_outcome("BUY", 2300, 2290, 2315, None, [candle])
+def _make_h1_context(start, count=20, close=100.0, high=101.0, low=99.0):
+    return [
+        make_candle(start + timedelta(hours=i), close=close, high=high, low=low)
+        for i in range(count)
+    ]
+
+
+def test_signal_mode_simulation_uses_tp1_partial_and_trailing_blended_pnl():
+    """Backtest validation must mirror signal-mode TP1 partial + ATR trailing."""
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    h1_context = _make_h1_context(start, count=20, close=100.0, high=101.0, low=99.0)
+    m15_candles = [
+        make_candle(start + timedelta(hours=20), close=112, high=113, low=108),
+        make_candle(start + timedelta(hours=20, minutes=15), close=109, high=111, low=109),
+    ]
+
+    outcome, pnl_pct = simulate_signal_mode_trade_outcome(
+        direction="BUY",
+        entry=Decimal("100"),
+        sl=Decimal("90"),
+        tp1=Decimal("112"),
+        tp2=Decimal("140"),
+        subsequent_m15_candles=m15_candles,
+        h1_candles=h1_context,
+        size_lots=Decimal("1"),
+        equity_at_open=Decimal("100"),
+        contract_size=Decimal("1"),
+        spread_usd=Decimal("0"),
+        slippage_usd=Decimal("0"),
+    )
+
+    assert outcome == TradeOutcome.TRAIL
+    assert pnl_pct == pytest.approx(0.11)
+
+
+def test_signal_mode_simulation_trail_wins_post_tp1_tie():
+    """Post-TP1 tie must match live monitor: trailing stop wins before TP2."""
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    h1_context = _make_h1_context(start, count=20, close=100.0, high=101.0, low=99.0)
+    m15_candles = [
+        make_candle(start + timedelta(hours=20), close=112, high=113, low=108),
+        make_candle(start + timedelta(hours=20, minutes=15), close=118, high=130, low=111),
+    ]
+
+    outcome, pnl_pct = simulate_signal_mode_trade_outcome(
+        direction="BUY",
+        entry=Decimal("100"),
+        sl=Decimal("90"),
+        tp1=Decimal("112"),
+        tp2=Decimal("125"),
+        subsequent_m15_candles=m15_candles,
+        h1_candles=h1_context,
+        size_lots=Decimal("1"),
+        equity_at_open=Decimal("100"),
+        contract_size=Decimal("1"),
+        spread_usd=Decimal("0"),
+        slippage_usd=Decimal("0"),
+    )
+
+    assert outcome == TradeOutcome.TRAIL
+    assert pnl_pct == pytest.approx(0.20)
+
+
+def test_signal_mode_simulation_returns_account_return_not_price_return():
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    h1_context = _make_h1_context(start, count=20, close=3300.0, high=3300.0, low=3300.0)
+    m15_candles = [
+        make_candle(start + timedelta(hours=20), close=3310, high=3311, low=3299),
+        make_candle(start + timedelta(hours=20, minutes=15), close=3310, high=3311, low=3309),
+    ]
+
+    outcome, pnl_pct = simulate_signal_mode_trade_outcome(
+        direction="BUY",
+        entry=Decimal("3300"),
+        sl=Decimal("3290"),
+        tp1=Decimal("3310"),
+        tp2=Decimal("3310"),
+        subsequent_m15_candles=m15_candles,
+        h1_candles=h1_context,
+        size_lots=Decimal("0.10"),
+        equity_at_open=Decimal("10000"),
+        contract_size=Decimal("100"),
+        spread_usd=Decimal("0"),
+        slippage_usd=Decimal("0"),
+    )
+
+    assert outcome == TradeOutcome.TP2
+    assert pnl_pct == pytest.approx(0.01)
+    price_return = float((Decimal("3310") - Decimal("3300")) / Decimal("3300"))
+    assert pnl_pct != pytest.approx(price_return)
+
+
+def test_signal_mode_simulation_applies_spread_and_slippage_to_entry_and_exit():
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    h1_context = _make_h1_context(start, count=20, close=3300.0, high=3300.0, low=3300.0)
+    m15_candles = [
+        make_candle(start + timedelta(hours=20), close=3310, high=3311, low=3299),
+        make_candle(start + timedelta(hours=20, minutes=15), close=3310, high=3311, low=3309),
+    ]
+
+    _, pnl_pct = simulate_signal_mode_trade_outcome(
+        direction="BUY",
+        entry=Decimal("3300"),
+        sl=Decimal("3290"),
+        tp1=Decimal("3310"),
+        tp2=Decimal("3310"),
+        subsequent_m15_candles=m15_candles,
+        h1_candles=h1_context,
+        size_lots=Decimal("0.10"),
+        equity_at_open=Decimal("10000"),
+        contract_size=Decimal("100"),
+        spread_usd=Decimal("0.30"),
+        slippage_usd=Decimal("0.10"),
+    )
+
+    assert pnl_pct == pytest.approx(0.0095)
+
+
+def test_signal_mode_simulation_returns_quantized_accounting_details():
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    h1_context = _make_h1_context(start, count=20, close=100.0, high=101.0, low=99.0)
+    m15_candles = [
+        make_candle(start + timedelta(hours=20), close=99.9498, high=100, low=99.94),
+    ]
+
+    result = simulate_signal_mode_trade_outcome(
+        direction="BUY",
+        entry=Decimal("100"),
+        sl=Decimal("99.9498"),
+        tp1=Decimal("110"),
+        tp2=None,
+        subsequent_m15_candles=m15_candles,
+        h1_candles=h1_context,
+        size_lots=Decimal("0.20"),
+        equity_at_open=Decimal("100"),
+        contract_size=Decimal("100"),
+        spread_usd=Decimal("0"),
+        slippage_usd=Decimal("0"),
+        opened_at=start + timedelta(hours=19),
+        trade_expiry_hours=72,
+    )
+
+    outcome, pnl_pct = result
     assert outcome == TradeOutcome.SL
-    assert abs(pnl - (-10.0)) < 1e-9
+    assert pnl_pct == pytest.approx(-0.01)
+    assert result.pnl_usd == Decimal("-1.00")
+    assert result.pnl_pct == Decimal("-0.01000")
+    assert result.closed_at == start + timedelta(hours=20)
 
 
-def test_simulate_trade_outcome_buy_tp1():
-    candle = _make_tp1_hit_candle(entry=2300, tp1=2315)
-    outcome, pnl = simulate_trade_outcome("BUY", 2300, 2290, 2315, None, [candle])
-    assert outcome == TradeOutcome.TP1
-    assert abs(pnl - 15.0) < 1e-9
+def test_signal_mode_simulation_expires_before_touch_checks_at_candle_close():
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    opened_at = start + timedelta(hours=19)
+    expiry_candle_ts = opened_at + timedelta(hours=2)
+    h1_context = _make_h1_context(start, count=24, close=100.0, high=101.0, low=99.0)
+    m15_candles = [
+        make_candle(expiry_candle_ts, close=101, high=111, low=89),
+    ]
+
+    result = simulate_signal_mode_trade_outcome(
+        direction="BUY",
+        entry=Decimal("100"),
+        sl=Decimal("90"),
+        tp1=Decimal("110"),
+        tp2=None,
+        subsequent_m15_candles=m15_candles,
+        h1_candles=h1_context,
+        size_lots=Decimal("1"),
+        equity_at_open=Decimal("10000"),
+        contract_size=Decimal("100"),
+        spread_usd=Decimal("0"),
+        slippage_usd=Decimal("0"),
+        opened_at=opened_at,
+        trade_expiry_hours=2,
+    )
+
+    outcome, pnl_pct = result
+    assert outcome == TradeOutcome.EXPIRED
+    assert result.closed_at == expiry_candle_ts
+    assert result.pnl_usd == Decimal("100.00")
+    assert pnl_pct == pytest.approx(0.01)
 
 
-def test_simulate_trade_outcome_sell_sl():
-    # SL above entry for SELL
-    ts = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    candle = make_candle(ts, close=2300, high=2310 + 0.01, low=2295)
-    outcome, pnl = simulate_trade_outcome("SELL", 2300, 2310, 2285, None, [candle])
-    assert outcome == TradeOutcome.SL
-    assert abs(pnl - (-10.0)) < 1e-9
+def test_signal_mode_simulation_zero_size_or_equity_returns_zero():
+    start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    h1_context = _make_h1_context(start, count=20, close=3300.0, high=3301.0, low=3299.0)
+    m15_candles = [
+        make_candle(start + timedelta(hours=20), close=3310, high=3311, low=3299),
+    ]
 
+    _, no_size = simulate_signal_mode_trade_outcome(
+        direction="BUY",
+        entry=Decimal("3300"),
+        sl=Decimal("3290"),
+        tp1=Decimal("3310"),
+        tp2=None,
+        subsequent_m15_candles=m15_candles,
+        h1_candles=h1_context,
+        size_lots=Decimal("0"),
+        equity_at_open=Decimal("10000"),
+        contract_size=Decimal("100"),
+        spread_usd=Decimal("0.30"),
+        slippage_usd=Decimal("0.10"),
+    )
+    _, no_equity = simulate_signal_mode_trade_outcome(
+        direction="BUY",
+        entry=Decimal("3300"),
+        sl=Decimal("3290"),
+        tp1=Decimal("3310"),
+        tp2=None,
+        subsequent_m15_candles=m15_candles,
+        h1_candles=h1_context,
+        size_lots=Decimal("0.10"),
+        equity_at_open=Decimal("0"),
+        contract_size=Decimal("100"),
+        spread_usd=Decimal("0.30"),
+        slippage_usd=Decimal("0.10"),
+    )
 
-def test_simulate_trade_outcome_open_no_hit():
-    # Candle that hits neither SL nor TP
-    ts = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    candle = make_candle(ts, close=2300, high=2305, low=2295)
-    outcome, pnl = simulate_trade_outcome("BUY", 2300, 2290, 2315, None, [candle])
-    assert outcome == TradeOutcome.OPEN
-    assert pnl == 0.0
+    assert no_size == 0.0
+    assert no_equity == 0.0

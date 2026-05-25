@@ -4,10 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from decimal import Decimal
 from enum import Enum
 
 import numpy as np
 import structlog
+
+from src.backtesting.execution_costs import calculate_trade_accounting
+from src.indicators.atr import atr_wilder
 
 log = structlog.get_logger(__name__)
 
@@ -45,8 +49,25 @@ class TradeOutcome(Enum):
 
     TP1 = "tp1"
     TP2 = "tp2"
+    TRAIL = "trail"
     SL = "sl"
+    EXPIRED = "expired"
     OPEN = "open"
+
+
+@dataclass(frozen=True)
+class SimulatedSignalOutcome:
+    """Cost-adjusted simulated outcome with legacy two-value unpacking support."""
+
+    outcome: TradeOutcome
+    pnl: float
+    pnl_usd: Decimal
+    pnl_pct: Decimal
+    closed_at: datetime | None
+
+    def __iter__(self):
+        yield self.outcome
+        yield self.pnl
 
 
 def build_windows(
@@ -94,7 +115,7 @@ def build_windows(
 def _compute_profit_factor(pnl_array: np.ndarray) -> float:
     """Compute profit factor = sum(winners) / abs(sum(losers)).
 
-    Returns 0.0 when there are no losers (degenerate — not treated as profitable).
+    Returns infinity when there are winners and no losers.
 
     Args:
         pnl_array: 1-D numpy array of per-trade P&L floats.
@@ -105,7 +126,7 @@ def _compute_profit_factor(pnl_array: np.ndarray) -> float:
     winners = pnl_array[pnl_array > 0]
     losers = pnl_array[pnl_array < 0]
     if len(losers) == 0 or losers.sum() == 0:
-        return 0.0
+        return float("inf") if len(winners) > 0 and winners.sum() > 0 else 0.0
     return float(winners.sum() / abs(losers.sum()))
 
 
@@ -123,6 +144,8 @@ def _compute_wfe(is_pf: float, oos_pf: float) -> float:
     """
     if is_pf == 0.0:
         return 0.0
+    if np.isinf(is_pf) and np.isinf(oos_pf):
+        return float("inf")
     return oos_pf / is_pf
 
 
@@ -168,53 +191,171 @@ def _check_sufficient_data(candles_by_tf: dict[str, list]) -> bool:
     return True
 
 
-def simulate_trade_outcome(
+def _calculate_atr(candles: list, period: int = 14) -> float:
+    """Compute shared Wilder ATR for trade simulation."""
+    if len(candles) < period + 1:
+        return 0.0
+    return atr_wilder(candles, period=period)
+
+
+def _h1_atr_asof(h1_candles: list, timestamp: datetime, period: int = 14) -> float:
+    """Return ATR(H1) using candles available at or before timestamp."""
+    available = [c for c in h1_candles if c.timestamp <= timestamp]
+    return _calculate_atr(available[-20:], period=period)
+
+
+def simulate_signal_mode_trade_outcome(
     direction: str,
-    entry: float,
-    sl: float,
-    tp1: float,
-    tp2: float | None,
-    subsequent_candles: list,
-) -> tuple[TradeOutcome, float]:
-    """Simulate trade outcome from subsequent candles (oldest-first).
+    entry: Decimal,
+    sl: Decimal,
+    tp1: Decimal,
+    tp2: Decimal | None,
+    subsequent_m15_candles: list,
+    h1_candles: list,
+    size_lots: Decimal,
+    equity_at_open: Decimal,
+    contract_size: Decimal,
+    spread_usd: Decimal,
+    slippage_usd: Decimal,
+    opened_at: datetime | None = None,
+    trade_expiry_hours: int | None = None,
+) -> SimulatedSignalOutcome:
+    """Simulate the signal-mode lifecycle used by live theoretical monitoring.
 
-    Checks each candle's high and low to determine which price level is hit
-    first. SL takes priority over TP within the same candle.
-
-    direction must be "BUY" or "SELL" — matching Direction.value from CandidateSignal.
-
-    Args:
-        direction: "BUY" or "SELL".
-        entry: Entry price as float.
-        sl: Stop-loss price as float.
-        tp1: Take-profit 1 price as float.
-        tp2: Take-profit 2 price as float, or None.
-        subsequent_candles: Candle ORM/MagicMock objects ordered oldest-newest.
-            Each must have .high and .low as Decimal or float-castable.
-
-    Returns:
-        Tuple of (TradeOutcome, pnl_in_price_units). pnl is positive for
-        winners and negative for losers. OPEN returns pnl=0.0.
+    Mirrors src.scheduler.jobs._process_trade/_close_trade:
+    - M15 candle high/low determines touches.
+    - Before TP1, SL wins same-candle ties.
+    - At TP1, half is considered realized and an ATR(H1) trailing stop starts.
+    - After TP1, trailing stop ratchets and wins ties against TP2.
+    - P&L is returned as account return, matching TradeORM.pnl_pct.
     """
-    risk = abs(entry - sl)
+    if equity_at_open <= 0 or size_lots <= 0:
+        return SimulatedSignalOutcome(
+            outcome=TradeOutcome.OPEN,
+            pnl=0.0,
+            pnl_usd=Decimal("0.00"),
+            pnl_pct=Decimal("0.00000"),
+            closed_at=None,
+        )
 
-    for candle in subsequent_candles:
-        high = float(candle.high)
-        low = float(candle.low)
+    status = "OPEN"
+    trailing_stop: float | None = None
 
-        if direction == "BUY":
-            if low <= sl:
-                return TradeOutcome.SL, -risk
-            if tp2 is not None and high >= tp2:
-                return TradeOutcome.TP2, abs(tp2 - entry)
-            if high >= tp1:
-                return TradeOutcome.TP1, abs(tp1 - entry)
-        else:  # SELL
-            if high >= sl:
-                return TradeOutcome.SL, -risk
-            if tp2 is not None and low <= tp2:
-                return TradeOutcome.TP2, abs(tp2 - entry)
-            if low <= tp1:
-                return TradeOutcome.TP1, abs(tp1 - entry)
+    sl_level = float(sl)
+    tp1_level = float(tp1)
+    tp2_level = float(tp2) if tp2 is not None else None
 
-    return TradeOutcome.OPEN, 0.0
+    def sl_touched(candle) -> bool:
+        return (
+            float(candle.low) <= sl_level
+            if direction == "BUY"
+            else float(candle.high) >= sl_level
+        )
+
+    def tp1_touched(candle) -> bool:
+        return (
+            float(candle.high) >= tp1_level
+            if direction == "BUY"
+            else float(candle.low) <= tp1_level
+        )
+
+    def tp2_touched(candle) -> bool:
+        if tp2_level is None:
+            return False
+        return (
+            float(candle.high) >= tp2_level
+            if direction == "BUY"
+            else float(candle.low) <= tp2_level
+        )
+
+    def trail_touched(candle) -> bool:
+        if trailing_stop is None:
+            return False
+        return (
+            float(candle.low) <= trailing_stop
+            if direction == "BUY"
+            else float(candle.high) >= trailing_stop
+        )
+
+    def close_result(
+        exit_price: Decimal,
+        outcome: TradeOutcome,
+        closed_at: datetime | None,
+    ) -> SimulatedSignalOutcome:
+        accounting = calculate_trade_accounting(
+            direction=direction,
+            entry_price=entry,
+            exit_price=exit_price,
+            tp1_price=tp1,
+            size_lots=size_lots,
+            equity_base=equity_at_open,
+            contract_size=contract_size,
+            spread_usd=spread_usd,
+            slippage_usd=slippage_usd,
+            close_reason=outcome.name,
+            original_status=status,
+        )
+        return SimulatedSignalOutcome(
+            outcome=outcome,
+            pnl=float(accounting.pnl_pct),
+            pnl_usd=accounting.pnl_usd,
+            pnl_pct=accounting.pnl_pct,
+            closed_at=closed_at,
+        )
+
+    expiry_at = (
+        opened_at + timedelta(hours=trade_expiry_hours)
+        if opened_at is not None and trade_expiry_hours is not None
+        else None
+    )
+
+    for candle in subsequent_m15_candles:
+        if expiry_at is not None and candle.timestamp >= expiry_at:
+            return close_result(
+                Decimal(str(candle.close)),
+                TradeOutcome.EXPIRED,
+                candle.timestamp,
+            )
+
+        if status == "OPEN":
+            if sl_touched(candle):
+                return close_result(sl, TradeOutcome.SL, candle.timestamp)
+            if tp1_touched(candle):
+                status = "TP1_HIT"
+                atr_h1 = _h1_atr_asof(h1_candles, candle.timestamp)
+                if atr_h1 > 0:
+                    trailing_stop = (
+                        float(tp1) - atr_h1
+                        if direction == "BUY"
+                        else float(tp1) + atr_h1
+                    )
+                continue
+
+        if status == "TP1_HIT":
+            atr_h1 = _h1_atr_asof(h1_candles, candle.timestamp)
+            if atr_h1 > 0:
+                if direction == "BUY":
+                    new_trail = float(candle.high) - atr_h1
+                    if trailing_stop is None or new_trail > trailing_stop:
+                        trailing_stop = new_trail
+                else:
+                    new_trail = float(candle.low) + atr_h1
+                    if trailing_stop is None or new_trail < trailing_stop:
+                        trailing_stop = new_trail
+
+            if trail_touched(candle) and trailing_stop is not None:
+                return close_result(
+                    Decimal(str(trailing_stop)),
+                    TradeOutcome.TRAIL,
+                    candle.timestamp,
+                )
+            if tp2_touched(candle) and tp2 is not None:
+                return close_result(tp2, TradeOutcome.TP2, candle.timestamp)
+
+    return SimulatedSignalOutcome(
+        outcome=TradeOutcome.OPEN,
+        pnl=0.0,
+        pnl_usd=Decimal("0.00"),
+        pnl_pct=Decimal("0.00000"),
+        closed_at=None,
+    )

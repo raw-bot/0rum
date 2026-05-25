@@ -67,6 +67,7 @@ async def test_risk_rejection_no_approved_orm():
 
     with (
         patch("src.pipeline.runner.RegimeDetector") as mock_rd_cls,
+        patch("src.pipeline.runner.dedup_against_recent_approvals", new_callable=AsyncMock) as mock_db_dedup,
         patch("src.pipeline.runner.rank_signals", new_callable=AsyncMock) as mock_rank,
         patch("src.pipeline.runner.apply_quota", new_callable=AsyncMock) as mock_quota,
         patch("src.pipeline.runner.RiskGateRunner") as mock_rgr_cls,
@@ -78,6 +79,7 @@ async def test_risk_rejection_no_approved_orm():
         mock_rd_cls.return_value = mock_rd
 
         mock_rank.return_value = [(buy, 0.72)]
+        mock_db_dedup.return_value = ([buy], [])
         mock_quota.return_value = ([(buy, 0.72)], [])
         mock_settings.return_value.max_signals_per_day = 5
 
@@ -108,6 +110,7 @@ async def test_risk_acceptance_path_creates_approved_orm():
 
     with (
         patch("src.pipeline.runner.RegimeDetector") as mock_rd_cls,
+        patch("src.pipeline.runner.dedup_against_recent_approvals", new_callable=AsyncMock) as mock_db_dedup,
         patch("src.pipeline.runner.rank_signals", new_callable=AsyncMock) as mock_rank,
         patch("src.pipeline.runner.apply_quota", new_callable=AsyncMock) as mock_quota,
         patch("src.pipeline.runner.RiskGateRunner") as mock_rgr_cls,
@@ -119,6 +122,7 @@ async def test_risk_acceptance_path_creates_approved_orm():
         mock_rd_cls.return_value = mock_rd
 
         mock_rank.return_value = [(buy, 0.72)]
+        mock_db_dedup.return_value = ([buy], [])
         mock_quota.return_value = ([(buy, 0.72)], [])
         mock_settings.return_value.max_signals_per_day = 5
 
@@ -128,6 +132,11 @@ async def test_risk_acceptance_path_creates_approved_orm():
                 passed=True,
                 reason=None,
                 concentration_reduced=False,
+                equity_usd=Decimal("10000.00"),
+                candidate_notional_usd=Decimal("33000.00"),
+                notional_after_usd=Decimal("33000.00"),
+                stop_risk_after_usd=Decimal("100.00"),
+                exposure_multiple_after=Decimal("3.30"),
                 sizing=PositionSizing(
                     risk_pct=0.01,
                     risk_amount_usd=Decimal("100.00"),
