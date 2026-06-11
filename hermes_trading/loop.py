@@ -104,6 +104,19 @@ def should_record_signal(current_signal_id: str, recent_trades: list[dict]) -> b
     return all(trade.get("signal_id") != current_signal_id for trade in recent_trades)
 
 
+def is_duplicate_close(closed_trade: dict | None, trades: list[dict]) -> bool:
+    """True when this position's close was already recorded.
+
+    A crash between appending the closed trade and unlinking
+    open_position.json leaves the position behind; on restart it would be
+    closed and counted a second time. A position's signal_id is unique, so a
+    recorded trade with the same signal_id means the close already happened."""
+    if not closed_trade:
+        return False
+    signal = closed_trade.get("signal_id")
+    return signal is not None and any(trade.get("signal_id") == signal for trade in trades)
+
+
 def position_is_stale(position: dict, *, now: datetime | None = None, max_age_hours: float | None = None) -> bool:
     """A position older than max_age_hours means the worker was down for a
     long stretch; closing it against the current price would record a trade
@@ -370,6 +383,14 @@ async def run_loop(goal: dict) -> None:
             elif position and not offline:
                 closed_trade = close_position_if_needed(position, strategy, market, rsi, regime)
             else:
+                closed_trade = None
+
+            if closed_trade and is_duplicate_close(closed_trade, all_trades):
+                _quarantine_position(
+                    position or {},
+                    "a trade with this signal_id is already recorded; discarding duplicate close after crash",
+                )
+                position = None
                 closed_trade = None
 
             if closed_trade:
