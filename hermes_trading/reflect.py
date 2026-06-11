@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import subprocess
@@ -153,20 +154,51 @@ def _extract_json(text: str) -> dict:
         return json.loads(match.group(0))
 
 
+# Hard bounds enforced in code; the prompt states the same limits, but the
+# model output is untrusted and must not be applied verbatim.
+VARIABLE_BOUNDS = {
+    "entry.threshold": (10.0, 45.0),
+    "stop_loss_pct": (0.5, 5.0),
+    "position_size_r": (0.5, 0.75),
+}
+
+
+def _reject(hypothesis: dict, reason: str) -> dict:
+    hypothesis.update(changed=False, rejected=True, reason=reason)
+    return hypothesis
+
+
 def _apply_hypothesis(strategy: dict, hypothesis: dict) -> dict:
     if not hypothesis.get("changed"):
         return hypothesis
 
     variable = hypothesis.get("variable")
-    value = hypothesis.get("new_value")
+    if variable not in VARIABLE_BOUNDS:
+        return _reject(hypothesis, f"rejected: unsupported Hermes variable {variable!r}")
+
+    raw_value = hypothesis.get("new_value")
+    try:
+        value = float(raw_value)
+    except (TypeError, ValueError):
+        return _reject(hypothesis, f"rejected: new_value {raw_value!r} is not a number")
+    if math.isnan(value):
+        return _reject(hypothesis, "rejected: new_value is NaN")
+
+    lower, upper = VARIABLE_BOUNDS[variable]
+    clamped = min(upper, max(lower, value))
+    if clamped != value:
+        hypothesis["requested_value"] = value
+        hypothesis["reason"] = (
+            f"clamped {variable} from {value} to [{lower}, {upper}]; {hypothesis.get('reason', '')}".strip()
+        )
+    hypothesis["new_value"] = clamped
+
     if variable == "entry.threshold":
-        strategy.setdefault("entry", {})["threshold"] = float(value)
+        strategy.setdefault("entry", {})["threshold"] = clamped
     elif variable == "stop_loss_pct":
-        strategy["stop_loss_pct"] = float(value)
+        strategy["stop_loss_pct"] = clamped
     elif variable == "position_size_r":
-        strategy["position_size_r"] = float(value)
-    else:
-        raise ValueError(f"unsupported Hermes variable: {variable!r}")
+        strategy["position_size_r"] = clamped
     return hypothesis
 
 
