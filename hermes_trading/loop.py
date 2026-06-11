@@ -348,13 +348,14 @@ def market_decision(
     }
 
 
-async def run_loop(goal: dict) -> None:
+async def run_loop(goal: dict, *, iterations: int | None = None) -> None:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     log_event("worker_boot", "Booting hermes-trading worker", asset=goal.get("asset", "BTC/USDT"))
     consecutive_failures = 0
     interval = int(os.getenv("HERMES_LOOP_INTERVAL_SECONDS", "60"))
     last_price_source: str | None = None
     last_guardrail: str | None = None
+    completed = 0
 
     while True:
         try:
@@ -496,4 +497,7 @@ async def run_loop(goal: dict) -> None:
             if consecutive_failures >= 5:
                 log_event("worker_abort", "5 consecutive failures; worker is exiting and needs a restart")
                 raise
+        completed += 1
+        if iterations is not None and completed >= iterations:
+            return
         await asyncio.sleep(interval)
