@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import shutil
 import subprocess
 import sys
@@ -358,9 +359,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_json(500, {"ok": False, "error": str(exc)})
 
 
+def _bind_address() -> tuple[str, int]:
+    host = os.getenv("HERMES_DASHBOARD_HOST", "127.0.0.1")
+    try:
+        port = int(os.getenv("HERMES_DASHBOARD_PORT", "8787"))
+    except ValueError:
+        port = 8787
+    return host, port
+
+
 def main() -> None:
-    host = "127.0.0.1"
-    port = 8787
+    host, port = _bind_address()
     server = ThreadingHTTPServer((host, port), DashboardHandler)
     print(f"Hermes dashboard running at http://{host}:{port}", flush=True)
     server.serve_forever()
