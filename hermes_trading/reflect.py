@@ -116,12 +116,22 @@ def _cooldown_status(goal: dict, trades: list[dict], hypotheses: list[dict]) -> 
     }
 
 
+def _worst_daily_return(trades: list[dict], returns: list[float]) -> float:
+    """Worst single-day sum of account returns (daily_loss_limit is a daily
+    figure; comparing it to one trade was both too lax and mislabelled)."""
+    daily: dict[str, float] = {}
+    for trade, item in zip(trades, returns):
+        day = str(trade.get("ts", ""))[:10]
+        daily[day] = daily.get(day, 0.0) + item
+    return min(daily.values()) if daily else 0.0
+
+
 def _fallback(strategy: dict, goal: dict, trades: list[dict], hypotheses: list[dict] | None = None) -> dict:
     hypotheses = hypotheses or []
     current_score = score(trades, goal)
     returns = account_returns(trades, goal)
     realised = sum(returns)
-    worst_trade = min(returns) if returns else 0.0
+    worst_day = _worst_daily_return(trades, returns)
 
     hypothesis = {
         "ts": _now(),
@@ -141,7 +151,7 @@ def _fallback(strategy: dict, goal: dict, trades: list[dict], hypotheses: list[d
         return hypothesis
 
     candidate: tuple[str, str, str] | None = None
-    if worst_trade <= -float(goal.get("daily_loss_limit", 0.015)):
+    if worst_day <= -float(goal.get("daily_loss_limit", 0.015)):
         candidate = (
             "daily_loss_guardrail",
             "position_size_r",
