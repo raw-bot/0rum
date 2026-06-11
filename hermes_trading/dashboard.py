@@ -263,8 +263,16 @@ def build_snapshot() -> dict:
     losses = [item for item in returns if item < 0]
     drawdown = _max_drawdown(trades, goal)
     reflection_every = int(goal.get("reflection_every", 10))
-    remainder = len(trades) % reflection_every if reflection_every else 0
-    remaining = 0 if len(trades) >= reflection_every and remainder == 0 else reflection_every - remainder
+    # Same gating as hermes_watch.maybe_reflect_once: trades closed since the
+    # last recorded hypothesis, not the total count modulo the cadence.
+    latest_reflection_ts = hypotheses[-1].get("ts") if hypotheses else None
+    pending_trades = (
+        [trade for trade in trades if str(trade.get("ts", "")) > str(latest_reflection_ts)]
+        if latest_reflection_ts
+        else trades
+    )
+    progress = min(len(pending_trades), reflection_every) if reflection_every else 0
+    remaining = max(0, reflection_every - len(pending_trades)) if reflection_every else 0
 
     return {
         "asset": goal.get("asset", "BTC/USDT"),
@@ -295,9 +303,9 @@ def build_snapshot() -> dict:
         "guardrail": _guardrail_status(drawdown, goal),
         "reflection": {
             "every": reflection_every,
-            "progress": remainder,
+            "progress": progress,
             "remaining": remaining,
-            "ready": len(trades) >= reflection_every,
+            "ready": len(pending_trades) >= reflection_every,
         },
     }
 
