@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 import aiofiles
 import yaml
 
+from hermes_trading.accounting import compound_balance
 from hermes_trading.adapters import macro, news, onchain, price
 from hermes_trading.adapters.base import require_schema
 from hermes_trading.market_regime import rolling_return_regime
@@ -65,11 +66,13 @@ async def _write_json(path, payload: dict) -> None:
         await handle.write(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
-def _load_recent_trades(limit: int = 50) -> list[dict]:
+def _load_recent_trades(limit: int | None = 50) -> list[dict]:
     if not TRADES_PATH.exists():
         return []
     lines = [line for line in TRADES_PATH.read_text().splitlines() if line.strip()]
-    return [json.loads(line) for line in lines[-limit:]]
+    if limit is not None:
+        lines = lines[-limit:]
+    return [json.loads(line) for line in lines]
 
 
 def price_is_offline(market: dict) -> bool:
@@ -293,6 +296,11 @@ async def run_loop(goal: dict) -> None:
             )
 
             if closed_trade:
+                balance_before = compound_balance(_load_recent_trades(limit=None), goal)
+                net = float(closed_trade.get("net_pnl_usd", 0.0))
+                closed_trade["balance_before_usd"] = balance_before
+                closed_trade["balance_after_usd"] = balance_before + net
+                closed_trade["account_return"] = net / balance_before if balance_before > 0 else 0.0
                 await _append_jsonl(TRADES_PATH, closed_trade)
                 POSITION_PATH.unlink(missing_ok=True)
                 position = None

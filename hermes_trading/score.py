@@ -3,6 +3,8 @@ from __future__ import annotations
 import math
 from statistics import mean, pstdev
 
+from hermes_trading.accounting import account_returns
+
 
 def _max_drawdown(returns: list[float]) -> float:
     equity = 1.0
@@ -20,7 +22,7 @@ def _clip(value: float, lower: float = -1.0, upper: float = 1.0) -> float:
 
 
 def score(trades: list[dict], goal: dict) -> float:
-    returns = [float(trade.get("pnl_pct", 0.0)) for trade in trades]
+    returns = account_returns(trades, goal)
     if not returns:
         return 0.0
 

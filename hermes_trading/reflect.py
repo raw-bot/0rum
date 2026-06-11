@@ -11,6 +11,7 @@ from pathlib import Path
 
 import yaml
 
+from hermes_trading.accounting import account_returns
 from hermes_trading.paths import GOAL_PATH, HISTORY_DIR, HYPOTHESES_PATH, STRATEGY_PATH, TRADES_PATH
 from hermes_trading.score import score
 
@@ -65,7 +66,7 @@ def _prior_issue_count(hypotheses: list[dict], issue: str) -> int:
 def _fallback(strategy: dict, goal: dict, trades: list[dict], hypotheses: list[dict] | None = None) -> dict:
     hypotheses = hypotheses or []
     current_score = score(trades, goal)
-    returns = [float(trade.get("pnl_pct", 0.0)) for trade in trades]
+    returns = account_returns(trades, goal)
     realised = sum(returns)
     worst_trade = min(returns) if returns else 0.0
 

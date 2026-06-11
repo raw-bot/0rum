@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 
 import yaml
 
+from hermes_trading.accounting import account_returns, compound_balance
 from hermes_trading.paths import STATE_DIR
 from hermes_trading.score import score
 
@@ -43,21 +44,20 @@ def _read_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
-def _compound_return(trades: list[dict]) -> float:
+def _compound_return(trades: list[dict], goal: dict) -> float:
     if not trades:
         return 0.0
-    return math.prod(1.0 + float(trade.get("pnl_pct", 0.0)) for trade in trades) - 1.0
+    return math.prod(1.0 + item for item in account_returns(trades, goal)) - 1.0
 
 
 def _portfolio(trades: list[dict], goal: dict) -> dict:
     starting_balance = float(goal.get("starting_balance_usd", 10000.0))
-    compound_return = _compound_return(trades)
-    balance = starting_balance * (1.0 + compound_return)
+    balance = compound_balance(trades, goal)
     return {
         "starting_balance_usd": starting_balance,
         "balance_usd": balance,
         "pnl_usd": balance - starting_balance,
-        "pnl_pct": compound_return,
+        "pnl_pct": (balance / starting_balance - 1.0) if starting_balance else 0.0,
     }
 
 
@@ -96,12 +96,12 @@ def _open_position(position: dict, heartbeat: dict, strategy: dict) -> dict:
     }
 
 
-def _max_drawdown(trades: list[dict]) -> float:
+def _max_drawdown(trades: list[dict], goal: dict) -> float:
     equity = 1.0
     peak = 1.0
     worst = 0.0
-    for trade in trades:
-        equity *= 1.0 + float(trade.get("pnl_pct", 0.0))
+    for item in account_returns(trades, goal):
+        equity *= 1.0 + item
         peak = max(peak, equity)
         worst = min(worst, (equity - peak) / peak)
     return abs(worst)
@@ -142,13 +142,14 @@ def _candles_from_trades(trades: list[dict]) -> list[dict]:
     return candles
 
 
-def _equity_curve(trades: list[dict]) -> list[dict]:
+def _equity_curve(trades: list[dict], goal: dict) -> list[dict]:
     equity = 1.0
     points: list[dict] = []
-    for index, trade in enumerate(trades[-48:], start=1):
-        equity *= 1.0 + float(trade.get("pnl_pct", 0.0))
+    returns = account_returns(trades, goal)
+    for index, (trade, item) in enumerate(zip(trades, returns), start=1):
+        equity *= 1.0 + item
         points.append({"index": index, "ts": trade.get("ts"), "equity": equity})
-    return points
+    return points[-48:]
 
 
 def _decisions(hypotheses: list[dict]) -> list[dict]:
@@ -257,10 +258,10 @@ def build_snapshot() -> dict:
     hypotheses = _read_jsonl(STATE_DIR / "hypotheses.jsonl")
     history = sorted((STATE_DIR / "history").glob("*.yaml")) if (STATE_DIR / "history").exists() else []
 
-    returns = [float(trade.get("pnl_pct", 0.0)) for trade in trades]
+    returns = account_returns(trades, goal)
     wins = [item for item in returns if item > 0]
     losses = [item for item in returns if item < 0]
-    drawdown = _max_drawdown(trades)
+    drawdown = _max_drawdown(trades, goal)
     reflection_every = int(goal.get("reflection_every", 10))
     remainder = len(trades) % reflection_every if reflection_every else 0
     remaining = 0 if len(trades) >= reflection_every and remainder == 0 else reflection_every - remainder
@@ -272,9 +273,9 @@ def build_snapshot() -> dict:
         "open_position": _open_position(open_position, heartbeat, strategy),
         "last_price": float(heartbeat.get("last_price", 0.0) or (trades[-1].get("exit_price", 0.0) if trades else 0.0)),
         "candles": _candles_from_trades(trades),
-        "equity_curve": _equity_curve(trades),
+        "equity_curve": _equity_curve(trades, goal),
         "trade_count": len(trades),
-        "pnl_compound": _compound_return(trades),
+        "pnl_compound": _compound_return(trades, goal),
         "avg_trade": mean(returns) if returns else 0.0,
         "win_rate": (len(wins) / len(trades)) if trades else 0.0,
         "best_trade": max(returns) if returns else 0.0,
