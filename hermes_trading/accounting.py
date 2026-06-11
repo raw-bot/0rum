@@ -44,3 +44,15 @@ def compound_balance(trades: list[dict], goal: dict) -> float:
     for trade in trades:
         balance += trade_net_usd(trade, balance)
     return balance
+
+
+def max_drawdown(trades: list[dict], goal: dict) -> float:
+    """Worst peak-to-trough equity loss over the closed-trade history."""
+    equity = 1.0
+    peak = 1.0
+    worst = 0.0
+    for item in account_returns(trades, goal):
+        equity *= 1.0 + item
+        peak = max(peak, equity)
+        worst = min(worst, (equity - peak) / peak)
+    return abs(worst)

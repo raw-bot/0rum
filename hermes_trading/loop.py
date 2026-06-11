@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 import aiofiles
 import yaml
 
-from hermes_trading.accounting import compound_balance
+from hermes_trading.accounting import compound_balance, max_drawdown
 from hermes_trading.adapters import macro, news, onchain, price
 from hermes_trading.adapters.base import require_schema
 from hermes_trading.fsio import atomic_write_json
@@ -191,7 +191,6 @@ def _held_candles(position: dict, market: dict) -> int:
 
 def close_position_if_needed(position: dict, strategy: dict, market: dict, rsi: float, regime: dict | None = None) -> dict | None:
     current_price = float(market["closes"][-1])
-    regime = regime or rolling_return_regime(market.get("closes", []))
     entry_price = float(position.get("entry_price", current_price))
     pnl_pct = (current_price - entry_price) / entry_price if entry_price else 0.0
     stop_pct = float(strategy.get("stop_loss_pct", 2.0)) / 100.0
@@ -212,7 +211,15 @@ def close_position_if_needed(position: dict, strategy: dict, market: dict, rsi: 
 
     if not exit_reason:
         return None
+    return _build_closed_trade(position, strategy, market, rsi, regime, exit_reason)
 
+
+def _build_closed_trade(position: dict, strategy: dict, market: dict, rsi: float, regime: dict | None, exit_reason: str) -> dict:
+    current_price = float(market["closes"][-1])
+    regime = regime or rolling_return_regime(market.get("closes", []))
+    entry_price = float(position.get("entry_price", current_price))
+    pnl_pct = (current_price - entry_price) / entry_price if entry_price else 0.0
+    held_candles = _held_candles(position, market)
     notional_usd = float(position.get("notional_usd", 0.0))
     pnl_usd = pnl_pct * notional_usd
     fee_rate = float(strategy.get("fee_rate", 0.0004))
@@ -247,6 +254,25 @@ def close_position_if_needed(position: dict, strategy: dict, market: dict, rsi: 
     }
 
 
+RESUME_ACK_PATH = STATE_DIR / "manual_resume.ok"
+
+
+def guardrail_action(drawdown: float, goal: dict, resume_ack: bool) -> str:
+    """Map account drawdown to goal.yaml threshold_actions.
+
+    Max drawdown is a high-water metric over the whole trade history, so a
+    breach blocks entries permanently until a human reviews and creates
+    state/manual_resume.ok (or archives the history).
+    """
+    if resume_ack:
+        return "normal"
+    if drawdown >= float(goal.get("emergency_stop_drawdown", 0.06)):
+        return "emergency"
+    if drawdown >= float(goal.get("max_drawdown", 0.05)):
+        return "halt_entries"
+    return "normal"
+
+
 def market_decision(
     *,
     entry_fired: bool,
@@ -257,6 +283,7 @@ def market_decision(
     current_signal_id: str,
     can_open: bool,
     offline: bool = False,
+    guardrail: str = "normal",
 ) -> dict:
     if offline:
         return {
@@ -268,6 +295,18 @@ def market_decision(
         return {
             "action": "close_position",
             "reason": f"Closed paper position via {closed_trade['exit_reason']} at pnl {closed_trade['pnl_pct'] * 100:.2f}%.",
+            "signal_id": current_signal_id,
+        }
+    if guardrail == "emergency":
+        return {
+            "action": "guardrail_halt",
+            "reason": "Emergency stop drawdown reached; trading halted. Create state/manual_resume.ok after manual review to resume.",
+            "signal_id": current_signal_id,
+        }
+    if guardrail == "halt_entries":
+        return {
+            "action": "guardrail_halt",
+            "reason": "Max drawdown reached; new entries are halted pending review (create state/manual_resume.ok to resume).",
             "signal_id": current_signal_id,
         }
     if can_open:
@@ -322,12 +361,19 @@ async def run_loop(goal: dict) -> None:
             position = _load_open_position()
             opened_position = False
             trade_closed = False
-            closed_trade = (
-                close_position_if_needed(position, strategy, market, rsi, regime) if position and not offline else None
-            )
+            all_trades = _load_recent_trades(limit=None)
+            drawdown = max_drawdown(all_trades, goal)
+            guard = guardrail_action(drawdown, goal, RESUME_ACK_PATH.exists())
+
+            if position and not offline and guard == "emergency":
+                closed_trade = _build_closed_trade(position, strategy, market, rsi, regime, "emergency_stop")
+            elif position and not offline:
+                closed_trade = close_position_if_needed(position, strategy, market, rsi, regime)
+            else:
+                closed_trade = None
 
             if closed_trade:
-                balance_before = compound_balance(_load_recent_trades(limit=None), goal)
+                balance_before = compound_balance(all_trades, goal)
                 net = float(closed_trade.get("net_pnl_usd", 0.0))
                 closed_trade["balance_before_usd"] = balance_before
                 closed_trade["balance_after_usd"] = balance_before + net
@@ -340,9 +386,10 @@ async def run_loop(goal: dict) -> None:
 
             can_open = (
                 entry_fired
+                and guard == "normal"
                 and position is None
                 and not trade_closed
-                and should_record_signal(current_signal_id, _load_recent_trades())
+                and should_record_signal(current_signal_id, all_trades[-50:])
             )
             decision = market_decision(
                 entry_fired=entry_fired,
@@ -353,6 +400,7 @@ async def run_loop(goal: dict) -> None:
                 current_signal_id=current_signal_id,
                 can_open=can_open,
                 offline=offline,
+                guardrail=guard,
             )
             if can_open:
                 position = open_position_from_signal(asset, strategy, goal, market, rsi, regime)
@@ -368,6 +416,8 @@ async def run_loop(goal: dict) -> None:
                     "rsi": rsi,
                     "market_regime": regime,
                     "entry_fired": entry_fired,
+                    "drawdown": drawdown,
+                    "guardrail": guard,
                     "position_open": position is not None,
                     "opened_position": opened_position,
                     "trade_recorded": trade_closed,
