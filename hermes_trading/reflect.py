@@ -94,6 +94,28 @@ def _prior_issue_count(hypotheses: list[dict], issue: str) -> int:
     return sum(1 for item in hypotheses if item.get("issue") == issue)
 
 
+def _cooldown_status(goal: dict, trades: list[dict], hypotheses: list[dict]) -> dict | None:
+    """Cooldown info when a recent strategy change still needs observation trades.
+
+    goal.yaml mandates cooldown_after_change_trades for every reflection mode;
+    both the deterministic fallback and the Hermes LLM path must respect it."""
+    cooldown = int(goal.get("cooldown_after_change_trades", 0))
+    last_change = _last_changed_hypothesis(hypotheses)
+    if not (cooldown and last_change):
+        return None
+    closed_since_change = _trades_after(trades, last_change.get("ts"))
+    if closed_since_change >= cooldown:
+        return None
+    remaining = cooldown - closed_since_change
+    return {
+        "issue": "cooldown",
+        "reason": (
+            f"cooldown active after {last_change.get('variable', 'strategy')} change; "
+            f"{remaining} more closed trades required"
+        ),
+    }
+
+
 def _fallback(strategy: dict, goal: dict, trades: list[dict], hypotheses: list[dict] | None = None) -> dict:
     hypotheses = hypotheses or []
     current_score = score(trades, goal)
@@ -113,20 +135,10 @@ def _fallback(strategy: dict, goal: dict, trades: list[dict], hypotheses: list[d
     if len(trades) < int(goal.get("reflection_every", 10)):
         return hypothesis
 
-    cooldown = int(goal.get("cooldown_after_change_trades", 0))
-    last_change = _last_changed_hypothesis(hypotheses)
-    if last_change and cooldown:
-        closed_since_change = _trades_after(trades, last_change.get("ts"))
-        if closed_since_change < cooldown:
-            remaining = cooldown - closed_since_change
-            hypothesis.update(
-                issue="cooldown",
-                reason=(
-                    f"cooldown active after {last_change.get('variable', 'strategy')} change; "
-                    f"{remaining} more closed trades required"
-                ),
-            )
-            return hypothesis
+    cooldown_block = _cooldown_status(goal, trades, hypotheses)
+    if cooldown_block:
+        hypothesis.update(cooldown_block)
+        return hypothesis
 
     candidate: tuple[str, str, str] | None = None
     if worst_trade <= -float(goal.get("daily_loss_limit", 0.015)):
@@ -280,6 +292,18 @@ State:
 
 
 def _hermes(strategy: dict, goal: dict, trades: list[dict], hypotheses: list[dict]) -> dict:
+    cooldown_block = _cooldown_status(goal, trades, hypotheses)
+    if cooldown_block:
+        return {
+            "ts": _now(),
+            "mode": "hermes",
+            "score": score(trades, goal),
+            "changed": False,
+            "variable": None,
+            "new_value": None,
+            **cooldown_block,
+        }
+
     prompt = _hermes_prompt(strategy, goal, trades, hypotheses)
     hermes_home = Path(os.getenv("HERMES_REFLECT_HOME", str(DEFAULT_HERMES_HOME)))
     env = os.environ.copy()
