@@ -214,7 +214,14 @@ VARIABLE_BOUNDS = {
     "entry.threshold": (10.0, 45.0),
     "stop_loss_pct": (0.5, 5.0),
     "position_size_r": (0.5, 0.75),
+    # Exit levers: the audit showed the strategy's losses came from exits
+    # capturing less than the round-trip fee, an axis reflection previously
+    # could not act on at all.
+    "exit_rsi_threshold": (50.0, 75.0),
+    "take_profit_pct": (1.0, 6.0),
+    "max_hold_candles": (10, 120),
 }
+INTEGER_VARIABLES = {"max_hold_candles"}
 
 
 def _reject(hypothesis: dict, reason: str) -> dict:
@@ -240,6 +247,8 @@ def _apply_hypothesis(strategy: dict, hypothesis: dict) -> dict:
 
     lower, upper = VARIABLE_BOUNDS[variable]
     clamped = min(upper, max(lower, value))
+    if variable in INTEGER_VARIABLES:
+        clamped = int(round(clamped))
     if clamped != value:
         hypothesis["requested_value"] = value
         hypothesis["reason"] = (
@@ -249,10 +258,8 @@ def _apply_hypothesis(strategy: dict, hypothesis: dict) -> dict:
 
     if variable == "entry.threshold":
         strategy.setdefault("entry", {})["threshold"] = clamped
-    elif variable == "stop_loss_pct":
-        strategy["stop_loss_pct"] = clamped
-    elif variable == "position_size_r":
-        strategy["position_size_r"] = clamped
+    else:
+        strategy[variable] = clamped
     return hypothesis
 
 
@@ -276,11 +283,14 @@ Allowed variables:
 - entry.threshold
 - stop_loss_pct
 - position_size_r
+- exit_rsi_threshold
+- take_profit_pct
+- max_hold_candles
 
 Schema:
 {{
   "changed": true | false,
-  "variable": "entry.threshold" | "stop_loss_pct" | "position_size_r" | null,
+  "variable": "entry.threshold" | "stop_loss_pct" | "position_size_r" | "exit_rsi_threshold" | "take_profit_pct" | "max_hold_candles" | null,
   "new_value": number | null,
   "reason": "short reason",
   "confidence": number
@@ -292,9 +302,14 @@ Rules:
 - Use market_regime_at_entry and market_regime_at_exit as outcome context only.
 - Do not invent new indicators or hidden entry filters outside strategy.yaml.
 - Do not chase the +7% target by simply increasing risk.
+- net_pnl_usd already includes round-trip fees; a gross gain smaller than the
+  fees is a net loss.
 - Keep position_size_r between 0.5 and 0.75.
 - Keep entry.threshold between 10 and 45.
 - Keep stop_loss_pct between 0.5 and 5.0.
+- Keep exit_rsi_threshold between 50 and 75.
+- Keep take_profit_pct between 1.0 and 6.0.
+- Keep max_hold_candles between 10 and 120 (integer).
 
 State:
 {json.dumps(payload, sort_keys=True)}

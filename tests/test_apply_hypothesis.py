@@ -1,6 +1,13 @@
 import unittest
 
-from hermes_trading.reflect import _apply_hypothesis
+from hermes_trading.reflect import VARIABLE_BOUNDS, _apply_hypothesis, _hermes_prompt
+
+
+class PromptExposesExitVariablesTests(unittest.TestCase):
+    def test_prompt_lists_every_bounded_variable(self):
+        prompt = _hermes_prompt({"version": "01"}, {}, [], [])
+        for variable in VARIABLE_BOUNDS:
+            self.assertIn(variable, prompt)
 
 
 class ApplyHypothesisTests(unittest.TestCase):
@@ -54,13 +61,42 @@ class ApplyHypothesisTests(unittest.TestCase):
 
     def test_unsupported_variable_is_rejected_without_crashing(self):
         strategy = {"entry": {"threshold": 30.0}}
-        hypothesis = {"changed": True, "variable": "take_profit_pct", "new_value": 4.0}
+        hypothesis = {"changed": True, "variable": "fee_rate", "new_value": 0.0}
 
         result = _apply_hypothesis(strategy, hypothesis)
 
         self.assertFalse(result["changed"])
         self.assertTrue(result["rejected"])
         self.assertEqual(strategy, {"entry": {"threshold": 30.0}})
+
+    def test_exit_rsi_threshold_is_applied_and_clamped(self):
+        strategy = {"exit_rsi_threshold": 55.0}
+        _apply_hypothesis(strategy, {"changed": True, "variable": "exit_rsi_threshold", "new_value": 70})
+        self.assertEqual(strategy["exit_rsi_threshold"], 70.0)
+
+        _apply_hypothesis(strategy, {"changed": True, "variable": "exit_rsi_threshold", "new_value": 90})
+        self.assertEqual(strategy["exit_rsi_threshold"], 75.0)
+
+        _apply_hypothesis(strategy, {"changed": True, "variable": "exit_rsi_threshold", "new_value": 40})
+        self.assertEqual(strategy["exit_rsi_threshold"], 50.0)
+
+    def test_take_profit_pct_is_applied_and_clamped(self):
+        strategy = {"take_profit_pct": 3.0}
+        _apply_hypothesis(strategy, {"changed": True, "variable": "take_profit_pct", "new_value": 4.5})
+        self.assertEqual(strategy["take_profit_pct"], 4.5)
+
+        _apply_hypothesis(strategy, {"changed": True, "variable": "take_profit_pct", "new_value": 0.1})
+        self.assertEqual(strategy["take_profit_pct"], 1.0)
+
+    def test_max_hold_candles_is_clamped_and_stored_as_integer(self):
+        strategy = {"max_hold_candles": 30}
+        result = _apply_hypothesis(strategy, {"changed": True, "variable": "max_hold_candles", "new_value": 45.7})
+        self.assertEqual(strategy["max_hold_candles"], 46)
+        self.assertIsInstance(strategy["max_hold_candles"], int)
+        self.assertEqual(result["new_value"], 46)
+
+        _apply_hypothesis(strategy, {"changed": True, "variable": "max_hold_candles", "new_value": 500})
+        self.assertEqual(strategy["max_hold_candles"], 120)
 
     def test_unchanged_hypothesis_passes_through(self):
         strategy = {"entry": {"threshold": 30.0}}

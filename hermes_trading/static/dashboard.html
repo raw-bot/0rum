@@ -1,166 +1,102 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Hermes Trading Monitor</title>
-    <link rel="stylesheet" href="/assets/dashboard.css">
-  </head>
-  <body>
-    <main class="shell">
-      <header class="topline" aria-label="Dashboard status">
-        <div>
-          <p class="eyebrow">Hermes Paper Agent</p>
-          <h1 id="asset">BTC/USDT</h1>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Hermes Trading Dashboard</title>
+  <link rel="stylesheet" href="/assets/dashboard.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <header class="hero kpi-grid" style="grid-template-columns: 1fr 1fr; gap: 24px;">
+      <div class="card kpi-card" style="text-align: left; align-items: flex-start; padding: 24px;">
+        <span class="label">Portfolio Value</span>
+        <b id="portfolioBalance" class="hero-value" style="font-size: 40px; margin: 8px 0;">$0.00</b>
+        <span class="label" id="portfolioSub" style="font-size: 14px;">Start: $-- | PnL: $--</span>
+      </div>
+      <div class="card kpi-card" style="text-align: left; align-items: flex-start; padding: 24px;">
+        <div style="display: flex; justify-content: space-between; width: 100%;">
+           <span class="label">Overall P&L</span>
+           <div id="guardrail" class="guardrail-badge" style="margin: 0; padding: 4px 12px;">Paper Mode</div>
         </div>
-        <div class="top-actions">
-          <button class="reset-layout" id="resetLayout" type="button">Reset layout</button>
-          <div class="status-pill" id="guardrail">Loading</div>
+        <b id="portfolioPnl" class="hero-value" style="font-size: 40px; margin: 8px 0;">+0.00%</b>
+      </div>
+    </header>
+
+    <section class="card chart-card">
+      <div class="card-header">
+        <h2>Live Bot Action</h2>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <div id="chartScales" class="chart-scales">
+            <button class="scale-btn" data-scale="1H">1H</button>
+            <button class="scale-btn active" data-scale="1D">1D</button>
+            <button class="scale-btn" data-scale="1W">1W</button>
+            <button class="scale-btn" data-scale="1M">1M</button>
+          </div>
+          <div id="asset" class="asset-badge">BTC/USDT</div>
         </div>
-      </header>
+      </div>
+      <div class="chart-stats">
+        <div class="stat-item">Price: <b id="lastPrice">--</b> $</div>
+        <div class="stat-item">RSI: <b id="rsi">--</b></div>
+        <div class="stat-item status-item">Status: <b id="positionState">Waiting for data...</b></div>
+      </div>
+      <div class="chart-container">
+        <!-- Live SVG Chart -->
+        <svg id="liveChart" preserveAspectRatio="none"></svg>
+      </div>
+      <!-- Position Details when active -->
+      <div class="position-details" id="positionDetailsPanel" style="display: none;">
+        <div class="pos-col">Entry: <b id="positionEntry">--</b></div>
+        <div class="pos-col">Current PnL: <b id="positionPnl">--</b></div>
+        <div class="pos-col">Stop: <b id="positionStop">--</b></div>
+      </div>
+    </section>
 
-      <section class="grid" aria-live="polite">
-        <article class="panel price-card hero-card" data-window="price">
-          <div class="panel-menu" aria-label="Move BTC course window" role="button" tabindex="0">...</div>
-          <p class="label">BTC course</p>
-          <div class="price-line"><span id="lastPrice">--</span><small> USDT</small></div>
-          <svg class="candles" id="candles" viewBox="0 0 320 112" role="img" aria-label="Recent paper trade candlesticks"></svg>
-          <div class="split-row">
-            <span>Source</span>
-            <strong id="chartSource">--</strong>
-          </div>
-        </article>
+    <section class="card progress-card">
+      <div class="card-header">
+        <h3>Hermes AI Brain Learning Progress</h3>
+        <span id="watcherTradesLeft" class="progress-text">Progress to next reflection</span>
+      </div>
+      <div class="progress-track">
+        <div id="reflectionFill" class="progress-fill"></div>
+      </div>
+    </section>
 
-        <article class="panel quiet-card" data-window="pnl">
-          <div class="panel-menu" aria-label="Move Compound PnL window" role="button" tabindex="0">...</div>
-          <p class="label">Compound PnL</p>
-          <div class="metric" id="pnl">0.00%</div>
-          <div class="signal-bar lime">
-            <span id="scoreFill"></span>
-          </div>
-          <div class="split-row">
-            <span>Score</span>
-            <strong id="score">0.00</strong>
-          </div>
-        </article>
+    <section class="kpi-grid">
+      <div class="card kpi-card">
+        <span class="label">Win Rate</span>
+        <b id="winRate">--</b>
+      </div>
+      <div class="card kpi-card">
+        <span class="label">Total Trades</span>
+        <b id="tradeCount">0</b>
+      </div>
+      <div class="card kpi-card">
+        <span class="label">Drawdown</span>
+        <b id="drawdown">0.00%</b>
+      </div>
+      <div class="card kpi-card">
+        <span class="label">Market Regime</span>
+        <b id="marketRegime">None</b>
+      </div>
+    </section>
 
-        <article class="panel portfolio-card hero-card" data-window="portfolio">
-          <div class="panel-menu" aria-label="Move Portfolio window" role="button" tabindex="0">...</div>
-          <p class="label">Portfolio</p>
-          <div class="metric dollars" id="portfolioBalance">$10,000</div>
-          <div class="pnl-window" id="portfolioWindow">
-            <span class="zero-line" aria-hidden="true"></span>
-            <span class="pnl-fill" id="portfolioFill"></span>
-          </div>
-          <div class="split-row">
-            <span id="portfolioBase">$10,000 base</span>
-            <strong id="portfolioPnl">$0.00</strong>
-          </div>
-        </article>
+    <section class="card activity-card">
+      <div class="card-header">
+        <h3>Recent Trade Activity</h3>
+      </div>
+      <div id="activityLog" class="activity-list">
+        <!-- Injected via JS -->
+      </div>
+    </section>
 
-        <article class="panel accent-card control-card" data-window="reflection">
-          <div class="panel-menu" aria-label="Move Reflection window" role="button" tabindex="0">...</div>
-          <p class="label">Reflection engine</p>
-          <div class="metric"><span id="tradeCount">0</span><small> trades</small></div>
-          <p class="engine-status" id="engineStatus">Fallback only · Hermes inactive</p>
-          <div class="signal-bar yellow">
-            <span id="reflectionFill"></span>
-          </div>
-          <button id="reflectButton" type="button">Run Hermes reflection</button>
-        </article>
+    <div class="footer-actions">
+      <button id="reflectButton" class="action-btn">Run Hermes Reflection Now</button>
+    </div>
 
-        <article class="panel quiet-card" data-window="guardrails">
-          <div class="panel-menu" aria-label="Move Guardrails window" role="button" tabindex="0">...</div>
-          <p class="label">Guardrails</p>
-          <div class="metric" id="drawdown">0.00%</div>
-          <div class="meter">
-            <span id="ddFill"></span>
-          </div>
-          <div class="compact-grid">
-            <span>Soft <b id="softDD">3%</b></span>
-            <span>Max <b id="maxDD">5%</b></span>
-            <span>Kill <b id="killDD">6%</b></span>
-          </div>
-        </article>
-
-        <article class="panel control-card" data-window="heartbeat">
-          <div class="panel-menu" aria-label="Move Heartbeat window" role="button" tabindex="0">...</div>
-          <p class="label">Heartbeat</p>
-          <div class="metric" id="rsi">--</div>
-          <div class="split-row"><span>Price</span><strong id="priceSource">--</strong></div>
-          <div class="split-row"><span>News</span><strong id="newsSource">--</strong></div>
-          <div class="split-row"><span>Regime</span><strong id="marketRegime">--</strong></div>
-          <div class="split-row"><span>Action</span><strong id="decisionAction">--</strong></div>
-          <p class="decision-reason" id="decisionReason">Waiting for the worker.</p>
-          <div class="split-row"><span>Updated</span><strong id="updatedAt">--</strong></div>
-        </article>
-
-        <article class="panel position-card hero-card" data-window="position">
-          <div class="panel-menu" aria-label="Move Open Position window" role="button" tabindex="0">...</div>
-          <p class="label">Open Position</p>
-          <div class="position-state" id="positionState">No open position</div>
-          <div class="position-pnl" id="positionPnl">$0.00</div>
-          <div class="position-bar">
-            <span class="position-stop" id="positionStopMarker"></span>
-            <span class="position-entry" id="positionEntryMarker"></span>
-            <span class="position-current" id="positionCurrentMarker"></span>
-            <span class="position-take" id="positionTakeMarker"></span>
-          </div>
-          <div class="position-grid">
-            <span>Entry <b id="positionEntry">--</b></span>
-            <span>Now <b id="positionNow">--</b></span>
-            <span>Stop <b id="positionStop">--</b></span>
-            <span>Take <b id="positionTake">--</b></span>
-            <span>Size <b id="positionSize">--</b></span>
-            <span>Held <b id="positionHeld">--</b></span>
-          </div>
-        </article>
-
-        <article class="panel quiet-card" data-window="strategy">
-          <div class="panel-menu" aria-label="Move Strategy window" role="button" tabindex="0">...</div>
-          <p class="label">Strategy</p>
-          <div class="metric">v<span id="strategyVersion">01</span></div>
-          <div class="split-row"><span>RSI threshold</span><strong id="threshold">--</strong></div>
-          <div class="split-row"><span>Risk unit</span><strong id="riskUnit">--</strong></div>
-          <div class="split-row"><span>Stop loss</span><strong id="stopLoss">--</strong></div>
-        </article>
-
-        <article class="panel wide curve-card hero-card" data-window="equity">
-          <div class="panel-menu" aria-label="Move Equity curve window" role="button" tabindex="0">...</div>
-          <p class="label">Equity curve</p>
-          <svg class="equity-chart" id="equityCurve" viewBox="0 0 640 180" role="img" aria-label="Paper equity curve"></svg>
-          <div class="split-row">
-            <span>Paper account</span>
-            <strong id="equityValue">1.0000x</strong>
-          </div>
-        </article>
-
-        <article class="panel wide control-card" data-window="trades">
-          <div class="panel-menu" aria-label="Move Latest Trades window" role="button" tabindex="0">...</div>
-          <p class="label">Latest Trades</p>
-          <div class="trade-list" id="trades"></div>
-        </article>
-
-        <article class="panel hot quiet-card" data-window="hypothesis">
-          <div class="panel-menu" aria-label="Move Latest Hypothesis window" role="button" tabindex="0">...</div>
-          <p class="label">Latest Hypothesis</p>
-          <h2 id="hypothesisTitle">No hypothesis yet</h2>
-          <p id="hypothesisReason">Waiting for the first reflection.</p>
-        </article>
-
-        <article class="panel wide decisions-card" data-window="decisions">
-          <div class="panel-menu" aria-label="Move Hermes decisions window" role="button" tabindex="0">...</div>
-          <p class="label">Reflection decisions</p>
-          <div class="decision-rail" id="decisionRail"></div>
-        </article>
-
-        <article class="panel wide activity-card control-card" data-window="activity">
-          <div class="panel-menu" aria-label="Move Activity log window" role="button" tabindex="0">...</div>
-          <p class="label">Activity log</p>
-          <div class="activity-list" id="activityLog"></div>
-        </article>
-      </section>
-    </main>
-    <script src="/assets/dashboard.js"></script>
-  </body>
+  </div>
+  <script src="/assets/dashboard.js"></script>
+</body>
 </html>

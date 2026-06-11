@@ -1,0 +1,10 @@
+{"asset": "BTC/USDT", "detail": "Booting hermes-trading worker", "kind": "worker_boot", "ts": "2026-06-11T13:06:10.414601+00:00"}
+{"asset": "BTC/USDT", "detail": "Booting hermes-trading worker", "kind": "worker_boot", "ts": "2026-06-11T13:07:12.727929+00:00"}
+{"detail": "opened paper position BTC/USDT entry=62881.99", "entry_price": 62881.99, "kind": "position_opened", "signal_id": "BTC/USDT|02|rsi|long|25.0|1781183520000", "ts": "2026-06-11T13:12:15.526508+00:00"}
+{"detail": "closed paper trade BTC/USDT via rsi_reversion pnl_pct=0.00095", "exit_reason": "rsi_reversion", "kind": "trade_closed", "net_pnl_usd": 0.3858182605226883, "signal_id": "BTC/USDT|02|rsi|long|25.0|1781183520000", "ts": "2026-06-11T13:17:17.799623+00:00"}
+{"detail": "opened paper position BTC/USDT entry=62732.01", "entry_price": 62732.01, "kind": "position_opened", "signal_id": "BTC/USDT|02|rsi|long|25.0|1781184660000", "ts": "2026-06-11T13:31:25.046496+00:00"}
+{"detail": "closed paper trade BTC/USDT via rsi_reversion pnl_pct=0.00306", "exit_reason": "rsi_reversion", "kind": "trade_closed", "net_pnl_usd": 5.65119753057482, "signal_id": "BTC/USDT|02|rsi|long|25.0|1781184660000", "ts": "2026-06-11T13:44:31.476574+00:00"}
+{"detail": "opened paper position BTC/USDT entry=62648.00", "entry_price": 62648.0, "kind": "position_opened", "signal_id": "BTC/USDT|02|rsi|long|25.0|1781195280000", "ts": "2026-06-11T16:28:35.607195+00:00"}
+{"detail": "closed paper trade BTC/USDT via rsi_reversion pnl_pct=0.00193", "exit_reason": "rsi_reversion", "kind": "trade_closed", "net_pnl_usd": 2.824176350402224, "signal_id": "BTC/USDT|02|rsi|long|25.0|1781195280000", "ts": "2026-06-11T16:36:38.367925+00:00"}
+{"detail": "opened paper position BTC/USDT entry=62606.36", "entry_price": 62606.36, "kind": "position_opened", "signal_id": "BTC/USDT|02|rsi|long|25.0|1781196600000", "ts": "2026-06-11T16:50:43.045758+00:00"}
+{"detail": "closed paper trade BTC/USDT via rsi_reversion pnl_pct=-0.00185", "exit_reason": "rsi_reversion", "kind": "trade_closed", "net_pnl_usd": -6.631318607247059, "signal_id": "BTC/USDT|02|rsi|long|25.0|1781196600000", "ts": "2026-06-11T17:17:52.025132+00:00"}

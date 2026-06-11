@@ -1,0 +1,9 @@
+{
+  "detail": "Waiting for 6 more closed trades before Hermes reflection.",
+  "mode": "local_hermes_watcher",
+  "reflection_every": 10,
+  "status": "standby",
+  "trades_seen": 4,
+  "trades_since_reflection": 4,
+  "ts": "2026-06-11T18:07:12.898010+00:00"
+}
