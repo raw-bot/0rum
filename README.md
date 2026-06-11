@@ -82,9 +82,11 @@ minute.
 
 ## Known limitations
 
-- The strategy itself (1m RSI mean-reversion, RSI-55 exit) historically
-  produced gross gains smaller than round-trip fees; the accounting now makes
-  that visible, but fixing it is strategy research, not configuration.
+- The strategy itself (1m RSI mean-reversion) historically produced gross
+  gains smaller than round-trip fees because exits banked at RSI 55. The
+  accounting makes that visible and reflection now owns the exit levers
+  (`exit_rsi_threshold`, `take_profit_pct`, `max_hold_candles`); whether it
+  converges to a profitable exit is the experiment, not a guarantee.
 - Stops/TP are evaluated once per loop on close prices: losses can exceed the
   stop; paper results are optimistic vs. real execution.
 - `score()`'s "sharpe" term is a t-statistic, not an annualized Sharpe ratio.
