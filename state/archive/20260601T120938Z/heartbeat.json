@@ -1,0 +1,12 @@
+{
+  "asset": "BTC/USDT",
+  "entry_fired": false,
+  "macro_source": "stooq_public",
+  "news_source": "offline_fallback",
+  "onchain_source": "blockchain_info_public",
+  "price_source": "binance_public",
+  "rsi": 71.81250999839978,
+  "signal_id": "BTC/USDT|01|rsi|long|30|1780314240000",
+  "trade_recorded": false,
+  "ts": "2026-06-01T11:44:23.049434+00:00"
+}

@@ -1,0 +1,19 @@
+{
+  "asset": "BTC/USDT",
+  "direction": "long",
+  "entry_price": 67915.96,
+  "entry_reason": "rsi=15.50 <= threshold=25.00",
+  "market_regime_at_entry": "neutral",
+  "market_regime_reason_at_entry": "20-candle rolling return -0.05%",
+  "mode": "paper",
+  "notional_usd": 2500.0,
+  "opened_at": "2026-06-02T15:02:50.470997+00:00",
+  "opened_candle_ts": 1780412520000,
+  "opened_index": 59,
+  "price_source_at_entry": "binance_public",
+  "qty_base": 0.03681019895765295,
+  "risk_usd": 50.0,
+  "rsi_at_entry": 15.498543719402818,
+  "signal_id": "BTC/USDT|02|rsi|long|25.0|1780412520000",
+  "strategy_version": "02"
+}
