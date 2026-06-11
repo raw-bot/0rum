@@ -104,11 +104,43 @@ def should_record_signal(current_signal_id: str, recent_trades: list[dict]) -> b
     return all(trade.get("signal_id") != current_signal_id for trade in recent_trades)
 
 
+def position_is_stale(position: dict, *, now: datetime | None = None, max_age_hours: float | None = None) -> bool:
+    """A position older than max_age_hours means the worker was down for a
+    long stretch; closing it against the current price would record a trade
+    spanning the whole outage and pollute every downstream metric."""
+    if max_age_hours is None:
+        max_age_hours = float(os.getenv("HERMES_MAX_POSITION_AGE_HOURS", "6"))
+    now = now or datetime.now(UTC)
+    try:
+        opened_at = datetime.fromisoformat(str(position.get("opened_at")))
+    except (TypeError, ValueError):
+        return True
+    if opened_at.tzinfo is None:
+        opened_at = opened_at.replace(tzinfo=UTC)
+    return (now - opened_at).total_seconds() > max_age_hours * 3600
+
+
+def _quarantine_position(position: dict, reason: str) -> None:
+    record = {**position, "quarantined_at": _now(), "quarantine_reason": reason}
+    with (STATE_DIR / "position_quarantine.jsonl").open("a") as handle:
+        handle.write(json.dumps(record, sort_keys=True) + "\n")
+    POSITION_PATH.unlink(missing_ok=True)
+    print(f"quarantined open position: {reason}", flush=True)
+
+
 def _load_open_position() -> dict | None:
     if not POSITION_PATH.exists():
         return None
     payload = json.loads(POSITION_PATH.read_text() or "{}")
-    return payload or None
+    if not payload:
+        return None
+    if position_is_stale(payload):
+        _quarantine_position(
+            payload,
+            f"opened_at={payload.get('opened_at')!r} exceeds HERMES_MAX_POSITION_AGE_HOURS; discarded instead of closing across the outage",
+        )
+        return None
+    return payload
 
 
 def _sizing(strategy: dict, goal: dict, entry_price: float) -> dict:
