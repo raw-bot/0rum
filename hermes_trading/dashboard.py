@@ -6,6 +6,8 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
+import time
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -311,6 +313,23 @@ def build_snapshot() -> dict:
     }
 
 
+REFLECT_MIN_INTERVAL_SECONDS = 60.0
+_reflect_throttle_lock = threading.Lock()
+_last_manual_reflect = 0.0
+
+
+def origin_allowed(origin: str | None, host: str | None) -> bool:
+    """Reject cross-origin browser POSTs (any web page can fire requests at
+    127.0.0.1). Requests without an Origin header (curl, scripts) pass."""
+    if not origin:
+        return True
+    return urlparse(origin).netloc == (host or "")
+
+
+def reflect_allowed(now: float, last_ts: float, min_interval: float = REFLECT_MIN_INTERVAL_SECONDS) -> bool:
+    return (now - last_ts) >= min_interval
+
+
 class DashboardHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args) -> None:  # noqa: A002 - stdlib signature.
         return
@@ -326,25 +345,41 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self._send(status, json.dumps(payload, indent=2, sort_keys=True).encode(), "application/json")
 
     def do_GET(self) -> None:  # noqa: N802 - stdlib handler hook.
-        path = urlparse(self.path).path
-        if path == "/":
-            self._send(200, (STATIC_DIR / "dashboard.html").read_bytes(), "text/html; charset=utf-8")
-        elif path == "/assets/dashboard.css":
-            self._send(200, (STATIC_DIR / "dashboard.css").read_bytes(), "text/css; charset=utf-8")
-        elif path == "/assets/dashboard.js":
-            self._send(200, (STATIC_DIR / "dashboard.js").read_bytes(), "application/javascript")
-        elif path == "/assets/fonts/Montserrat-VariableFont_wght.ttf":
-            self._send(200, (STATIC_DIR / "fonts/Montserrat-VariableFont_wght.ttf").read_bytes(), "font/ttf")
-        elif path == "/api/state":
-            self._send_json(200, build_snapshot())
-        else:
-            self._send_json(404, {"error": "not found"})
+        try:
+            path = urlparse(self.path).path
+            if path == "/":
+                self._send(200, (STATIC_DIR / "dashboard.html").read_bytes(), "text/html; charset=utf-8")
+            elif path == "/assets/dashboard.css":
+                self._send(200, (STATIC_DIR / "dashboard.css").read_bytes(), "text/css; charset=utf-8")
+            elif path == "/assets/dashboard.js":
+                self._send(200, (STATIC_DIR / "dashboard.js").read_bytes(), "application/javascript")
+            elif path == "/assets/fonts/Montserrat-VariableFont_wght.ttf":
+                self._send(200, (STATIC_DIR / "fonts/Montserrat-VariableFont_wght.ttf").read_bytes(), "font/ttf")
+            elif path == "/api/state":
+                self._send_json(200, build_snapshot())
+            else:
+                self._send_json(404, {"error": "not found"})
+        except Exception as exc:  # noqa: BLE001 - a partial state read must not kill the connection silently.
+            try:
+                self._send_json(500, {"error": f"snapshot failed: {exc}"})
+            except OSError:
+                pass
 
     def do_POST(self) -> None:  # noqa: N802 - stdlib handler hook.
+        global _last_manual_reflect
         path = urlparse(self.path).path
         if path != "/api/reflect":
             self._send_json(404, {"error": "not found"})
             return
+        if not origin_allowed(self.headers.get("Origin"), self.headers.get("Host")):
+            self._send_json(403, {"ok": False, "error": "cross-origin reflection request rejected"})
+            return
+        with _reflect_throttle_lock:
+            now = time.monotonic()
+            if not reflect_allowed(now, _last_manual_reflect):
+                self._send_json(429, {"ok": False, "error": "reflection was triggered recently; retry later"})
+                return
+            _last_manual_reflect = now
         try:
             result = subprocess.run(
                 [sys.executable, "-m", "hermes_trading.reflect", "--hermes"],
