@@ -72,6 +72,17 @@ def _load_recent_trades(limit: int = 50) -> list[dict]:
     return [json.loads(line) for line in lines[-limit:]]
 
 
+def price_is_offline(market: dict) -> bool:
+    return market.get("source") == "offline_fallback"
+
+
+def entry_signal_fired(strategy: dict, rsi: float, market: dict) -> bool:
+    entry = strategy.get("entry", {})
+    direction = entry.get("direction", "long")
+    threshold = float(entry.get("threshold", 30))
+    return direction == "long" and rsi <= threshold and not price_is_offline(market)
+
+
 def signal_id(asset: str, strategy: dict, market: dict) -> str:
     entry = strategy.get("entry", {})
     candle_ts = market.get("last_candle_ts", "unknown")
@@ -211,7 +222,14 @@ def market_decision(
     threshold: float,
     current_signal_id: str,
     can_open: bool,
+    offline: bool = False,
 ) -> dict:
+    if offline:
+        return {
+            "action": "offline_freeze",
+            "reason": "Price source is offline fallback; entries and exits are frozen until live data returns.",
+            "signal_id": current_signal_id,
+        }
     if closed_trade:
         return {
             "action": "close_position",
@@ -264,13 +282,15 @@ async def run_loop(goal: dict) -> None:
             rsi = _rsi(closes)
             regime = rolling_return_regime(closes)
             threshold = float(strategy.get("entry", {}).get("threshold", 30))
-            direction = strategy.get("entry", {}).get("direction", "long")
-            entry_fired = direction == "long" and rsi <= threshold
+            offline = price_is_offline(market)
+            entry_fired = entry_signal_fired(strategy, rsi, market)
             current_signal_id = signal_id(asset, strategy, market)
             position = _load_open_position()
             opened_position = False
             trade_closed = False
-            closed_trade = close_position_if_needed(position, strategy, market, rsi, regime) if position else None
+            closed_trade = (
+                close_position_if_needed(position, strategy, market, rsi, regime) if position and not offline else None
+            )
 
             if closed_trade:
                 await _append_jsonl(TRADES_PATH, closed_trade)
@@ -293,6 +313,7 @@ async def run_loop(goal: dict) -> None:
                 threshold=threshold,
                 current_signal_id=current_signal_id,
                 can_open=can_open,
+                offline=offline,
             )
             if can_open:
                 position = open_position_from_signal(asset, strategy, goal, market, rsi, regime)
