@@ -1,7 +1,5 @@
 import os
 
-import httpx
-
 
 async def fetch() -> dict:
     api_key = os.getenv("NEWS_API_KEY")
@@ -12,23 +10,13 @@ async def fetch() -> dict:
             "sentiment": "neutral",
         }
 
-    try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            response = await client.get("https://api.coindesk.com/v1/bpi/currentprice.json")
-            response.raise_for_status()
-        data = response.json()
-        return {
-            "schema_version": 1,
-            "source": "coindesk_public",
-            "headline_count": 1,
-            "sentiment": "neutral",
-            "context": data.get("chartName", "Bitcoin"),
-        }
-    except (httpx.HTTPError, OSError, ValueError):
-        return {
-            "schema_version": 1,
-            "source": "offline_fallback",
-            "headline_count": 0,
-            "sentiment": "unknown",
-            "context": "offline",
-        }
+    # The previously used CoinDesk BPI endpoint is discontinued; every call
+    # ended in the offline fallback. Without an API key there is no live news
+    # source, so say so explicitly instead of issuing a doomed HTTP request.
+    return {
+        "schema_version": 1,
+        "source": "not_configured",
+        "headline_count": 0,
+        "sentiment": "unknown",
+        "context": "no news provider configured",
+    }

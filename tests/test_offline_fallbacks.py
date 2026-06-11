@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest.mock import AsyncMock, patch
 
@@ -23,12 +24,21 @@ class OfflineFallbackTests(unittest.IsolatedAsyncioTestCase):
             get.side_effect = httpx.ConnectError("offline")
 
             onchain_payload = await onchain.fetch()
-            news_payload = await news.fetch()
             macro_payload = await macro.fetch()
 
         self.assertEqual(onchain_payload["schema_version"], 1)
-        self.assertEqual(news_payload["schema_version"], 1)
         self.assertEqual(macro_payload["schema_version"], 1)
         self.assertEqual(onchain_payload["source"], "offline_fallback")
-        self.assertEqual(news_payload["source"], "offline_fallback")
         self.assertEqual(macro_payload["source"], "offline_fallback")
+
+    async def test_news_without_api_key_reports_not_configured_without_http(self):
+        env = {key: value for key, value in os.environ.items() if key != "NEWS_API_KEY"}
+        with (
+            patch.dict("os.environ", env, clear=True),
+            patch("httpx.AsyncClient.get", new_callable=AsyncMock) as get,
+        ):
+            payload = await news.fetch()
+
+        get.assert_not_called()
+        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["source"], "not_configured")
