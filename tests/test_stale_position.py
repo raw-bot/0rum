@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-from hermes_trading import loop
+from hermes_trading import events, loop
 from hermes_trading.loop import position_is_stale
 
 NOW = datetime(2026, 6, 11, 12, 0, 0, tzinfo=UTC)
@@ -40,6 +40,7 @@ class StalePositionTests(unittest.TestCase):
             with (
                 patch.object(loop, "POSITION_PATH", position_path),
                 patch.object(loop, "STATE_DIR", state),
+                patch.object(events, "EVENTS_PATH", state / "events.jsonl"),
             ):
                 loaded = loop._load_open_position()
 
@@ -65,6 +66,7 @@ class StalePositionTests(unittest.TestCase):
             with (
                 patch.object(loop, "POSITION_PATH", position_path),
                 patch.object(loop, "STATE_DIR", state),
+                patch.object(events, "EVENTS_PATH", state / "events.jsonl"),
             ):
                 loaded = loop._load_open_position()
 
