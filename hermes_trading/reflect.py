@@ -34,7 +34,13 @@ def _bump_version(version: str) -> str:
 def _save_change(strategy: dict, hypothesis: dict) -> None:
     HISTORY_DIR.mkdir(parents=True, exist_ok=True)
     version = strategy.get("version", "01")
-    (HISTORY_DIR / f"v{int(version):04d}.yaml").write_text(yaml.safe_dump(strategy, sort_keys=False))
+    # Archive the on-disk strategy: `strategy` was already mutated in memory,
+    # so dumping it here would record the post-change values under the
+    # pre-change version number.
+    if STRATEGY_PATH.exists():
+        (HISTORY_DIR / f"v{int(version):04d}.yaml").write_text(STRATEGY_PATH.read_text())
+    else:
+        (HISTORY_DIR / f"v{int(version):04d}.yaml").write_text(yaml.safe_dump(strategy, sort_keys=False))
     strategy["version"] = _bump_version(version)
     STRATEGY_PATH.write_text(yaml.safe_dump(strategy, sort_keys=False))
     with HYPOTHESES_PATH.open("a") as handle:
