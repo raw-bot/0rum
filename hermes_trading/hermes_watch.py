@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 
 import yaml
 
+from hermes_trading.fsio import atomic_write_json
 from hermes_trading.paths import GOAL_PATH, HYPOTHESES_PATH, TRADES_PATH, WATCHER_HEARTBEAT_PATH
 
 ROOT_DIR = WATCHER_HEARTBEAT_PATH.resolve().parents[1]
@@ -37,7 +38,7 @@ def _trades_after(trades: list[dict], ts: str | None) -> list[dict]:
 
 
 def _write_status(payload: dict) -> None:
-    WATCHER_HEARTBEAT_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    atomic_write_json(WATCHER_HEARTBEAT_PATH, payload)
 
 
 def watcher_status(*, status: str, reflection_every: int, trades_seen: int, trades_since_reflection: int, detail: str) -> dict:

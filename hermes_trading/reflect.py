@@ -6,17 +6,48 @@ import math
 import os
 import re
 import subprocess
+import time
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
 
 from hermes_trading.accounting import account_returns
-from hermes_trading.paths import GOAL_PATH, HISTORY_DIR, HYPOTHESES_PATH, STRATEGY_PATH, TRADES_PATH
+from hermes_trading.fsio import atomic_write_text
+from hermes_trading.paths import GOAL_PATH, HISTORY_DIR, HYPOTHESES_PATH, STATE_DIR, STRATEGY_PATH, TRADES_PATH
 from hermes_trading.score import score
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_HERMES_HOME = ROOT_DIR / ".sandbox" / "hermes-local-llm-home"
+LOCK_PATH = STATE_DIR / ".reflect.lock"
+LOCK_STALE_SECONDS = 300.0
+
+
+@contextmanager
+def _reflection_lock():
+    """Single-instance lock shared by the watcher and the dashboard endpoint.
+
+    Two concurrent reflections double-bump the strategy version and clobber
+    each other's history archive. Stale locks (crashed reflection) expire
+    after LOCK_STALE_SECONDS.
+    """
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        if LOCK_PATH.exists() and time.time() - LOCK_PATH.stat().st_mtime > LOCK_STALE_SECONDS:
+            LOCK_PATH.unlink(missing_ok=True)
+    except OSError:
+        pass
+    try:
+        fd = os.open(LOCK_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        raise SystemExit("another reflection is already in progress (state/.reflect.lock)") from None
+    try:
+        os.write(fd, f"{os.getpid()}\n".encode())
+        os.close(fd)
+        yield
+    finally:
+        LOCK_PATH.unlink(missing_ok=True)
 
 
 def _now() -> str:
@@ -40,11 +71,11 @@ def _save_change(strategy: dict, hypothesis: dict) -> None:
     # so dumping it here would record the post-change values under the
     # pre-change version number.
     if STRATEGY_PATH.exists():
-        (HISTORY_DIR / f"v{int(version):04d}.yaml").write_text(STRATEGY_PATH.read_text())
+        atomic_write_text(HISTORY_DIR / f"v{int(version):04d}.yaml", STRATEGY_PATH.read_text())
     else:
-        (HISTORY_DIR / f"v{int(version):04d}.yaml").write_text(yaml.safe_dump(strategy, sort_keys=False))
+        atomic_write_text(HISTORY_DIR / f"v{int(version):04d}.yaml", yaml.safe_dump(strategy, sort_keys=False))
     strategy["version"] = _bump_version(version)
-    STRATEGY_PATH.write_text(yaml.safe_dump(strategy, sort_keys=False))
+    atomic_write_text(STRATEGY_PATH, yaml.safe_dump(strategy, sort_keys=False))
     with HYPOTHESES_PATH.open("a") as handle:
         handle.write(json.dumps(hypothesis, sort_keys=True) + "\n")
 
@@ -283,17 +314,20 @@ def main() -> None:
     if args.fallback == args.hermes:
         raise SystemExit("choose exactly one mode: --fallback or --hermes")
 
-    goal = yaml.safe_load(GOAL_PATH.read_text()) or {}
-    strategy = yaml.safe_load(STRATEGY_PATH.read_text()) or {}
-    trades = _load_jsonl(TRADES_PATH)
-    hypotheses = _load_jsonl(HYPOTHESES_PATH)
-    hypothesis = _fallback(strategy, goal, trades, hypotheses) if args.fallback else _hermes(strategy, goal, trades, hypotheses)
+    with _reflection_lock():
+        goal = yaml.safe_load(GOAL_PATH.read_text()) or {}
+        strategy = yaml.safe_load(STRATEGY_PATH.read_text()) or {}
+        trades = _load_jsonl(TRADES_PATH)
+        hypotheses = _load_jsonl(HYPOTHESES_PATH)
+        hypothesis = (
+            _fallback(strategy, goal, trades, hypotheses) if args.fallback else _hermes(strategy, goal, trades, hypotheses)
+        )
 
-    if hypothesis.get("changed"):
-        _save_change(strategy, hypothesis)
-    else:
-        with HYPOTHESES_PATH.open("a") as handle:
-            handle.write(json.dumps(hypothesis, sort_keys=True) + "\n")
+        if hypothesis.get("changed"):
+            _save_change(strategy, hypothesis)
+        else:
+            with HYPOTHESES_PATH.open("a") as handle:
+                handle.write(json.dumps(hypothesis, sort_keys=True) + "\n")
     print(json.dumps(hypothesis, indent=2, sort_keys=True))
 
 

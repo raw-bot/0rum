@@ -11,6 +11,7 @@ import yaml
 from hermes_trading.accounting import compound_balance
 from hermes_trading.adapters import macro, news, onchain, price
 from hermes_trading.adapters.base import require_schema
+from hermes_trading.fsio import atomic_write_json
 from hermes_trading.market_regime import rolling_return_regime
 from hermes_trading.paths import HEARTBEAT_PATH, STATE_DIR, STRATEGY_PATH, TRADES_PATH
 
@@ -57,13 +58,11 @@ async def _append_jsonl(path, payload: dict) -> None:
 
 
 async def _write_heartbeat(payload: dict) -> None:
-    async with aiofiles.open(HEARTBEAT_PATH, "w") as handle:
-        await handle.write(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    atomic_write_json(HEARTBEAT_PATH, payload)
 
 
 async def _write_json(path, payload: dict) -> None:
-    async with aiofiles.open(path, "w") as handle:
-        await handle.write(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    atomic_write_json(path, payload)
 
 
 def _load_recent_trades(limit: int | None = 50) -> list[dict]:
