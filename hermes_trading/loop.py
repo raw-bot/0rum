@@ -242,6 +242,7 @@ def _build_closed_trade(position: dict, strategy: dict, market: dict, rsi: float
         "ts": _now(),
         "asset": position.get("asset"),
         "signal_id": position.get("signal_id"),
+        "opened_at": position.get("opened_at"),
         "candle_ts": market.get("last_candle_ts"),
         "strategy_version": position.get("strategy_version", strategy.get("version", "01")),
         "direction": position.get("direction", "long"),

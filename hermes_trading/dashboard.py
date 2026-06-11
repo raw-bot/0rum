@@ -140,6 +140,9 @@ def _candles_from_trades(trades: list[dict]) -> list[dict]:
                 "high": high,
                 "low": low,
                 "close": close_price,
+                # high/low are fabricated for display; only open/close come
+                # from recorded trade prices.
+                "synthetic_range": True,
             }
         )
     return candles
@@ -277,9 +280,17 @@ def build_snapshot() -> dict:
     progress = min(len(pending_trades), reflection_every) if reflection_every else 0
     remaining = max(0, reflection_every - len(pending_trades)) if reflection_every else 0
 
+    heartbeat_ts = _parse_ts(heartbeat.get("ts"))
+    heartbeat_age = (datetime.now(UTC) - heartbeat_ts).total_seconds() if heartbeat_ts else None
+
     return {
         "asset": goal.get("asset", "BTC/USDT"),
         "mode": "paper",
+        "worker": {
+            "heartbeat_age_seconds": heartbeat_age,
+            # 3 missed 60s loop intervals = the worker is presumed dead.
+            "stale": heartbeat_age is None or heartbeat_age > 180,
+        },
         "portfolio": _portfolio(trades, goal),
         "open_position": _open_position(open_position, heartbeat, strategy),
         "last_price": float(heartbeat.get("last_price", 0.0) or (trades[-1].get("exit_price", 0.0) if trades else 0.0)),

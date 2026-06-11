@@ -116,3 +116,20 @@ class DashboardStateTests(unittest.TestCase):
         self.assertAlmostEqual(snapshot["portfolio"]["balance_usd"], 9947.49, places=2)
         self.assertAlmostEqual(snapshot["portfolio"]["pnl_usd"], -52.51, places=2)
         self.assertIn(snapshot["guardrail"]["status"], {"normal", "caution", "review", "kill"})
+
+    def test_snapshot_flags_stale_worker_heartbeat(self):
+        # Reuses nothing from the big fixture: a heartbeat from 2026-06-01
+        # is far older than the 180s freshness budget.
+        import tempfile
+        from unittest.mock import patch as _patch
+
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp)
+            (state / "goal.yaml").write_text("asset: BTC/USDT\n")
+            (state / "strategy.yaml").write_text("version: '01'\n")
+            (state / "heartbeat.json").write_text(json.dumps({"ts": "2026-06-01T07:25:09Z"}))
+            with _patch.object(dashboard, "STATE_DIR", state):
+                snapshot = dashboard.build_snapshot()
+
+        self.assertTrue(snapshot["worker"]["stale"])
+        self.assertGreater(snapshot["worker"]["heartbeat_age_seconds"], 180)
