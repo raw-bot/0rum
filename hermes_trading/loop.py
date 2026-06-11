@@ -11,6 +11,7 @@ import yaml
 from hermes_trading.accounting import compound_balance, max_drawdown
 from hermes_trading.adapters import macro, news, onchain, price
 from hermes_trading.adapters.base import require_schema
+from hermes_trading.events import log_event
 from hermes_trading.fsio import atomic_write_json
 from hermes_trading.market_regime import rolling_return_regime
 from hermes_trading.paths import HEARTBEAT_PATH, STATE_DIR, STRATEGY_PATH, TRADES_PATH
@@ -138,7 +139,7 @@ def _quarantine_position(position: dict, reason: str) -> None:
     with (STATE_DIR / "position_quarantine.jsonl").open("a") as handle:
         handle.write(json.dumps(record, sort_keys=True) + "\n")
     POSITION_PATH.unlink(missing_ok=True)
-    print(f"quarantined open position: {reason}", flush=True)
+    log_event("position_quarantined", reason, asset=position.get("asset"), signal_id=position.get("signal_id"))
 
 
 def _load_open_position() -> dict | None:
@@ -349,9 +350,11 @@ def market_decision(
 
 async def run_loop(goal: dict) -> None:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
-    print("Booting hermes-trading worker", flush=True)
+    log_event("worker_boot", "Booting hermes-trading worker", asset=goal.get("asset", "BTC/USDT"))
     consecutive_failures = 0
     interval = int(os.getenv("HERMES_LOOP_INTERVAL_SECONDS", "60"))
+    last_price_source: str | None = None
+    last_guardrail: str | None = None
 
     while True:
         try:
@@ -369,6 +372,15 @@ async def run_loop(goal: dict) -> None:
             regime = rolling_return_regime(closes)
             threshold = float(strategy.get("entry", {}).get("threshold", 30))
             offline = price_is_offline(market)
+            if market["source"] != last_price_source:
+                if last_price_source is not None:
+                    log_event(
+                        "price_source_changed",
+                        f"price source switched from {last_price_source} to {market['source']}",
+                        previous=last_price_source,
+                        current=market["source"],
+                    )
+                last_price_source = market["source"]
             entry_fired = entry_signal_fired(strategy, rsi, market)
             current_signal_id = signal_id(asset, strategy, market)
             position = _load_open_position()
@@ -377,6 +389,16 @@ async def run_loop(goal: dict) -> None:
             all_trades = _load_recent_trades(limit=None)
             drawdown = max_drawdown(all_trades, goal)
             guard = guardrail_action(drawdown, goal, RESUME_ACK_PATH.exists())
+            if guard != last_guardrail:
+                if last_guardrail is not None:
+                    log_event(
+                        "guardrail_changed",
+                        f"guardrail state moved from {last_guardrail} to {guard} (drawdown {drawdown:.4f})",
+                        previous=last_guardrail,
+                        current=guard,
+                        drawdown=drawdown,
+                    )
+                last_guardrail = guard
 
             if position and not offline and guard == "emergency":
                 closed_trade = _build_closed_trade(position, strategy, market, rsi, regime, "emergency_stop")
@@ -403,7 +425,13 @@ async def run_loop(goal: dict) -> None:
                 POSITION_PATH.unlink(missing_ok=True)
                 position = None
                 trade_closed = True
-                print(f"closed paper trade {asset} pnl_pct={closed_trade['pnl_pct']:.5f}", flush=True)
+                log_event(
+                    "trade_closed",
+                    f"closed paper trade {asset} via {closed_trade['exit_reason']} pnl_pct={closed_trade['pnl_pct']:.5f}",
+                    signal_id=closed_trade.get("signal_id"),
+                    exit_reason=closed_trade.get("exit_reason"),
+                    net_pnl_usd=closed_trade.get("net_pnl_usd"),
+                )
 
             can_open = (
                 entry_fired
@@ -427,7 +455,12 @@ async def run_loop(goal: dict) -> None:
                 position = open_position_from_signal(asset, strategy, goal, market, rsi, regime)
                 await _write_json(POSITION_PATH, position)
                 opened_position = True
-                print(f"opened paper position {asset} entry={position['entry_price']:.2f}", flush=True)
+                log_event(
+                    "position_opened",
+                    f"opened paper position {asset} entry={position['entry_price']:.2f}",
+                    signal_id=position.get("signal_id"),
+                    entry_price=position.get("entry_price"),
+                )
 
             await _write_heartbeat(
                 {
@@ -454,7 +487,13 @@ async def run_loop(goal: dict) -> None:
             consecutive_failures = 0
         except Exception as exc:  # noqa: BLE001 - top-level worker loop must fail closed.
             consecutive_failures += 1
-            print(f"worker failure {consecutive_failures}/5: {exc}", flush=True)
+            log_event(
+                "worker_failure",
+                f"worker failure {consecutive_failures}/5: {exc}",
+                consecutive_failures=consecutive_failures,
+                error=str(exc),
+            )
             if consecutive_failures >= 5:
+                log_event("worker_abort", "5 consecutive failures; worker is exiting and needs a restart")
                 raise
         await asyncio.sleep(interval)

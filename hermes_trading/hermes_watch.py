@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 
 import yaml
 
+from hermes_trading.events import log_event
 from hermes_trading.fsio import atomic_write_json
 from hermes_trading.paths import GOAL_PATH, HYPOTHESES_PATH, TRADES_PATH, WATCHER_HEARTBEAT_PATH
 
@@ -125,7 +126,7 @@ def main() -> None:
                 detail=str(exc),
             )
             _write_status(error)
-            print(f"hermes watcher error: {exc}", flush=True)
+            log_event("watcher_error", f"hermes watcher error: {exc}", error=str(exc))
             if args.once:
                 raise
         if args.once:

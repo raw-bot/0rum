@@ -1,0 +1,1 @@
+{"asset": "BTC/USDT", "detail": "opened_at='2026-06-02T09:58:07.233672+00:00' exceeds HERMES_MAX_POSITION_AGE_HOURS; discarded instead of closing across the outage", "kind": "position_quarantined", "signal_id": null, "ts": "2026-06-11T09:58:07.233897+00:00"}
