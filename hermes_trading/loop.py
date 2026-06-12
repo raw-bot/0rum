@@ -11,6 +11,8 @@ import yaml
 from hermes_trading.accounting import compound_balance, max_drawdown
 from hermes_trading.adapters import macro, news, onchain, price
 from hermes_trading.adapters.base import require_schema
+from hermes_trading.dsl import evaluator as dsl_evaluator
+from hermes_trading.dsl.migrate import strategy_dsl_groups
 from hermes_trading.events import log_event
 from hermes_trading.fsio import atomic_write_json
 from hermes_trading.market_regime import rolling_return_regime
@@ -77,6 +79,48 @@ def _load_recent_trades(limit: int | None = 50) -> list[dict]:
 
 def price_is_offline(market: dict) -> bool:
     return market.get("source") == "offline_fallback"
+
+
+def market_candles(market: dict) -> list[dict]:
+    """OHLCV candles from the adapter; synthesized from closes when a payload
+    predates the candles field (degenerate OHLC, close-only indicators stay exact)."""
+    candles = market.get("candles")
+    if candles:
+        return candles
+    return [
+        {"ts": index, "open": float(close), "high": float(close), "low": float(close), "close": float(close), "volume": 0.0}
+        for index, close in enumerate(market.get("closes", []))
+    ]
+
+
+def dsl_shadow_state(strategy: dict, market: dict, rsi: float, *, position_open: bool, exit_rsi: float) -> dict:
+    """Phase 2 shadow mode: evaluate the DSL alongside the legacy path.
+
+    The DSL decision is computed and compared but does NOT drive trading yet.
+    Disagreements are expected near thresholds (legacy RSI is a simple mean,
+    the DSL RSI is Wilder/TA-Lib); logging them is the point of the phase."""
+    candles = market_candles(market)
+    groups = strategy_dsl_groups(strategy)
+    entry_eval = dsl_evaluator.evaluate(groups["entry"], candles)
+    exit_eval = dsl_evaluator.evaluate(groups["exit"], candles)
+
+    legacy_entry = entry_signal_fired(strategy, rsi, market)
+    dsl_entry = entry_eval["triggered"] and not price_is_offline(market)
+    disagreements = []
+    if legacy_entry != dsl_entry:
+        disagreements.append({"signal": "entry", "legacy": legacy_entry, "dsl": dsl_entry})
+    if position_open:
+        legacy_exit = rsi >= exit_rsi
+        if legacy_exit != exit_eval["triggered"]:
+            disagreements.append({"signal": "exit", "legacy": legacy_exit, "dsl": exit_eval["triggered"]})
+
+    return {
+        "entry_triggered": dsl_entry,
+        "exit_triggered": exit_eval["triggered"],
+        "errors": entry_eval["errors"] + exit_eval["errors"],
+        "disagreements": disagreements,
+        "entry_details": entry_eval["details"],
+    }
 
 
 def entry_signal_fired(strategy: dict, rsi: float, market: dict) -> bool:
@@ -386,6 +430,22 @@ async def run_loop(goal: dict, *, iterations: int | None = None) -> None:
             entry_fired = entry_signal_fired(strategy, rsi, market)
             current_signal_id = signal_id(asset, strategy, market)
             position = _load_open_position()
+            shadow = dsl_shadow_state(
+                strategy,
+                market,
+                rsi,
+                position_open=position is not None,
+                exit_rsi=float(strategy.get("exit_rsi_threshold", 55)),
+            )
+            for disagreement in shadow["disagreements"]:
+                log_event(
+                    "dsl_shadow_disagreement",
+                    f"DSL shadow disagrees on {disagreement['signal']}: legacy={disagreement['legacy']} dsl={disagreement['dsl']} (legacy_rsi={rsi:.2f})",
+                    **disagreement,
+                    legacy_rsi=rsi,
+                )
+            if shadow["errors"]:
+                log_event("dsl_shadow_error", "; ".join(shadow["errors"]))
             opened_position = False
             trade_closed = False
             all_trades = _load_recent_trades(limit=None)
@@ -480,6 +540,12 @@ async def run_loop(goal: dict, *, iterations: int | None = None) -> None:
                     "decision_action": decision["action"],
                     "decision_reason": decision["reason"],
                     "signal_id": current_signal_id,
+                    "dsl_shadow": {
+                        "entry_triggered": shadow["entry_triggered"],
+                        "exit_triggered": shadow["exit_triggered"],
+                        "errors": shadow["errors"],
+                        "disagreements": shadow["disagreements"],
+                    },
                     "price_source": market["source"],
                     "onchain_source": chain["source"],
                     "news_source": headline["source"],
