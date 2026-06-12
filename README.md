@@ -3,13 +3,52 @@
 Paper-mode, self-improving trading worker. **No real orders are ever placed**:
 positions and PnL are simulated against live Binance 1-minute candles, and a
 reflection brain (LLM via the external `hermes` CLI, or a deterministic
-fallback) adjusts one strategy variable at a time based on outcomes.
+fallback) mutates the strategy based on outcomes — one structural change
+(one DSL condition added/removed/modified) per reflection at most.
+
+## Strategy DSL
+
+`strategy.yaml` holds entry/exit **condition groups** interpreted by a pure
+Python evaluator (`hermes_trading/dsl/`); the LLM emits JSON conditions,
+never code:
+
+```yaml
+version: "04"
+dsl_version: 1
+entry:
+  logic: AND            # AND | OR, flat, max 4 conditions
+  conditions:
+    - {indicator: rsi, params: {period: 14}, operator: "<=", value: 25}
+    - {indicator: regime, operator: "!=", value_str: unfavorable}
+exit:
+  logic: OR
+  conditions:
+    - {indicator: rsi, params: {period: 14}, operator: ">=", value: 60}
+risk:                   # enforced in loop.py, NOT mutable by the LLM
+  stop_loss_pct: 2.0
+  take_profit_pct: 3.0
+  max_hold_candles: 30
+  position_size_r: 0.5
+direction: long          # v1: long-only, not mutable
+```
+
+Indicators (whitelist, TA-Lib semantics, tested against frozen TA-Lib
+fixtures): `rsi`, `sma`, `ema`, `close`, `bollinger`, `atr`, `regime`.
+Evaluation errors (insufficient warm-up, NaN) surface in the heartbeat and
+`events.jsonl`; they are never silently swallowed.
+
+Every LLM mutation passes a validation chain, each step able to reject:
+jsonschema (strict) → semantic checks (param bounds, warm-up vs the
+200-candle buffer) → `one_block_only` structural diff → a 7-day 1m-candle
+non-regression backtest (zero signals, simulated daily-loss breach, or a
+>10x trade-count explosion reject the proposal) → post-change cooldown.
+A legacy (pre-DSL) `strategy.yaml` is migrated automatically at worker boot.
 
 ## Processes
 
 | Process | Command | Role |
 |---|---|---|
-| Worker | `uv run python -m hermes_trading.run` | 60s loop: fetch data, RSI entry/exit, write trades and heartbeat |
+| Worker | `uv run python -m hermes_trading.run` | 60s loop: fetch data, evaluate DSL entry/exit, write trades and heartbeat |
 | Watcher | `uv run python -m hermes_trading.hermes_watch` | every 30 min, runs an LLM reflection once 10 trades closed since the last one |
 | Dashboard | `uv run python -m hermes_trading.dashboard` | http://127.0.0.1:8787 — read-only view + manual reflection button |
 
@@ -39,6 +78,7 @@ uv run python -m unittest discover -s tests
 | `hermes_watcher.json` | watcher status |
 | `events.jsonl` | persistent incident log: boots, failures, price-source flips, guardrail transitions, opens/closes, quarantines |
 | `position_quarantine.jsonl` | positions discarded instead of traded (stale after outage, duplicate close after crash) |
+| `candle_history.json` | local cache of 1m candles for the non-regression backtest |
 | `.reflect.lock` | single-instance reflection lock (auto-expires after 300s) |
 | `archive/` | snapshots of previous runs; never read by the code |
 
@@ -63,10 +103,11 @@ Drawdown is a high-water metric over the whole `trades.jsonl`: once breached
 it cannot recover on its own. **To resume after review**: create
 `state/manual_resume.ok` (or archive/reset the trade history).
 
-LLM reflections are bounded in code (`reflect.VARIABLE_BOUNDS`), subject to
-the post-change cooldown (`cooldown_after_change_trades`), serialized by
-`.reflect.lock`, and the dashboard button is rate-limited to one trigger per
-minute.
+LLM reflections only touch the entry/exit DSL groups — the `risk:` block
+(stops, sizing, hold limits) is not exposed to the model at all — and go
+through the validation chain described above, subject to the post-change
+cooldown (`cooldown_after_change_trades`), serialized by `.reflect.lock`;
+the dashboard button is rate-limited to one trigger per minute.
 
 ## Environment variables
 
@@ -82,11 +123,12 @@ minute.
 
 ## Known limitations
 
-- The strategy itself (1m RSI mean-reversion) historically produced gross
-  gains smaller than round-trip fees because exits banked at RSI 55. The
-  accounting makes that visible and reflection now owns the exit levers
-  (`exit_rsi_threshold`, `take_profit_pct`, `max_hold_candles`); whether it
-  converges to a profitable exit is the experiment, not a guarantee.
+- The starting strategy (1m RSI mean-reversion) historically produced gross
+  gains smaller than round-trip fees. Reflection can now restructure the
+  entry/exit conditions (indicators, regime filter, crosses) but not the
+  risk levers; whether it converges to a profitable strategy is the
+  experiment, not a guarantee. The deterministic fallback may still reduce
+  `position_size_r` after a daily-loss breach.
 - Stops/TP are evaluated once per loop on close prices: losses can exceed the
   stop; paper results are optimistic vs. real execution.
 - `score()`'s "sharpe" term is a t-statistic, not an annualized Sharpe ratio.
