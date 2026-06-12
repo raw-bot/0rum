@@ -1,3 +1,10 @@
+"""Migration v03 -> DSL and decision behaviour of the migrated RSI config.
+
+Phase 2 ran the DSL in shadow next to the legacy path; since the phase 3
+switchover the DSL is the only decision path, so these tests pin the migrated
+config's behaviour on unambiguous markets (the live shadow run validated the
+threshold-straddling cases before the legacy path was removed)."""
+
 import unittest
 
 from hermes_trading.dsl.migrate import (
@@ -8,7 +15,7 @@ from hermes_trading.dsl.migrate import (
     strategy_dsl_groups,
 )
 from hermes_trading.dsl.schema import validate_strategy_dsl
-from hermes_trading.loop import dsl_shadow_state, market_candles
+from hermes_trading.loop import entry_signal_fired, exit_signal_fired, market_candles, signal_id
 
 LEGACY_STRATEGY = {
     "version": "03",
@@ -63,48 +70,33 @@ class MigrationTests(unittest.TestCase):
         self.assertIs(groups["entry"], migrated["entry"])
 
 
-class ShadowEquivalenceTests(unittest.TestCase):
-    """Legacy and DSL decisions agree on the migrated RSI config whenever the
-    market is unambiguous; threshold-straddling cases are what the live shadow
-    phase observes."""
-
-    def test_deep_oversold_fires_both_entries(self):
+class MigratedConfigDecisionTests(unittest.TestCase):
+    def test_deep_oversold_fires_entry(self):
         closes = [100.0 - index * 0.5 for index in range(20)]
-        rsi = 0.0  # legacy _rsi of strictly falling closes
-        shadow = dsl_shadow_state(LEGACY_STRATEGY, _market(closes), rsi, position_open=False, exit_rsi=60.0)
-        self.assertTrue(shadow["entry_triggered"])
-        self.assertEqual(shadow["disagreements"], [])
-        self.assertEqual(shadow["errors"], [])
+        for strategy in (LEGACY_STRATEGY, migrate_strategy_file(LEGACY_STRATEGY)):
+            result = entry_signal_fired(strategy, market_candles(_market(closes)), _market(closes))
+            self.assertTrue(result["triggered"])
+            self.assertEqual(result["errors"], [])
 
-    def test_strong_rally_fires_neither_entry_and_both_exits(self):
+    def test_strong_rally_fires_exit_not_entry(self):
         closes = [100.0 + index * 0.5 for index in range(20)]
-        rsi = 100.0  # legacy _rsi of strictly rising closes
-        shadow = dsl_shadow_state(LEGACY_STRATEGY, _market(closes), rsi, position_open=True, exit_rsi=60.0)
-        self.assertFalse(shadow["entry_triggered"])
-        self.assertTrue(shadow["exit_triggered"])
-        self.assertEqual(shadow["disagreements"], [])
+        market = _market(closes)
+        candles = market_candles(market)
+        strategy = migrate_strategy_file(LEGACY_STRATEGY)
+        self.assertFalse(entry_signal_fired(strategy, candles, market)["triggered"])
+        self.assertTrue(exit_signal_fired(strategy, candles)["triggered"])
 
-    def test_offline_market_blocks_dsl_entry_like_legacy(self):
+    def test_offline_market_freezes_entry(self):
         closes = [100.0 - index * 0.5 for index in range(20)]
-        shadow = dsl_shadow_state(
-            LEGACY_STRATEGY, _market(closes, source="offline_fallback"), 0.0, position_open=False, exit_rsi=60.0
-        )
-        self.assertFalse(shadow["entry_triggered"])
-        self.assertEqual(shadow["disagreements"], [])
+        market = _market(closes, source="offline_fallback")
+        result = entry_signal_fired(migrate_strategy_file(LEGACY_STRATEGY), market_candles(market), market)
+        self.assertFalse(result["triggered"])
 
-    def test_flat_series_disagreement_is_reported_not_hidden(self):
-        # Known divergence: legacy RSI returns 100 on a flat series (no
-        # losses), TA-Lib/Wilder returns 0 (no gains either). The shadow
-        # phase must surface it, not smooth it over.
-        closes = [100.0] * 20
-        shadow = dsl_shadow_state(LEGACY_STRATEGY, _market(closes), 100.0, position_open=True, exit_rsi=60.0)
-        self.assertEqual({item["signal"] for item in shadow["disagreements"]}, {"entry", "exit"})
-
-    def test_insufficient_candles_surface_as_errors(self):
-        closes = [100.0, 99.0, 98.0]
-        shadow = dsl_shadow_state(LEGACY_STRATEGY, _market(closes), 50.0, position_open=False, exit_rsi=60.0)
-        self.assertFalse(shadow["entry_triggered"])
-        self.assertTrue(shadow["errors"])
+    def test_insufficient_candles_surface_as_errors_and_block_entry(self):
+        market = _market([100.0, 99.0, 98.0])
+        result = entry_signal_fired(migrate_strategy_file(LEGACY_STRATEGY), market_candles(market), market)
+        self.assertFalse(result["triggered"])
+        self.assertTrue(result["errors"])
 
     def test_market_candles_synthesizes_from_closes_when_absent(self):
         candles = market_candles(_market([100.0, 101.0]))
@@ -112,6 +104,29 @@ class ShadowEquivalenceTests(unittest.TestCase):
         self.assertEqual(candles[-1]["close"], 101.0)
         real = {"candles": [{"ts": 1, "open": 1, "high": 1, "low": 1, "close": 1, "volume": 1}]}
         self.assertIs(market_candles(real), real["candles"])
+
+
+class CanonicalSignalIdTests(unittest.TestCase):
+    def test_signal_id_is_stable_across_key_order_and_layout(self):
+        market = _market([100.0, 101.0])
+        legacy_id = signal_id("BTC/USDT", LEGACY_STRATEGY, market)
+        migrated_id = signal_id("BTC/USDT", migrate_strategy_file(LEGACY_STRATEGY), market)
+        # Same version + same canonical entry group => same hash, whatever
+        # the on-disk layout or key order.
+        self.assertEqual(legacy_id, migrated_id)
+
+    def test_signal_id_changes_with_entry_structure_version_and_candle(self):
+        market = _market([100.0, 101.0])
+        base = signal_id("BTC/USDT", LEGACY_STRATEGY, market)
+
+        retuned = migrate_strategy_file(LEGACY_STRATEGY)
+        retuned["entry"]["conditions"][0]["value"] = 20.0
+        self.assertNotEqual(signal_id("BTC/USDT", retuned, market), base)
+
+        rebumped = dict(LEGACY_STRATEGY, version="04")
+        self.assertNotEqual(signal_id("BTC/USDT", rebumped, market), base)
+
+        self.assertNotEqual(signal_id("BTC/USDT", LEGACY_STRATEGY, _market([100.0, 101.0, 102.0])), base)
 
 
 if __name__ == "__main__":

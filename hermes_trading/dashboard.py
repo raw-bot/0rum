@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 import yaml
 
 from hermes_trading.accounting import account_returns, compound_balance
+from hermes_trading.dsl.migrate import risk_value
 from hermes_trading.paths import STATE_DIR
 from hermes_trading.score import score
 
@@ -82,8 +83,8 @@ def _open_position(position: dict, heartbeat: dict, strategy: dict) -> dict:
     notional = float(position.get("notional_usd", 0.0) or 0.0)
     pnl_pct = ((current - entry) / entry) if entry else 0.0
     pnl_usd = pnl_pct * notional
-    stop_pct = float(strategy.get("stop_loss_pct", 2.0) or 2.0) / 100.0
-    take_profit_pct = float(strategy.get("take_profit_pct", 3.0) or 3.0) / 100.0
+    stop_pct = risk_value(strategy, "stop_loss_pct", 2.0) / 100.0
+    take_profit_pct = risk_value(strategy, "take_profit_pct", 3.0) / 100.0
     opened_at = _parse_ts(position.get("opened_at"))
     held_seconds = int((datetime.now(UTC) - opened_at).total_seconds()) if opened_at else 0
 

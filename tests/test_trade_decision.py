@@ -90,14 +90,13 @@ class TradeDecisionTests(unittest.TestCase):
             entry_fired=False,
             position=None,
             closed_trade=None,
-            rsi=42.25,
-            threshold=30.0,
+            entry_summary="rsi(14) <= 30 (lhs=42.25) -> not met",
             current_signal_id="sig-1",
             can_open=False,
         )
 
         self.assertEqual(decision["action"], "wait")
-        self.assertIn("RSI 42.25", decision["reason"])
+        self.assertIn("rsi(14) <= 30 (lhs=42.25) -> not met", decision["reason"])
 
     def test_rolling_return_regime_classifies_context(self):
         self.assertEqual(rolling_return_regime([100, 101])["label"], "favorable")

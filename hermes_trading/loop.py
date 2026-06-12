@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
+import math
 import os
 from datetime import UTC, datetime
 
@@ -12,9 +14,10 @@ from hermes_trading.accounting import compound_balance, max_drawdown
 from hermes_trading.adapters import macro, news, onchain, price
 from hermes_trading.adapters.base import require_schema
 from hermes_trading.dsl import evaluator as dsl_evaluator
-from hermes_trading.dsl.migrate import strategy_dsl_groups
+from hermes_trading.dsl import indicators as dsl_indicators
+from hermes_trading.dsl.migrate import is_dsl_strategy, migrate_strategy_file, risk_value, strategy_dsl_groups
 from hermes_trading.events import log_event
-from hermes_trading.fsio import atomic_write_json
+from hermes_trading.fsio import atomic_write_json, atomic_write_text
 from hermes_trading.market_regime import rolling_return_regime
 from hermes_trading.paths import HEARTBEAT_PATH, STATE_DIR, STRATEGY_PATH, TRADES_PATH
 
@@ -25,21 +28,13 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _rsi(closes: list[float], period: int = 14) -> float:
-    if len(closes) <= period:
-        return 50.0
-    gains: list[float] = []
-    losses: list[float] = []
-    for before, after in zip(closes[-period - 1 : -1], closes[-period:]):
-        delta = after - before
-        gains.append(max(delta, 0.0))
-        losses.append(abs(min(delta, 0.0)))
-    avg_gain = sum(gains) / period
-    avg_loss = sum(losses) / period
-    if avg_loss == 0:
-        return 100.0
-    rs = avg_gain / avg_loss
-    return 100.0 - (100.0 / (1.0 + rs))
+def telemetry_rsi(candles: list[dict], period: int = 14) -> float | None:
+    """Wilder RSI(14) kept as an observability metric (heartbeat, trade
+    records); the trading decision itself comes from the DSL evaluator."""
+    series = dsl_indicators.rsi(candles, period)
+    if not series or math.isnan(series[-1]):
+        return None
+    return series[-1]
 
 
 async def _retry(name: str, call, *, attempts: int = 3) -> dict:
@@ -93,56 +88,40 @@ def market_candles(market: dict) -> list[dict]:
     ]
 
 
-def dsl_shadow_state(strategy: dict, market: dict, rsi: float, *, position_open: bool, exit_rsi: float) -> dict:
-    """Phase 2 shadow mode: evaluate the DSL alongside the legacy path.
+def strategy_direction(strategy: dict) -> str:
+    if "direction" in strategy:
+        return str(strategy["direction"])
+    return str(strategy.get("entry", {}).get("direction", "long"))
 
-    The DSL decision is computed and compared but does NOT drive trading yet.
-    Disagreements are expected near thresholds (legacy RSI is a simple mean,
-    the DSL RSI is Wilder/TA-Lib); logging them is the point of the phase."""
-    candles = market_candles(market)
+
+def entry_signal_fired(strategy: dict, candles: list[dict], market: dict) -> dict:
+    """Evaluate the DSL entry group; returns the full EvalResult so errors and
+    per-condition details reach the heartbeat. ["triggered"] drives trading."""
+    if price_is_offline(market) or strategy_direction(strategy) != "long":
+        return {"triggered": False, "details": [], "errors": []}
     groups = strategy_dsl_groups(strategy)
-    entry_eval = dsl_evaluator.evaluate(groups["entry"], candles)
-    exit_eval = dsl_evaluator.evaluate(groups["exit"], candles)
-
-    legacy_entry = entry_signal_fired(strategy, rsi, market)
-    dsl_entry = entry_eval["triggered"] and not price_is_offline(market)
-    disagreements = []
-    if legacy_entry != dsl_entry:
-        disagreements.append({"signal": "entry", "legacy": legacy_entry, "dsl": dsl_entry})
-    if position_open:
-        legacy_exit = rsi >= exit_rsi
-        if legacy_exit != exit_eval["triggered"]:
-            disagreements.append({"signal": "exit", "legacy": legacy_exit, "dsl": exit_eval["triggered"]})
-
-    return {
-        "entry_triggered": dsl_entry,
-        "exit_triggered": exit_eval["triggered"],
-        "errors": entry_eval["errors"] + exit_eval["errors"],
-        "disagreements": disagreements,
-        "entry_details": entry_eval["details"],
-    }
+    return dsl_evaluator.evaluate(groups["entry"], candles)
 
 
-def entry_signal_fired(strategy: dict, rsi: float, market: dict) -> bool:
-    entry = strategy.get("entry", {})
-    direction = entry.get("direction", "long")
-    threshold = float(entry.get("threshold", 30))
-    return direction == "long" and rsi <= threshold and not price_is_offline(market)
+def exit_signal_fired(strategy: dict, candles: list[dict]) -> dict:
+    groups = strategy_dsl_groups(strategy)
+    return dsl_evaluator.evaluate(groups["exit"], candles)
 
 
 def signal_id(asset: str, strategy: dict, market: dict) -> str:
-    entry = strategy.get("entry", {})
-    candle_ts = market.get("last_candle_ts", "unknown")
-    return "|".join(
-        [
-            asset,
-            str(strategy.get("version", "01")),
-            str(entry.get("indicator", "rsi")),
-            str(entry.get("direction", "long")),
-            str(entry.get("threshold", 30)),
-            str(candle_ts),
-        ]
+    """Hash of the canonical entry JSON + version; one signal per candle.
+
+    Replaces the legacy indicator/direction/threshold concatenation, which
+    could not represent a multi-condition entry."""
+    entry = strategy_dsl_groups(strategy)["entry"]
+    canonical = json.dumps(
+        {"entry": entry, "version": strategy.get("version", "01")},
+        sort_keys=True,
+        separators=(",", ":"),
     )
+    digest = hashlib.sha256(canonical.encode()).hexdigest()[:16]
+    candle_ts = market.get("last_candle_ts", "unknown")
+    return f"{asset}|{digest}|{candle_ts}"
 
 
 def should_record_signal(current_signal_id: str, recent_trades: list[dict]) -> bool:
@@ -203,8 +182,8 @@ def _load_open_position() -> dict | None:
 
 def _sizing(strategy: dict, goal: dict, entry_price: float) -> dict:
     balance = float(goal.get("starting_balance_usd", 10000.0))
-    risk_pct = float(strategy.get("position_size_r", 0.5)) / 100.0
-    stop_pct = float(strategy.get("stop_loss_pct", 2.0)) / 100.0
+    risk_pct = risk_value(strategy, "position_size_r", 0.5) / 100.0
+    stop_pct = risk_value(strategy, "stop_loss_pct", 2.0) / 100.0
     risk_usd = balance * risk_pct
     notional_usd = risk_usd / stop_pct if stop_pct else 0.0
     return {
@@ -214,7 +193,15 @@ def _sizing(strategy: dict, goal: dict, entry_price: float) -> dict:
     }
 
 
-def open_position_from_signal(asset: str, strategy: dict, goal: dict, market: dict, rsi: float, regime: dict | None = None) -> dict:
+def open_position_from_signal(
+    asset: str,
+    strategy: dict,
+    goal: dict,
+    market: dict,
+    rsi: float | None,
+    regime: dict | None = None,
+    entry_summary: str | None = None,
+) -> dict:
     entry_price = float(market["closes"][-1])
     sizing = _sizing(strategy, goal, entry_price)
     regime = regime or rolling_return_regime(market.get("closes", []))
@@ -225,8 +212,8 @@ def open_position_from_signal(asset: str, strategy: dict, goal: dict, market: di
         "opened_candle_ts": market.get("last_candle_ts"),
         "opened_index": len(market.get("closes", [])) - 1,
         "strategy_version": strategy.get("version", "01"),
-        "direction": strategy.get("entry", {}).get("direction", "long"),
-        "entry_reason": f"rsi={rsi:.2f} <= threshold={float(strategy.get('entry', {}).get('threshold', 30)):.2f}",
+        "direction": strategy_direction(strategy),
+        "entry_reason": f"dsl: {entry_summary}" if entry_summary else "dsl entry group triggered",
         "entry_price": entry_price,
         "rsi_at_entry": rsi,
         "market_regime_at_entry": regime.get("label", "unknown"),
@@ -247,14 +234,22 @@ def _held_candles(position: dict, market: dict) -> int:
         return max(0, current_index - opened_index)
 
 
-def close_position_if_needed(position: dict, strategy: dict, market: dict, rsi: float, regime: dict | None = None) -> dict | None:
+def close_position_if_needed(
+    position: dict,
+    strategy: dict,
+    market: dict,
+    rsi: float | None,
+    regime: dict | None = None,
+    exit_triggered: bool = False,
+) -> dict | None:
+    """Risk exits (stop, take profit, max hold) stay in code and are checked
+    BEFORE the DSL exit group; the DSL only adds a signal-based exit."""
     current_price = float(market["closes"][-1])
     entry_price = float(position.get("entry_price", current_price))
     pnl_pct = (current_price - entry_price) / entry_price if entry_price else 0.0
-    stop_pct = float(strategy.get("stop_loss_pct", 2.0)) / 100.0
-    take_profit_pct = float(strategy.get("take_profit_pct", 3.0)) / 100.0
-    max_hold = int(strategy.get("max_hold_candles", 30))
-    exit_rsi = float(strategy.get("exit_rsi_threshold", 55))
+    stop_pct = risk_value(strategy, "stop_loss_pct", 2.0) / 100.0
+    take_profit_pct = risk_value(strategy, "take_profit_pct", 3.0) / 100.0
+    max_hold = int(risk_value(strategy, "max_hold_candles", 30))
     held_candles = _held_candles(position, market)
 
     exit_reason = None
@@ -262,17 +257,17 @@ def close_position_if_needed(position: dict, strategy: dict, market: dict, rsi: 
         exit_reason = "stop_loss"
     elif pnl_pct >= take_profit_pct:
         exit_reason = "take_profit"
-    elif rsi >= exit_rsi:
-        exit_reason = "rsi_reversion"
     elif held_candles >= max_hold:
         exit_reason = "max_hold"
+    elif exit_triggered:
+        exit_reason = "dsl_exit"
 
     if not exit_reason:
         return None
     return _build_closed_trade(position, strategy, market, rsi, regime, exit_reason)
 
 
-def _build_closed_trade(position: dict, strategy: dict, market: dict, rsi: float, regime: dict | None, exit_reason: str) -> dict:
+def _build_closed_trade(position: dict, strategy: dict, market: dict, rsi: float | None, regime: dict | None, exit_reason: str) -> dict:
     current_price = float(market["closes"][-1])
     regime = regime or rolling_return_regime(market.get("closes", []))
     entry_price = float(position.get("entry_price", current_price))
@@ -280,7 +275,7 @@ def _build_closed_trade(position: dict, strategy: dict, market: dict, rsi: float
     held_candles = _held_candles(position, market)
     notional_usd = float(position.get("notional_usd", 0.0))
     pnl_usd = pnl_pct * notional_usd
-    fee_rate = float(strategy.get("fee_rate", 0.0004))
+    fee_rate = risk_value(strategy, "fee_rate", 0.0004)
     fees_usd = notional_usd * fee_rate * 2
     return {
         "ts": _now(),
@@ -292,7 +287,7 @@ def _build_closed_trade(position: dict, strategy: dict, market: dict, rsi: float
         "direction": position.get("direction", "long"),
         "entry_reason": position.get("entry_reason"),
         "exit_reason": exit_reason,
-        "rsi_at_entry": float(position.get("rsi_at_entry", 0.0)),
+        "rsi_at_entry": position.get("rsi_at_entry"),
         "rsi_at_exit": rsi,
         "market_regime_at_entry": position.get("market_regime_at_entry", "unknown"),
         "market_regime_at_exit": regime.get("label", "unknown"),
@@ -337,8 +332,7 @@ def market_decision(
     entry_fired: bool,
     position: dict | None,
     closed_trade: dict | None,
-    rsi: float,
-    threshold: float,
+    entry_summary: str,
     current_signal_id: str,
     can_open: bool,
     offline: bool = False,
@@ -371,13 +365,13 @@ def market_decision(
     if can_open:
         return {
             "action": "open_position",
-            "reason": f"RSI {rsi:.2f} is below entry threshold {threshold:.2f}.",
+            "reason": f"DSL entry triggered: {entry_summary}.",
             "signal_id": current_signal_id,
         }
     if position:
         return {
             "action": "manage_position",
-            "reason": "Position remains open; stop loss, take profit, RSI reversion, and max hold are not hit.",
+            "reason": "Position remains open; stop loss, take profit, max hold, and DSL exit are not hit.",
             "signal_id": current_signal_id,
         }
     if entry_fired:
@@ -388,7 +382,7 @@ def market_decision(
         }
     return {
         "action": "wait",
-        "reason": f"No long entry: RSI {rsi:.2f} is above threshold {threshold:.2f}.",
+        "reason": f"No long entry: {entry_summary}.",
         "signal_id": current_signal_id,
     }
 
@@ -405,6 +399,14 @@ async def run_loop(goal: dict, *, iterations: int | None = None) -> None:
     while True:
         try:
             strategy = yaml.safe_load(STRATEGY_PATH.read_text()) or {}
+            if not is_dsl_strategy(strategy):
+                strategy = migrate_strategy_file(strategy)
+                atomic_write_text(STRATEGY_PATH, yaml.safe_dump(strategy, sort_keys=False))
+                log_event(
+                    "strategy_migrated",
+                    f"strategy v{strategy.get('version')} migrated on disk from legacy scalars to DSL format",
+                    version=strategy.get("version"),
+                )
             asset = goal.get("asset", "BTC/USDT")
             market, chain, headline, macro_data = await asyncio.gather(
                 _retry("price", lambda: price.fetch(asset)),
@@ -414,9 +416,9 @@ async def run_loop(goal: dict, *, iterations: int | None = None) -> None:
             )
 
             closes = market["closes"]
-            rsi = _rsi(closes)
+            candles = market_candles(market)
+            rsi = telemetry_rsi(candles)
             regime = rolling_return_regime(closes)
-            threshold = float(strategy.get("entry", {}).get("threshold", 30))
             offline = price_is_offline(market)
             if market["source"] != last_price_source:
                 if last_price_source is not None:
@@ -427,25 +429,19 @@ async def run_loop(goal: dict, *, iterations: int | None = None) -> None:
                         current=market["source"],
                     )
                 last_price_source = market["source"]
-            entry_fired = entry_signal_fired(strategy, rsi, market)
+            entry_eval = entry_signal_fired(strategy, candles, market)
+            exit_eval = exit_signal_fired(strategy, candles)
+            groups = strategy_dsl_groups(strategy)
+            entry_summary = dsl_evaluator.summarize(groups["entry"], entry_eval) if entry_eval["details"] else "offline or non-long strategy"
+            exit_summary = dsl_evaluator.summarize(groups["exit"], exit_eval)
+            entry_fired = entry_eval["triggered"]
+            dsl_errors = entry_eval["errors"] + exit_eval["errors"]
+            if dsl_errors:
+                # Same surfacing in live and backtest: errors reach the event
+                # log and the heartbeat, never silently force a False.
+                log_event("dsl_error", "; ".join(dsl_errors))
             current_signal_id = signal_id(asset, strategy, market)
             position = _load_open_position()
-            shadow = dsl_shadow_state(
-                strategy,
-                market,
-                rsi,
-                position_open=position is not None,
-                exit_rsi=float(strategy.get("exit_rsi_threshold", 55)),
-            )
-            for disagreement in shadow["disagreements"]:
-                log_event(
-                    "dsl_shadow_disagreement",
-                    f"DSL shadow disagrees on {disagreement['signal']}: legacy={disagreement['legacy']} dsl={disagreement['dsl']} (legacy_rsi={rsi:.2f})",
-                    **disagreement,
-                    legacy_rsi=rsi,
-                )
-            if shadow["errors"]:
-                log_event("dsl_shadow_error", "; ".join(shadow["errors"]))
             opened_position = False
             trade_closed = False
             all_trades = _load_recent_trades(limit=None)
@@ -465,7 +461,9 @@ async def run_loop(goal: dict, *, iterations: int | None = None) -> None:
             if position and not offline and guard == "emergency":
                 closed_trade = _build_closed_trade(position, strategy, market, rsi, regime, "emergency_stop")
             elif position and not offline:
-                closed_trade = close_position_if_needed(position, strategy, market, rsi, regime)
+                closed_trade = close_position_if_needed(
+                    position, strategy, market, rsi, regime, exit_triggered=exit_eval["triggered"]
+                )
             else:
                 closed_trade = None
 
@@ -506,15 +504,14 @@ async def run_loop(goal: dict, *, iterations: int | None = None) -> None:
                 entry_fired=entry_fired,
                 position=position,
                 closed_trade=closed_trade,
-                rsi=rsi,
-                threshold=threshold,
+                entry_summary=entry_summary,
                 current_signal_id=current_signal_id,
                 can_open=can_open,
                 offline=offline,
                 guardrail=guard,
             )
             if can_open:
-                position = open_position_from_signal(asset, strategy, goal, market, rsi, regime)
+                position = open_position_from_signal(asset, strategy, goal, market, rsi, regime, entry_summary=entry_summary)
                 await _write_json(POSITION_PATH, position)
                 opened_position = True
                 log_event(
@@ -540,11 +537,12 @@ async def run_loop(goal: dict, *, iterations: int | None = None) -> None:
                     "decision_action": decision["action"],
                     "decision_reason": decision["reason"],
                     "signal_id": current_signal_id,
-                    "dsl_shadow": {
-                        "entry_triggered": shadow["entry_triggered"],
-                        "exit_triggered": shadow["exit_triggered"],
-                        "errors": shadow["errors"],
-                        "disagreements": shadow["disagreements"],
+                    "dsl": {
+                        "entry_triggered": entry_eval["triggered"],
+                        "exit_triggered": exit_eval["triggered"],
+                        "entry_summary": entry_summary,
+                        "exit_summary": exit_summary,
+                        "errors": dsl_errors,
                     },
                     "price_source": market["source"],
                     "onchain_source": chain["source"],

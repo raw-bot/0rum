@@ -105,6 +105,44 @@ def _evaluate_condition(condition: dict, candles: list[dict]) -> tuple[bool, obj
     return comparators[operator], lhs_curr, rhs_curr
 
 
+def _format_operand(value) -> str:
+    if isinstance(value, float):
+        return f"{value:.4g}"
+    if isinstance(value, tuple):
+        return "[" + ", ".join(_format_operand(item) for item in value) + "]"
+    return str(value)
+
+
+def describe_condition(detail: dict) -> str:
+    """One-line human summary of a condition evaluation for decisions/heartbeat."""
+    condition = detail["condition"]
+    name = condition.get("indicator", "?")
+    period = (condition.get("params") or {}).get("period")
+    label = f"{name}({period})" if period else name
+    if condition.get("field"):
+        label += f".{condition['field']}"
+    if condition.get("compare_mode") == "indicator":
+        rhs_period = (condition.get("compare_params") or {}).get("period")
+        target = f"{condition.get('compare_indicator')}({rhs_period})" if rhs_period else str(condition.get("compare_indicator"))
+    elif "value_str" in condition:
+        target = condition["value_str"]
+    elif condition.get("operator") == "between":
+        target = f"[{_format_operand(condition.get('value'))}, {_format_operand(condition.get('value2'))}]"
+    elif "value" in condition:
+        target = _format_operand(condition["value"])
+    else:
+        target = ""
+    head = f"{label} {condition.get('operator', '?')} {target}".rstrip()
+    if detail["error"]:
+        return f"{head} -> error"
+    return f"{head} (lhs={_format_operand(detail['lhs'])}) -> {'met' if detail['met'] else 'not met'}"
+
+
+def summarize(group: dict, result: EvalResult) -> str:
+    joiner = " OR " if group.get("logic") == "OR" else " AND "
+    return joiner.join(describe_condition(detail) for detail in result["details"]) or "no conditions"
+
+
 def evaluate(group: dict, candles: list[dict]) -> EvalResult:
     details: list[dict] = []
     errors: list[str] = []
