@@ -13,8 +13,9 @@ from pathlib import Path
 import yaml
 
 from hermes_trading.accounting import account_returns
+from hermes_trading.dsl import backtest as dsl_backtest
 from hermes_trading.dsl.diff import structural_diff
-from hermes_trading.dsl.migrate import is_dsl_strategy, migrate_strategy_file, strategy_dsl_groups
+from hermes_trading.dsl.migrate import is_dsl_strategy, migrate_strategy_file, risk_value, strategy_dsl_groups
 from hermes_trading.dsl.schema import DslValidationError, validate_strategy_dsl
 from hermes_trading.fsio import atomic_write_text
 from hermes_trading.paths import GOAL_PATH, HISTORY_DIR, HYPOTHESES_PATH, STATE_DIR, STRATEGY_PATH, TRADES_PATH
@@ -289,8 +290,49 @@ def _apply_dsl_hypothesis(strategy: dict, hypothesis: dict, goal: dict) -> dict:
     return hypothesis
 
 
+BACKTEST_DAYS = 7
+DEGENERACY_FACTOR = 10
+
+
 def _backtest_guard(strategy: dict, proposed_entry: dict, proposed_exit: dict, goal: dict) -> str | None:
-    """Step 4 of the chain; activated in phase 5 (dsl/backtest.py)."""
+    """Step 4: replay proposed vs current strategy on recent 1m candles.
+
+    Fail closed: no data means no mutation. Rejections per spec: zero entry
+    signals, simulated daily_loss_limit breach, or a trade count more than
+    10x the current strategy's (degeneracy)."""
+    asset = goal.get("asset", "BTC/USDT")
+    try:
+        candles = dsl_backtest.load_history(asset, days=BACKTEST_DAYS)
+    except Exception as exc:  # noqa: BLE001 - any data failure must block, not crash, the reflection.
+        return f"rejected: backtest history unavailable ({exc})"
+
+    risk = {
+        key: risk_value(strategy, key, default)
+        for key, default in (
+            ("stop_loss_pct", 2.0),
+            ("take_profit_pct", 3.0),
+            ("max_hold_candles", 30),
+            ("position_size_r", 0.5),
+            ("fee_rate", 0.0004),
+        )
+    }
+    current = strategy_dsl_groups(strategy)
+    proposed = dsl_backtest.simulate({"entry": proposed_entry, "exit": proposed_exit}, risk, goal, candles)
+    baseline = dsl_backtest.simulate(current, risk, goal, candles)
+
+    if proposed["entries_triggered"] == 0:
+        return f"rejected: proposed strategy fired zero entry signals over the {BACKTEST_DAYS}-day backtest window"
+    daily_loss_limit = float(goal.get("daily_loss_limit", 0.015))
+    if proposed["worst_day"] <= -daily_loss_limit:
+        return (
+            f"rejected: backtest worst day {proposed['worst_day']:.4f} breaches "
+            f"daily_loss_limit {daily_loss_limit} (simulated)"
+        )
+    if len(proposed["trades"]) > DEGENERACY_FACTOR * max(1, len(baseline["trades"])):
+        return (
+            f"rejected: degenerate trade count {len(proposed['trades'])} vs current "
+            f"{len(baseline['trades'])} over the backtest window (>{DEGENERACY_FACTOR}x)"
+        )
     return None
 
 

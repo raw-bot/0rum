@@ -90,7 +90,8 @@ class MutationChainTests(unittest.TestCase):
         entry = copy.deepcopy(strategy["entry"])
         entry["conditions"].append({"indicator": "regime", "operator": "!=", "value_str": "unfavorable"})
 
-        result = _apply_dsl_hypothesis(strategy, _hypothesis(entry=entry), GOAL)
+        with patch("hermes_trading.reflect._backtest_guard", return_value=None):
+            result = _apply_dsl_hypothesis(strategy, _hypothesis(entry=entry), GOAL)
 
         self.assertTrue(result["changed"])
         self.assertEqual(result["structural_changes"], 1)
@@ -216,6 +217,7 @@ class HermesPipelineTests(unittest.TestCase):
             with (
                 patch.dict("os.environ", {"HERMES_REFLECT_HOME": tmp}),
                 patch("hermes_trading.reflect.subprocess.run", return_value=completed),
+                patch("hermes_trading.reflect._backtest_guard", return_value=None),
             ):
                 result = _hermes(strategy, GOAL, [], [])
 
