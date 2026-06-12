@@ -1,5 +1,6 @@
 import unittest
 
+from hermes_trading.dsl.migrate import migrate_strategy_file
 from hermes_trading.reflect import _fallback
 
 
@@ -12,7 +13,9 @@ class ReflectPolicyTests(unittest.TestCase):
             "min_sharpe": 1.3,
             "evidence_reflections_required": 2,
         }
-        strategy = {"version": "01", "entry": {"threshold": 30}, "position_size_r": 0.5}
+        strategy = migrate_strategy_file(
+            {"version": "01", "entry": {"indicator": "rsi", "threshold": 30, "direction": "long"}, "position_size_r": 0.5}
+        )
         trades = [
             {"ts": "2026-06-01T00:00:00Z", "pnl_pct": -0.0005},
             {"ts": "2026-06-01T00:01:00Z", "pnl_pct": -0.0005},
@@ -27,6 +30,8 @@ class ReflectPolicyTests(unittest.TestCase):
         self.assertEqual(first["issue"], "negative_realised_weak_score")
         self.assertTrue(second["changed"])
         self.assertEqual(second["variable"], "entry.threshold")
+        # The nudge is now a DSL value mutation: rsi entry value 30 -> 28.
+        self.assertEqual(strategy["entry"]["conditions"][0]["value"], 28)
 
     def test_fallback_respects_cooldown_after_change(self):
         goal = {

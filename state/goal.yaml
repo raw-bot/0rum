@@ -25,7 +25,9 @@ risk_per_trade_max: 0.0075
 
 reflection_every: 10
 cooldown_after_change_trades: 10
-one_variable_only: true
+# Successor of one_variable_only: at most ONE DSL condition added, removed,
+# or modified per structural mutation (diff on canonical entry+exit JSON).
+one_block_only: true
 allow_no_change: true
 change_only_if_data_justifies: true
 evidence_reflections_required: 2

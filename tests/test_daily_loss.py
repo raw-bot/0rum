@@ -45,7 +45,10 @@ class DailyLossGuardrailTests(unittest.TestCase):
         self.assertEqual(result["issue"], "daily_loss_guardrail")
         self.assertTrue(result["changed"])
         self.assertEqual(result["variable"], "position_size_r")
-        self.assertAlmostEqual(strategy["position_size_r"], 0.6)
+        # The nudge lands in the risk: block (outside the mutable DSL) and the
+        # legacy top-level key is removed.
+        self.assertAlmostEqual(strategy["risk"]["position_size_r"], 0.6)
+        self.assertNotIn("position_size_r", strategy)
 
 
 if __name__ == "__main__":
