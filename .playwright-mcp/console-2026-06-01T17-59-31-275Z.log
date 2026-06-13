@@ -1,0 +1,15 @@
+[   72546ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8787/api/state:0
+[   72548ms] TypeError: Failed to fetch
+    at loadState (http://127.0.0.1:8787/assets/dashboard.js:273:26)
+[   75047ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8787/api/state:0
+[   75047ms] TypeError: Failed to fetch
+    at loadState (http://127.0.0.1:8787/assets/dashboard.js:273:26)
+[   77546ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8787/api/state:0
+[   77546ms] TypeError: Failed to fetch
+    at loadState (http://127.0.0.1:8787/assets/dashboard.js:273:26)
+[   80046ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8787/api/state:0
+[   80046ms] TypeError: Failed to fetch
+    at loadState (http://127.0.0.1:8787/assets/dashboard.js:273:26)
+[   82546ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:8787/api/state:0
+[   82546ms] TypeError: Failed to fetch
+    at loadState (http://127.0.0.1:8787/assets/dashboard.js:273:26)
