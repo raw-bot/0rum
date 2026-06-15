@@ -3,6 +3,7 @@ import json
 import tempfile
 import unittest
 from contextlib import ExitStack
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -29,6 +30,10 @@ STRATEGY = {
 }
 
 SIDE_PAYLOAD = {"schema_version": 1, "source": "test"}
+
+EXTERNAL_GOAL = {**GOAL, "signal_source": "tradingview_external"}
+_T = 1_781_424_000_000   # ms epoch (15m-aligned)
+_FIFTEEN_MIN = 900_000   # ms per 15m bar
 
 
 def _price_payload(closes: list[float], candle_ts: int) -> dict:
@@ -148,6 +153,80 @@ class RunLoopIntegrationTests(unittest.TestCase):
         heartbeat = json.loads((self.state / "heartbeat.json").read_text())
         self.assertEqual(heartbeat["decision_action"], "offline_freeze")
         self.assertFalse(heartbeat["entry_fired"])
+
+
+class RunLoopExternalModeTests(RunLoopIntegrationTests):
+    """In tradingview_external mode the worker opens NOTHING natively (TV owns
+    entries) but Hermes still supervises risk: stop_loss / take_profit /
+    max_hold close a position the external orchestrator opened."""
+
+    def _run_external(self, closes: list[float], candle_ts: int) -> None:
+        self.price_fetch.return_value = _price_payload(closes, candle_ts)
+        asyncio.run(loop.run_loop(dict(EXTERNAL_GOAL), iterations=1))
+
+    def _seed_position(self, **overrides) -> dict:
+        position = {
+            "opened_at": datetime.now(UTC).isoformat(),  # fresh -> not stale-quarantined
+            "asset": "BTC/USDT",
+            "signal_id": "ext-test-1",
+            "opened_candle_ts": _T,
+            "opened_index": 0,
+            "strategy_version": "01",
+            "direction": "long",
+            "entry_reason": "external BUY_CANDIDATE",
+            "entry_price": 100.0,
+            "notional_usd": 2500.0,
+            "market_regime_at_entry": "neutral",
+            "rsi_at_entry": None,
+            "price_source_at_entry": "tradingview",
+            "external_signal_id": "deadbeef",
+            "candle_interval_ms": _FIFTEEN_MIN,
+            "mode": "paper",
+        }
+        position.update(overrides)
+        (self.state / "open_position.json").write_text(json.dumps(position))
+        return position
+
+    def test_external_mode_never_opens_native_position(self):
+        # Oversold -> a native RSI entry WOULD fire; TradingView owns entries.
+        oversold = [100.0 - index * 0.5 for index in range(20)]
+        self._run_external(oversold, candle_ts=_T)
+        self.assertFalse((self.state / "open_position.json").exists())
+        self.assertEqual(self._trades(), [])
+        heartbeat = json.loads((self.state / "heartbeat.json").read_text())
+        self.assertFalse(heartbeat["entry_fired"])
+
+    def test_external_position_closed_by_hermes_take_profit(self):
+        self._seed_position()
+        take_profit = [100.0] * 19 + [104.0]  # +4% >= 3% -> Hermes take_profit
+        self._run_external(take_profit, candle_ts=_T + _FIFTEEN_MIN)
+        self.assertFalse((self.state / "open_position.json").exists())
+        trades = self._trades()
+        self.assertEqual(len(trades), 1)
+        self.assertEqual(trades[0]["exit_reason"], "take_profit")
+
+    def test_external_position_closed_by_hermes_stop_loss(self):
+        self._seed_position()
+        stop = [100.0] * 19 + [97.0]  # -3% <= -2% -> Hermes stop_loss
+        self._run_external(stop, candle_ts=_T + _FIFTEEN_MIN)
+        trades = self._trades()
+        self.assertEqual(len(trades), 1)
+        self.assertEqual(trades[0]["exit_reason"], "stop_loss")
+
+    def test_external_max_hold_counts_15m_bars_not_minutes(self):
+        # Flat price -> only max_hold can fire. 20 bars < 30 -> stays open.
+        self._seed_position()
+        flat = [100.0] * 20
+        self._run_external(flat, candle_ts=_T + 20 * _FIFTEEN_MIN)
+        self.assertTrue((self.state / "open_position.json").exists())
+        self.assertEqual(self._trades(), [])
+        # 31 bars >= 30 -> Hermes max_hold closes. (Before the fix this delta
+        # read as 300 1m-candles and would have closed on the first tick.)
+        self._run_external(flat, candle_ts=_T + 31 * _FIFTEEN_MIN)
+        self.assertFalse((self.state / "open_position.json").exists())
+        trades = self._trades()
+        self.assertEqual(len(trades), 1)
+        self.assertEqual(trades[0]["exit_reason"], "max_hold")
 
 
 if __name__ == "__main__":

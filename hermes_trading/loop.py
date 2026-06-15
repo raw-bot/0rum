@@ -225,9 +225,15 @@ def open_position_from_signal(
 
 
 def _held_candles(position: dict, market: dict) -> int:
+    # Hold duration is counted in the STRATEGY's candles, not in minutes. Native
+    # positions run on the 1m Binance feed (60000 ms); an external position
+    # carries its own bar size in `candle_interval_ms` (e.g. 900000 for a 15m
+    # TradingView strategy). Without this, a 15m position would count 15x too
+    # many candles and hit max_hold ~15x too early. Missing/zero -> 60000.
+    interval_ms = int(position.get("candle_interval_ms") or 0) or 60000
     try:
         candle_delta = int(market.get("last_candle_ts", 0) or 0) - int(position.get("opened_candle_ts", 0) or 0)
-        return max(0, round(candle_delta / 60000)) if candle_delta else 0
+        return max(0, round(candle_delta / interval_ms)) if candle_delta else 0
     except (TypeError, ValueError):
         opened_index = int(position.get("opened_index", len(market.get("closes", [])) - 1) or 0)
         current_index = len(market.get("closes", [])) - 1
@@ -282,6 +288,7 @@ def _build_closed_trade(position: dict, strategy: dict, market: dict, rsi: float
         "asset": position.get("asset"),
         "signal_id": position.get("signal_id"),
         "opened_at": position.get("opened_at"),
+        "opened_candle_ts": position.get("opened_candle_ts"),
         "candle_ts": market.get("last_candle_ts"),
         "strategy_version": position.get("strategy_version", strategy.get("version", "01")),
         "direction": position.get("direction", "long"),
@@ -388,7 +395,14 @@ def market_decision(
 
 
 async def run_loop(goal: dict, *, iterations: int | None = None) -> None:
+    # Local import breaks the loop<->executor cycle: executor.py wraps the
+    # trade functions defined above, so it can only be imported once this
+    # module is fully loaded.
+    from hermes_trading.executor import PaperExecutor
+    from hermes_trading.external.orchestrator import signal_source
+
     STATE_DIR.mkdir(parents=True, exist_ok=True)
+    executor: "PaperExecutor" = PaperExecutor()
     log_event("worker_boot", "Booting hermes-trading worker", asset=goal.get("asset", "BTC/USDT"))
     consecutive_failures = 0
     interval = int(os.getenv("HERMES_LOOP_INTERVAL_SECONDS", "60"))
@@ -435,6 +449,16 @@ async def run_loop(goal: dict, *, iterations: int | None = None) -> None:
             entry_summary = dsl_evaluator.summarize(groups["entry"], entry_eval) if entry_eval["details"] else "offline or non-long strategy"
             exit_summary = dsl_evaluator.summarize(groups["exit"], exit_eval)
             entry_fired = entry_eval["triggered"]
+            # In tradingview_external mode TradingView owns entries AND signal
+            # exits; the worker becomes a pure RISK supervisor over whatever the
+            # external orchestrator opened. It must never open a native position
+            # nor act on a native DSL exit -- otherwise two engines fight over
+            # the same book. stop_loss / take_profit / max_hold / emergency_stop
+            # still run, reusing the exact native risk path below.
+            external_mode = signal_source(goal) == "tradingview_external"
+            dsl_exit_triggered = False if external_mode else exit_eval["triggered"]
+            if external_mode:
+                entry_fired = False
             dsl_errors = entry_eval["errors"] + exit_eval["errors"]
             if dsl_errors:
                 # Same surfacing in live and backtest: errors reach the event
@@ -459,10 +483,13 @@ async def run_loop(goal: dict, *, iterations: int | None = None) -> None:
                 last_guardrail = guard
 
             if position and not offline and guard == "emergency":
-                closed_trade = _build_closed_trade(position, strategy, market, rsi, regime, "emergency_stop")
+                closed_trade = executor.force_close(
+                    position=position, strategy=strategy, market=market, rsi=rsi, regime=regime, reason="emergency_stop"
+                )
             elif position and not offline:
-                closed_trade = close_position_if_needed(
-                    position, strategy, market, rsi, regime, exit_triggered=exit_eval["triggered"]
+                closed_trade = executor.close(
+                    position=position, strategy=strategy, market=market, rsi=rsi, regime=regime,
+                    exit_triggered=dsl_exit_triggered,
                 )
             else:
                 closed_trade = None
@@ -511,7 +538,10 @@ async def run_loop(goal: dict, *, iterations: int | None = None) -> None:
                 guardrail=guard,
             )
             if can_open:
-                position = open_position_from_signal(asset, strategy, goal, market, rsi, regime, entry_summary=entry_summary)
+                position = executor.open(
+                    asset=asset, strategy=strategy, goal=goal, market=market, rsi=rsi, regime=regime,
+                    entry_summary=entry_summary,
+                )
                 await _write_json(POSITION_PATH, position)
                 opened_position = True
                 log_event(

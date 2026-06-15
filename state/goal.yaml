@@ -2,6 +2,20 @@ asset: "BTC/USDT"
 asset_mutable: true
 starting_balance_usd: 10000.0
 
+# External-signal allowlist (mode signal_source: tradingview_external).
+# ONE active strategy on purpose: the engine accepts several, but has no
+# per-strategy "A opens / A closes" ownership yet, so multiple allowlisted
+# strategies could step on each other. symbol must match syminfo.ticker EXACTLY
+# (chart is BITSTAMP:BTCUSD -> "BTCUSD"); timeframe must match the Pine output.
+# Long-only: no SELL_CANDIDATE until allow_short is enabled.
+allowed_external_sources: ["tradingview"]
+allowed_external_strategies:
+  - id: "hermes_mirror_v1"
+    symbol: "BTCUSD"            # TradingView identity (syminfo.ticker), match exact
+    engine_asset: "BTC/USDT"    # venue the worker prices/risk-manages on (Binance)
+    timeframe: "15m"
+    events: ["BUY_CANDIDATE", "EXIT"]
+
 # Performance targets are evaluation anchors, not risk mandates.
 target_return_30d: 0.07
 target_role: "ambitious"
