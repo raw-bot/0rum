@@ -10,3 +10,4 @@ __pycache__/
 # Local tooling
 .claude/
 .DS_Store
+.gitnexus

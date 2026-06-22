@@ -158,6 +158,42 @@ class MutationChainTests(unittest.TestCase):
         self.assertNotIn("rejected", result)
         self.assertIn("identical", result["reason"])
 
+    def test_regime_value_string_is_salvaged_into_value_str(self):
+        # The exact slip that lost the 2026-06-13 reflection: the model put the
+        # regime label in the numeric `value` field instead of `value_str`.
+        strategy = _dsl_strategy()
+        entry = copy.deepcopy(strategy["entry"])
+        entry["conditions"].append({"indicator": "regime", "operator": "!=", "value": "unfavorable"})
+
+        with patch("hermes_trading.reflect._backtest_guard", return_value=None):
+            result = _apply_dsl_hypothesis(strategy, _hypothesis(entry=entry), GOAL)
+
+        self.assertTrue(result["changed"])
+        applied = strategy["entry"]["conditions"][1]
+        self.assertEqual(applied["value_str"], "unfavorable")
+        self.assertNotIn("value", applied)
+
+    def test_regime_numeric_value_is_not_coerced_and_is_rejected(self):
+        # Coercion only rescues a stray *string*; a numeric value on a regime
+        # condition is a real error and must still be rejected, not invented away.
+        strategy = _dsl_strategy()
+        entry = copy.deepcopy(strategy["entry"])
+        entry["conditions"].append({"indicator": "regime", "operator": "!=", "value": 1})
+        result = _apply_dsl_hypothesis(strategy, _hypothesis(entry=entry), GOAL)
+        self.assertTrue(result["rejected"])
+        self.assertEqual(len(strategy["entry"]["conditions"]), 1)
+
+    def test_explicit_value_str_is_never_overwritten_by_coercion(self):
+        strategy = _dsl_strategy()
+        entry = copy.deepcopy(strategy["entry"])
+        entry["conditions"].append(
+            {"indicator": "regime", "operator": "!=", "value_str": "unfavorable", "value": "neutral"}
+        )
+        with patch("hermes_trading.reflect._backtest_guard", return_value=None):
+            result = _apply_dsl_hypothesis(strategy, _hypothesis(entry=entry), GOAL)
+        # value_str wins; the stray `value` makes it a rejected malformed condition.
+        self.assertTrue(result["rejected"])
+
     def test_backtest_rejection_blocks_the_mutation(self):
         strategy = _dsl_strategy()
         entry = copy.deepcopy(strategy["entry"])
@@ -175,6 +211,8 @@ class PromptContractTests(unittest.TestCase):
         self.assertIn('"entry"', prompt)
         self.assertIn("crosses_above", prompt)
         self.assertIn("favorable|neutral|unfavorable", prompt)
+        # Regime conditions must be steered to value_str, not the numeric value.
+        self.assertIn("value_str", prompt)
         self.assertIn('"no_change"', prompt)
         self.assertIn("proposed_entry", prompt)
         self.assertIn("expected_effect", prompt)
@@ -208,22 +246,18 @@ class HermesPipelineTests(unittest.TestCase):
             }
         )
 
-        import subprocess
-        import tempfile
-
-        with tempfile.TemporaryDirectory() as tmp:
-            (Path(tmp) / "config.yaml").write_text(yaml.safe_dump({"model": {"default": "test-model", "provider": "test"}}))
-            completed = subprocess.CompletedProcess(args=[], returncode=0, stdout=llm_output, stderr="")
-            with (
-                patch.dict("os.environ", {"HERMES_REFLECT_HOME": tmp}),
-                patch("hermes_trading.reflect.subprocess.run", return_value=completed),
-                patch("hermes_trading.reflect._backtest_guard", return_value=None),
-            ):
-                result = _hermes(strategy, GOAL, [], [])
+        # Reflection now talks straight to Ollama via _reflect_completion;
+        # mock that seam (returns raw text + model name) instead of subprocess.
+        with (
+            patch("hermes_trading.reflect._reflect_completion", return_value=(llm_output, "test-model")),
+            patch("hermes_trading.reflect._backtest_guard", return_value=None),
+        ):
+            result = _hermes(strategy, GOAL, [], [])
 
         self.assertTrue(result["changed"])
         self.assertEqual(result["mode"], "hermes")
         self.assertEqual(result["model"], "test-model")
+        self.assertEqual(result["provider"], "ollama")
         self.assertEqual(result["issue"], "regime_losses")
         self.assertEqual(len(strategy["entry"]["conditions"]), 2)
 

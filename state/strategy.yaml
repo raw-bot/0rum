@@ -1,10 +1,37 @@
-version: '02'
+version: '04'
+dsl_version: 1
 entry:
-  indicator: rsi
-  threshold: 25.0
-  direction: long
-stop_loss_pct: 2.0
-take_profit_pct: 3.0
-max_hold_candles: 30
-exit_rsi_threshold: 55
-position_size_r: 0.5
+  logic: AND
+  conditions:
+  - indicator: rsi
+    operator: <=
+    params:
+      period: 14
+    value: 25.0
+  - indicator: regime
+    operator: '!='
+    value_str: unfavorable
+exit:
+  logic: OR
+  conditions:
+  - indicator: rsi
+    operator: '>='
+    params:
+      period: 14
+    value: 60.0
+risk:
+  stop_loss_pct: 2.0
+  take_profit_pct: 3.0
+  max_hold_candles: 120
+  position_size_r: 2.0
+  reward_risk_ratio: 2.0      # TP = entry +/- rr*risk - set via dashboard slider
+  max_leverage: 3.0           # notional cap (× equity) — set via dashboard slider
+direction: long
+
+# AK MACD LONG entry confirmation (anti false-bounce). Overrides the AkMacdParams
+# defaults; read once at producer start (no hot reload). Out-of-range/non-int
+# values are ignored in favour of the code default.
+ak_macd:
+  confirmation_bars: 2        # require macd[t] > macd[t-1] > macd[t-2]
+  candidate_window_bars: 2    # confirm within W closed bars after the flip_up
+  regime_filter: true         # block LONG when rolling-return regime is unfavorable

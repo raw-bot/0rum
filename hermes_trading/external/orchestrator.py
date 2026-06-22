@@ -25,8 +25,17 @@ from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from hermes_trading.accounting import compound_balance
+from hermes_trading.dsl.migrate import risk_value
 from hermes_trading.events import log_event
 from hermes_trading.executor import Executor, PaperExecutor
+from hermes_trading.external.bracket import (
+    DEFAULT_FEE_RATE,
+    DEFAULT_MAX_LEVERAGE,
+    DEFAULT_MIN_REWARD_RISK,
+    DEFAULT_RR,
+    bracket_sizing,
+    compute_bracket,
+)
 from hermes_trading.external.ingest import ExternalSignalStore
 from hermes_trading.external.signal import ExternalSignal, ExternalSignalStatus
 from hermes_trading.external.validate import (
@@ -36,6 +45,17 @@ from hermes_trading.external.validate import (
 )
 
 _OPEN_EVENTS = {"BUY_CANDIDATE", "SELL_CANDIDATE"}
+
+
+def _optional_risk(strategy: dict, key: str) -> float | None:
+    """Like risk_value but returns None when the key is absent, so an unset cap
+    stays disabled instead of collapsing to a numeric default."""
+    risk = strategy.get("risk")
+    if isinstance(risk, dict) and key in risk:
+        return float(risk[key])
+    if key in strategy:
+        return float(strategy[key])
+    return None
 
 
 def signal_source(goal: dict) -> str:
@@ -168,6 +188,62 @@ class ExternalOrchestrator:
             if entry.get("id") == signal.strategy:
                 engine_asset = entry.get("engine_asset", signal.symbol)
                 break
+
+        # Frozen SL/TP bracket (exit_mode="bracket"): when the signal carries a
+        # baseline + recent high/low, Hermes computes the stop/target ONCE here
+        # and sizes by the real price risk -- the %-stop/%-target and max_hold in
+        # strategy.yaml are bypassed for this position. Computed BEFORE opening so
+        # a degenerate (non-positive risk) setup is refused without a position.
+        bracket = None
+        if "baseline_at_entry" in signal.raw:
+            bracket_direction = "short" if signal.event == "SELL_CANDIDATE" else "long"
+            try:
+                bracket = compute_bracket(
+                    entry_price=signal.price,
+                    baseline_at_entry=float(signal.raw["baseline_at_entry"]),
+                    recent_low=signal.raw.get("recent_low"),
+                    recent_high=signal.raw.get("recent_high"),
+                    direction=bracket_direction,
+                    rr=risk_value(strategy, "reward_risk_ratio", DEFAULT_RR),
+                )
+            except (ValueError, TypeError) as exc:
+                self._log(
+                    "external_signal_rejected",
+                    f"bracket: {exc}", check="bracket", dedup_hash=signal.dedup_hash(),
+                )
+                return OrchestratorOutcome(
+                    stage="validate", status=ExternalSignalStatus.REJECTED,
+                    signal=signal, detail=f"bracket: {exc}",
+                )
+
+        # Risk-based sizing + safety caps computed BEFORE opening so a
+        # disproportionate position (tight stop -> hidden leverage) or a trade
+        # whose fee-adjusted reward/risk is too poor is refused without a
+        # position ever being created.
+        sizing = None
+        if bracket is not None:
+            equity = compound_balance(history, self.goal)
+            risk_pct = risk_value(strategy, "position_size_r", 0.5) / 100.0
+            sizing = bracket_sizing(
+                account_equity=equity, risk_pct=risk_pct,
+                risk_distance=bracket.risk_distance, entry_price=signal.price,
+                reward_risk_ratio=bracket.reward_risk_ratio,
+                max_leverage=risk_value(strategy, "max_leverage", DEFAULT_MAX_LEVERAGE),
+                max_notional_usd=_optional_risk(strategy, "max_notional_usd"),
+                fee_rate=risk_value(strategy, "fee_rate", DEFAULT_FEE_RATE),
+                min_reward_risk=risk_value(strategy, "min_reward_risk", DEFAULT_MIN_REWARD_RISK),
+            )
+            if not sizing["accepted"]:
+                self._log(
+                    "external_signal_rejected",
+                    f"sizing: {sizing['reject_reason']}", check="sizing",
+                    dedup_hash=signal.dedup_hash(),
+                )
+                return OrchestratorOutcome(
+                    stage="validate", status=ExternalSignalStatus.REJECTED,
+                    signal=signal, detail=f"sizing: {sizing['reject_reason']}",
+                )
+
         position = self.executor.open(
             asset=engine_asset,
             strategy=strategy,
@@ -183,6 +259,21 @@ class ExternalOrchestrator:
         interval_ms = timeframe_to_ms(signal.timeframe)
         if interval_ms:
             position["candle_interval_ms"] = interval_ms
+
+        if bracket is not None and sizing is not None:
+            # Sizing (incl. any safety cap) was computed and accepted above.
+            position.update({
+                "direction": bracket.direction,
+                "exit_mode": "bracket",
+                "entry_price": bracket.entry_price,
+                "stop_loss_price": bracket.stop_loss_price,
+                "take_profit_price": bracket.take_profit_price,
+                "risk_distance": bracket.risk_distance,
+                "sl_basis": bracket.sl_basis,
+                "reward_risk_ratio": bracket.reward_risk_ratio,
+                **sizing,
+            })
+
         self.state.save_position(position)
         self._log(
             "external_signal_executed",

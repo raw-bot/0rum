@@ -30,6 +30,9 @@ class ExternalSignalSource(str, Enum):
     """Whitelisted origins. Anything outside this enum is rejected."""
 
     TRADINGVIEW = "tradingview"
+    # The bot's own in-process AK MACD brain (hermes_trading.external.ak_macd).
+    # Same payload contract as TradingView; only the producer differs.
+    LOCAL = "local"
 
 
 class ExternalSignalEvent(str, Enum):

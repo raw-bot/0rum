@@ -239,6 +239,31 @@ def _reject(hypothesis: dict, reason: str) -> dict:
     return hypothesis
 
 
+def _coerce_regime_values(group: dict) -> None:
+    """Salvage the common LLM serialization slip on regime conditions.
+
+    The schema already supports a categorical `regime` indicator, but its label
+    belongs in `value_str` (string), not the numeric `value` field. Models that
+    have only ever seen numeric conditions tend to emit
+    {"indicator": "regime", "operator": "!=", "value": "unfavorable"}, which the
+    schema rejects as 'unfavorable' is not of type 'number'. We move a stray
+    string `value` into `value_str` so the deterministic validators can then do
+    their job. We never touch numeric values, and never overwrite an explicit
+    value_str — anything still malformed is left for validation to reject.
+    """
+    for condition in group.get("conditions") or []:
+        if not isinstance(condition, dict):
+            continue
+        if condition.get("indicator") != "regime":
+            continue
+        if "value_str" in condition:
+            continue
+        value = condition.get("value")
+        if isinstance(value, str):
+            condition["value_str"] = value
+            del condition["value"]
+
+
 def _apply_dsl_hypothesis(strategy: dict, hypothesis: dict, goal: dict) -> dict:
     """Validation chain for an LLM structural mutation; the model output is
     untrusted data, every step can reject. Order per spec: jsonschema,
@@ -255,6 +280,11 @@ def _apply_dsl_hypothesis(strategy: dict, hypothesis: dict, goal: dict) -> dict:
     proposed_exit = hypothesis.get("proposed_exit")
     if not isinstance(proposed_entry, dict) or not isinstance(proposed_exit, dict):
         return _reject(hypothesis, "rejected: action=change requires proposed_entry and proposed_exit objects")
+
+    # Step 0: salvage regime label slips (value -> value_str) before validation,
+    # so a near-correct mutation is not lost to a field-name mistake.
+    _coerce_regime_values(proposed_entry)
+    _coerce_regime_values(proposed_exit)
 
     # Steps 1+2: jsonschema then semantic validation (whitelist, bounds, warm-up).
     try:
@@ -384,6 +414,14 @@ CATALOGUE AUTORISÉ :
 - max 4 conditions par groupe, logic AND ou OR, pas d'imbrication
 - au plus UNE condition ajoutée/supprimée/modifiée par rapport à la stratégie courante
 
+FORME D'UNE CONDITION (champs selon l'indicateur) :
+- indicateur numérique (rsi, sma, ema, close, bollinger, atr) : la valeur comparée
+  va dans `value` (un nombre), et `value2` pour `between`. Ex :
+  {{"indicator": "rsi", "params": {{"period": 14}}, "operator": "<=", "value": 25}}
+- `regime` : la valeur va dans `value_str` (une chaîne parmi favorable|neutral|unfavorable),
+  opérateurs == ou != UNIQUEMENT, jamais de champ `value`. Ex :
+  {{"indicator": "regime", "operator": "!=", "value_str": "unfavorable"}}
+
 DONNÉES (tu dois justifier toute modification à partir d'elles ; sinon réponds no_change) :
 - 30 derniers trades fermés : {json.dumps(recent_trades, sort_keys=True)}
 - score courant et historique : {json.dumps({"current": score(trades, goal), "recent_hypotheses_scores": [h.get("score") for h in hypotheses[-10:]]}, sort_keys=True)}
@@ -403,6 +441,41 @@ Réponds avec UN SEUL objet JSON, sans markdown :
 """.strip()
 
 
+OLLAMA_CHAT_URL = os.getenv("HERMES_OLLAMA_URL", "http://127.0.0.1:11434/v1/chat/completions")
+REFLECT_MODEL = os.getenv("HERMES_REFLECT_MODEL", "gemma4:31b")
+REFLECT_FALLBACK_MODEL = os.getenv("HERMES_REFLECT_FALLBACK_MODEL", "gemma4:latest")
+
+
+def _ollama_chat(model: str, prompt: str, timeout: float) -> str:
+    """One-shot completion from a local Ollama model (OpenAI-compatible API)."""
+    import httpx
+
+    resp = httpx.post(
+        OLLAMA_CHAT_URL,
+        json={
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0,
+            "stream": False,
+        },
+        timeout=timeout,
+    )
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"]
+
+
+def _reflect_completion(prompt: str) -> tuple[str, str]:
+    """Local-only reflection: primary model, then a lighter fallback on error.
+
+    Returns (raw_text, model_name). No dependency on the external `hermes`
+    agent — the reflection talks straight to Ollama on this machine.
+    """
+    try:
+        return _ollama_chat(REFLECT_MODEL, prompt, timeout=300), REFLECT_MODEL
+    except Exception:
+        return _ollama_chat(REFLECT_FALLBACK_MODEL, prompt, timeout=180), REFLECT_FALLBACK_MODEL
+
+
 def _hermes(strategy: dict, goal: dict, trades: list[dict], hypotheses: list[dict]) -> dict:
     cooldown_block = _cooldown_status(goal, trades, hypotheses)
     if cooldown_block:
@@ -417,27 +490,16 @@ def _hermes(strategy: dict, goal: dict, trades: list[dict], hypotheses: list[dic
         }
 
     prompt = _hermes_prompt(strategy, goal, trades, hypotheses)
-    hermes_home = Path(os.getenv("HERMES_REFLECT_HOME", str(DEFAULT_HERMES_HOME)))
-    env = os.environ.copy()
-    env.setdefault("HERMES_HOME", str(hermes_home))
-    result = subprocess.run(
-        ["hermes", "-z", prompt, "--ignore-rules"],
-        env=env,
-        text=True,
-        capture_output=True,
-        check=True,
-        timeout=180,
-    )
-    raw = _extract_json(result.stdout)
-    model_cfg = yaml.safe_load((hermes_home / "config.yaml").read_text()).get("model", {})
+    text, model_used = _reflect_completion(prompt)
+    raw = _extract_json(text)
     # Rebuild the record from whitelisted fields only: the model output is
     # untrusted and must not smuggle arbitrary keys into hypotheses.jsonl.
     hypothesis = {
         "ts": _now(),
         "mode": "hermes",
         "score": score(trades, goal),
-        "model": model_cfg.get("default", "unknown"),
-        "provider": model_cfg.get("provider", "unknown"),
+        "model": model_used,
+        "provider": "ollama",
         "action": raw.get("action"),
         "proposed_entry": raw.get("proposed_entry"),
         "proposed_exit": raw.get("proposed_exit"),

@@ -251,6 +251,30 @@ def close_position_if_needed(
     """Risk exits (stop, take profit, max hold) stay in code and are checked
     BEFORE the DSL exit group; the DSL only adds a signal-based exit."""
     current_price = float(market["closes"][-1])
+
+    # exit_mode="bracket" (AK MACD): frozen SL/TP price levels set at entry. The
+    # ONLY exits are SL or TP hits -- %-stop, %-target, max_hold and dsl_exit are
+    # bypassed for these positions (the emergency force_close in run_loop still
+    # applies, it is a kill-switch, not a strategy exit).
+    if position.get("exit_mode") == "bracket":
+        sl = float(position["stop_loss_price"])
+        tp = float(position["take_profit_price"])
+        direction = position.get("direction", "long")
+        if direction == "short":
+            bracket_reason = "stop_loss" if current_price >= sl else "take_profit" if current_price <= tp else None
+        else:
+            bracket_reason = "stop_loss" if current_price <= sl else "take_profit" if current_price >= tp else None
+        if not bracket_reason:
+            return None
+        # Fill at the FROZEN bracket level, not at the candle close that tripped it.
+        # The close can overshoot the level on a fast bar (we only poll the close,
+        # not the intrabar touch), which would book a loss larger than risk_usd
+        # (e.g. -1.64R instead of -1R). A bracket order fills at its price, so the
+        # realized loss at the stop is bounded to risk_usd -- matching bracket.py
+        # and the long backtest's exit_fill = sl/tp.
+        fill_price = sl if bracket_reason == "stop_loss" else tp
+        return _build_closed_trade(position, strategy, market, rsi, regime, bracket_reason, fill_price=fill_price)
+
     entry_price = float(position.get("entry_price", current_price))
     pnl_pct = (current_price - entry_price) / entry_price if entry_price else 0.0
     stop_pct = risk_value(strategy, "stop_loss_pct", 2.0) / 100.0
@@ -273,11 +297,17 @@ def close_position_if_needed(
     return _build_closed_trade(position, strategy, market, rsi, regime, exit_reason)
 
 
-def _build_closed_trade(position: dict, strategy: dict, market: dict, rsi: float | None, regime: dict | None, exit_reason: str) -> dict:
+def _build_closed_trade(position: dict, strategy: dict, market: dict, rsi: float | None, regime: dict | None, exit_reason: str, fill_price: float | None = None) -> dict:
     current_price = float(market["closes"][-1])
+    # Bracket exits fill at the frozen SL/TP level (passed in); every other exit
+    # (%-stop, max_hold, dsl_exit, emergency) fills at the current close.
+    exit_price = float(fill_price) if fill_price is not None else current_price
     regime = regime or rolling_return_regime(market.get("closes", []))
     entry_price = float(position.get("entry_price", current_price))
-    pnl_pct = (current_price - entry_price) / entry_price if entry_price else 0.0
+    # Direction-aware PnL: a short gains when price falls. Native (long-only)
+    # positions have no "direction" key and default to long -> unchanged.
+    raw_pct = (exit_price - entry_price) / entry_price if entry_price else 0.0
+    pnl_pct = -raw_pct if position.get("direction") == "short" else raw_pct
     held_candles = _held_candles(position, market)
     notional_usd = float(position.get("notional_usd", 0.0))
     pnl_usd = pnl_pct * notional_usd
@@ -302,7 +332,7 @@ def _build_closed_trade(position: dict, strategy: dict, market: dict, rsi: float
         "price_source_at_entry": position.get("price_source_at_entry", "unknown"),
         "price_source_at_exit": market.get("source", "unknown"),
         "entry_price": entry_price,
-        "exit_price": current_price,
+        "exit_price": exit_price,
         "held_candles": held_candles,
         "pnl_pct": pnl_pct,
         "risk_usd": float(position.get("risk_usd", 0.0)),
@@ -312,6 +342,22 @@ def _build_closed_trade(position: dict, strategy: dict, market: dict, rsi: float
         "pnl_usd": pnl_usd,
         "net_pnl_usd": pnl_usd - fees_usd,
         "mode": position.get("mode", os.getenv("HERMES_TRADING_MODE", "paper")),
+        # --- observation-only logging (baseline_paper_v1). Derived from the
+        # frozen-at-entry bracket + sizing; absent on native (non-bracket)
+        # positions, where they stay None. No effect on execution. ---
+        "exit_mode": position.get("exit_mode"),
+        "stop_loss_price": position.get("stop_loss_price"),
+        "take_profit_price": position.get("take_profit_price"),
+        "sl_basis": position.get("sl_basis"),
+        "risk_distance": position.get("risk_distance"),
+        "reward_risk_ratio": position.get("reward_risk_ratio"),
+        "effective_reward_risk": position.get("effective_reward_risk"),
+        "notional_requested_usd": position.get("notional_requested_usd"),
+        "leverage_requested": position.get("leverage_requested"),
+        "capped": position.get("capped"),
+        "cap_reason": position.get("cap_reason"),
+        "r_multiple": ((pnl_usd - fees_usd) / float(position["risk_usd"]))
+        if position.get("risk_usd") else None,
     }
 
 
@@ -394,6 +440,57 @@ def market_decision(
     }
 
 
+LIVE_CANDLES_PATH = STATE_DIR / "live_candles.json"
+LIVE_HISTORY_MAX = 10080  # ~7 days of 1m candles
+
+
+def _persist_live_candles(asset: str, candles: list[dict], source: str) -> None:
+    """Keep a fresh rolling window of the candles the worker actually fetched, in
+    a file SEPARATE from the backtest cache (candle_history.json). The dashboard
+    chart reads this so it shows live price and recent trades land on real bars,
+    instead of the frozen backtest snapshot. Best-effort: a failure here must
+    never break the trading loop, so everything is swallowed."""
+    try:
+        if not candles or source == "offline_fallback":
+            return
+        existing: list[dict] = []
+        if LIVE_CANDLES_PATH.exists():
+            existing = (json.loads(LIVE_CANDLES_PATH.read_text() or "{}") or {}).get("candles", [])
+        if existing and int(candles[-1]["ts"]) <= int(existing[-1]["ts"]):
+            return  # nothing newer; don't rewrite ~1MB every tick
+        merged = {int(c["ts"]): c for c in existing}
+        for candle in candles:
+            merged[int(candle["ts"])] = candle
+        rows = [merged[key] for key in sorted(merged)][-LIVE_HISTORY_MAX:]
+        atomic_write_text(LIVE_CANDLES_PATH, json.dumps({"asset": asset, "candles": rows}))
+    except Exception:  # noqa: BLE001 - chart freshness must never abort a trade
+        pass
+
+
+async def _maybe_backfill_live_candles(asset: str) -> None:
+    """Seed live_candles.json with a fresh contiguous 7-day window at boot so the
+    dashboard chart shows full recent history immediately (trades land on real
+    bars) instead of waiting for the live feed to accumulate. Skips when the live
+    feed is already fresh. Time-bounded and best-effort: never blocks boot."""
+    try:
+        if LIVE_CANDLES_PATH.exists():
+            existing = (json.loads(LIVE_CANDLES_PATH.read_text() or "{}") or {}).get("candles", [])
+            now_ms = int(datetime.now(UTC).timestamp() * 1000)
+            if existing and now_ms - int(existing[-1]["ts"]) < 2 * 3600 * 1000:
+                return  # live feed already fresh enough; let it fill forward
+        from hermes_trading.dsl.backtest import load_history
+
+        candles = await asyncio.wait_for(
+            asyncio.get_event_loop().run_in_executor(None, load_history, asset, 7),
+            timeout=30,
+        )
+        if candles:
+            atomic_write_text(LIVE_CANDLES_PATH, json.dumps({"asset": asset, "candles": candles[-LIVE_HISTORY_MAX:]}))
+            log_event("live_candles_backfill", f"seeded {len(candles)} candles for the chart", count=len(candles))
+    except Exception as exc:  # noqa: BLE001 - chart history is best-effort; feed fills forward
+        log_event("live_candles_backfill_skipped", f"backfill skipped, live feed will fill forward: {exc}")
+
+
 async def run_loop(goal: dict, *, iterations: int | None = None) -> None:
     # Local import breaks the loop<->executor cycle: executor.py wraps the
     # trade functions defined above, so it can only be imported once this
@@ -404,6 +501,8 @@ async def run_loop(goal: dict, *, iterations: int | None = None) -> None:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     executor: "PaperExecutor" = PaperExecutor()
     log_event("worker_boot", "Booting hermes-trading worker", asset=goal.get("asset", "BTC/USDT"))
+    if iterations is None:  # production loop only; tests pass a finite count and must not hit the network
+        await _maybe_backfill_live_candles(goal.get("asset", "BTC/USDT"))
     consecutive_failures = 0
     interval = int(os.getenv("HERMES_LOOP_INTERVAL_SECONDS", "60"))
     last_price_source: str | None = None
@@ -431,6 +530,7 @@ async def run_loop(goal: dict, *, iterations: int | None = None) -> None:
 
             closes = market["closes"]
             candles = market_candles(market)
+            _persist_live_candles(asset, candles, market.get("source", ""))
             rsi = telemetry_rsi(candles)
             regime = rolling_return_regime(closes)
             offline = price_is_offline(market)
