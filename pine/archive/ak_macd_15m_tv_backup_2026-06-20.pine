@@ -1,0 +1,113 @@
+//@version=6
+// AK MACD 15m — read-only candidate-signal emitter for HermesTrading.
+// ARCHIVE: this is the older 109-line version that lived in the TV cloud slot
+// "FPU connectivity test" (id USER;57426a6555034bbfa020511a375f4bc6, v19.0),
+// backed up 2026-06-20 before overwriting with the IN→OUT-viz version. Re-inject
+// via pine_set_source if you ever need to restore it.
+indicator("AK MACD 15m", "AKM15", overlay = false, max_labels_count = 200)
+
+macdFast   = input.int(12,  "MACD fast",   group = "AK MACD BB")
+macdSlow   = input.int(26,  "MACD slow",   group = "AK MACD BB")
+macdSig    = input.int(9,   "MACD signal", group = "AK MACD BB")
+bbLen      = input.int(10,  "BB length (on MACD)", group = "AK MACD BB")
+bbMult     = input.float(1.0, "BB mult",   group = "AK MACD BB")
+dotMode    = input.string("slope", "Dot color logic", options = ["slope", "signal_cross"], group = "AK MACD BB")
+
+baseLen    = input.int(30,  "Baseline length", group = "SSL Hybrid")
+baseType   = input.string("EMA", "Baseline type", options = ["EMA", "SMA", "HMA", "WMA"], group = "SSL Hybrid")
+atrLen     = input.int(14,  "Continuation ATR length", group = "SSL Hybrid")
+atrMult    = input.float(0.2, "Continuation band mult", group = "SSL Hybrid")
+
+volMaLen   = input.int(9,   "Volume MA length", group = "Volume")
+
+trendLook  = input.int(50,  "Trend lookback", group = "Setup")
+pullLook   = input.int(10,  "Pullback lookback", group = "Setup")
+swingLook  = input.int(10,  "Swing lookback", group = "Setup")
+
+allowShort = input.bool(true,  "Emit SELL_CANDIDATE (short enabled for paper forward-test)", group = "Output")
+emitExit   = input.bool(false, "Emit EXIT on opposite MACD flip", group = "Output")
+emitAlerts = input.bool(true,  "Emit alert() payloads (once per bar close)", group = "Output")
+strategyId = input.string("ak_macd_15m_v1", "Strategy id (must match Hermes allowlist)", group = "Output")
+
+macdLine   = ta.ema(close, macdFast) - ta.ema(close, macdSlow)
+signalLine = ta.ema(macdLine, macdSig)
+dotGreen = dotMode == "slope" ? macdLine > macdLine[1] : macdLine > signalLine
+flipUp   = dotMode == "slope" ? (macdLine > macdLine[1] and macdLine[1] <= macdLine[2]) : ta.crossover(macdLine, signalLine)
+flipDown = dotMode == "slope" ? (macdLine < macdLine[1] and macdLine[1] >= macdLine[2]) : ta.crossunder(macdLine, signalLine)
+aboveZero = macdLine > 0
+belowZero = macdLine < 0
+
+baseline = baseType == "SMA" ? ta.sma(close, baseLen) : baseType == "HMA" ? ta.hma(close, baseLen) : baseType == "WMA" ? ta.wma(close, baseLen) : ta.ema(close, baseLen)
+atrVal   = ta.atr(atrLen)
+bandUp   = baseline + atrVal * atrMult
+bandLo   = baseline - atrVal * atrMult
+isBlue = close > bandUp
+isRed  = close < bandLo
+isGray = not isBlue and not isRed
+baseColor = isBlue ? "blue" : isRed ? "red" : "gray"
+
+volMa = ta.sma(volume, volMaLen)
+volOk = volume > volMa
+
+recentLow  = ta.lowest(low, swingLook)
+recentHigh = ta.highest(high, swingLook)
+
+wasBull   = ta.barssince(isBlue) < trendLook
+pulledLong = ta.barssince(isGray or isRed) < pullLook
+buyCond   = wasBull and pulledLong and close > baseline and flipUp and aboveZero and volOk
+
+wasBear   = ta.barssince(isRed) < trendLook
+pulledShort = ta.barssince(isGray or isBlue) < pullLook
+sellCond  = allowShort and wasBear and pulledShort and close < baseline and flipDown and belowZero and volOk
+
+exitCond  = emitExit and (flipDown or flipUp)
+
+evt    = buyCond ? "BUY_CANDIDATE" : sellCond ? "SELL_CANDIDATE" : exitCond ? "EXIT" : ""
+hasEvt = evt != ""
+
+tfHermes = timeframe.isintraday ? (timeframe.in_seconds() % 3600 == 0 ? str.tostring(timeframe.in_seconds() / 3600) + "h" : str.tostring(timeframe.in_seconds() / 60) + "m") : timeframe.isdaily ? str.tostring(timeframe.multiplier) + "d" : timeframe.isweekly ? str.tostring(timeframe.multiplier) + "w" : timeframe.period
+
+barTimeStr = str.tostring(time, "#")
+payload = '{"source":"tradingview","strategy":"' + strategyId + '","symbol":"' + syminfo.ticker + '","timeframe":"' + tfHermes + '","event":"' + evt + '","bar_time":' + barTimeStr + ',"price":' + str.tostring(close) + ',"version":"tv_ak_macd_15m_v1","macd":' + str.tostring(macdLine) + ',"signal":' + str.tostring(signalLine) + ',"baseline":' + str.tostring(baseline) + ',"base_color":"' + baseColor + '","vol_ratio":' + str.tostring(volume / volMa) + ',"baseline_at_entry":' + str.tostring(baseline) + ',"recent_low":' + str.tostring(recentLow) + ',"recent_high":' + str.tostring(recentHigh) + '}'
+
+if barstate.isconfirmed and hasEvt and emitAlerts
+    alert(payload, alert.freq_once_per_bar_close)
+
+plot(baseline, "MA Baseline", color = isBlue ? color.new(color.blue, 0) : isRed ? color.new(color.red, 0) : color.new(color.gray, 0), linewidth = 2, force_overlay = true)
+plot(bandUp, "Band up", color.new(color.gray, 70), force_overlay = true)
+plot(bandLo, "Band low", color.new(color.gray, 70), force_overlay = true)
+
+plotshape(buyCond,  title = "BUY",  style = shape.triangleup,   location = location.belowbar, color = color.lime,   size = size.small, text = "BUY",  force_overlay = true)
+plotshape(sellCond, title = "SELL", style = shape.triangledown, location = location.abovebar, color = color.red,    size = size.small, text = "SELL", force_overlay = true)
+plotshape(exitCond, title = "EXIT", style = shape.xcross,       location = location.abovebar, color = color.orange, size = size.tiny,  text = "EXIT", force_overlay = true)
+
+dotColor = dotGreen ? color.new(color.lime, 0) : color.new(color.red, 0)
+plot(macdLine, "AK MACD", color = dotColor, style = plot.style_circles, linewidth = 2)
+plot(signalLine, "Signal", color = color.new(color.orange, 50))
+hline(0, "Zero", color = color.new(color.gray, 50))
+
+var string lastEvt     = "none"
+var string lastPayload = "none"
+if barstate.isconfirmed
+    lastEvt     := hasEvt ? evt : "none"
+    lastPayload := hasEvt ? payload : "none"
+
+setRow(table t, int row, string k, string v) =>
+    table.cell(t, 0, row, k, text_color = color.gray,  text_size = size.small, text_halign = text.align_left)
+    table.cell(t, 1, row, v, text_color = color.white, text_size = size.small, text_halign = text.align_left)
+
+var table dbg = table.new(position.top_right, 2, 13, border_width = 1, bgcolor = color.new(color.black, 20))
+if barstate.islast
+    setRow(dbg, 0,  "symbol/tf",  syminfo.ticker + " " + tfHermes)
+    setRow(dbg, 1,  "close",      str.tostring(close))
+    setRow(dbg, 2,  "MACD",       str.tostring(macdLine, "#.####"))
+    setRow(dbg, 3,  "signal",     str.tostring(signalLine, "#.####"))
+    setRow(dbg, 4,  "dots",       dotGreen ? "GREEN (bull)" : "RED (bear)")
+    setRow(dbg, 5,  "above zero", aboveZero ? "yes" : "no")
+    setRow(dbg, 6,  "baseline",   str.tostring(baseline, "#.##"))
+    setRow(dbg, 7,  "base color", baseColor)
+    setRow(dbg, 8,  "vol/volMA",  str.tostring(volume / volMa, "#.##"))
+    setRow(dbg, 9,  "vol ok",     volOk ? "yes" : "no")
+    setRow(dbg, 10, "last evt",   lastEvt)
+    setRow(dbg, 11, "strategy",   strategyId + " / tv_ak_macd_15m_v1")
+    setRow(dbg, 12, "payload",    lastPayload)

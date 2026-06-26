@@ -1,13 +1,5 @@
 # PROMPT — Hermes Strategy DSL : mutation structurelle par LLM
 
-> Donner ce document tel quel à un agent de code (Claude Code / autre), travaillant dans
-> `.sandbox/hermes-one-shot-home/hermes-trading/`.
-> Origine de l'idée : audit du moteur algo de Fincept Terminal (2026-06-12). On reprend le
-> **format** de son DSL de conditions (idée, pas le code — Fincept est AGPL-3.0) et on évite
-> ses bugs documentés, listés en fin de document.
-
----
-
 ## Objectif
 
 Aujourd'hui, le « cerveau » d'Hermes (`reflect.py`) ne peut muter qu'**un scalaire** de

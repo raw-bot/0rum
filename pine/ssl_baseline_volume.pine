@@ -1,0 +1,69 @@
+//@version=6
+// SSL Baseline + Volume — visual combo for the AK MACD 15m strategy.
+//
+// PURPOSE: TradingView free plan allows only 2 indicators. The AK MACD strategy
+// needs 3 (AK MACD BB + SSL Hybrid baseline + Volume MA). This single script
+// merges TWO of them — the SSL Hybrid MA Baseline (on price) and Volume + MA(9)
+// (in its own pane) — so they cost ONE slot. The real "AK MACD BB v 1.00" stays
+// as the 2nd indicator. Net: all 3 visible within the 2-slot limit.
+//
+// This is a VISUAL helper (read-only, no orders, no signals). The Hermes signal
+// engine is pine/ak_macd_15m.pine, separate.
+//
+// Fidelity:
+//   - SSL Hybrid baseline = Mihkel00's "Keltner Baseline Channel": baseline MA,
+//     bands = baseline ± ema(trueRange, len) * mult, colored blue (close>upper),
+//     red (close<lower), gray (in between = pullback). Reproduced exactly.
+//     User config from chart title: baseline EMA, length 30.
+//   - Volume = columns colored up/down + SMA(9) MA line in white (TradingView's
+//     built-in Volume MA is an SMA; user set length 9, color white).
+
+indicator("SSL Baseline + Volume", "SSLVOL", overlay = false, max_labels_count = 50)
+
+// ----- SSL Hybrid MA Baseline (Mihkel00 Keltner Baseline Channel) ------------
+baseLen   = input.int(30,    "Baseline length",   group = "SSL Hybrid")
+baseType  = input.string("EMA", "Baseline type",  options = ["EMA", "SMA", "WMA", "HMA"], group = "SSL Hybrid")
+useTR     = input.bool(true,  "Use true range for channel", group = "SSL Hybrid")
+multy     = input.float(0.2,  "Base channel multiplier",    group = "SSL Hybrid")
+
+baseline = baseType == "SMA" ? ta.sma(close, baseLen)
+         : baseType == "WMA" ? ta.wma(close, baseLen)
+         : baseType == "HMA" ? ta.hma(close, baseLen)
+         :                     ta.ema(close, baseLen)
+
+rangeRaw = useTR ? ta.tr(true) : high - low
+rangeMa  = ta.ema(rangeRaw, baseLen)
+upperK   = baseline + rangeMa * multy
+lowerK   = baseline - rangeMa * multy
+
+isBlue = close > upperK
+isRed  = close < lowerK
+isGray = not isBlue and not isRed
+baseColor = isBlue ? color.new(color.blue, 0) : isRed ? color.new(color.red, 0) : color.new(color.gray, 0)
+baseColorStr = isBlue ? "blue" : isRed ? "red" : "gray"
+
+// Baseline drawn on the PRICE chart.
+plot(baseline, "MA Baseline", color = baseColor, linewidth = 2, force_overlay = true)
+
+// ----- Volume + MA(9) (this script's own pane) -------------------------------
+volMaLen = input.int(9, "Volume MA length", group = "Volume")
+volUp    = close >= open
+volColor = volUp ? color.new(color.teal, 50) : color.new(color.red, 50)
+plot(volume, "Volume", color = volColor, style = plot.style_columns)
+
+volMa = ta.sma(volume, volMaLen)
+plot(volMa, "Volume MA", color = color.new(color.white, 0), linewidth = 2)
+
+volOk = volume > volMa
+
+// ----- Small status table (readable via MCP data_get_pine_tables) ------------
+setRow(table t, int row, string k, string v) =>
+    table.cell(t, 0, row, k, text_color = color.gray,  text_size = size.small, text_halign = text.align_left)
+    table.cell(t, 1, row, v, text_color = color.white, text_size = size.small, text_halign = text.align_left)
+
+var table dbg = table.new(position.top_right, 2, 4, border_width = 1, bgcolor = color.new(color.black, 20))
+if barstate.islast
+    setRow(dbg, 0, "baseline",   str.tostring(baseline, "#.#####"))
+    setRow(dbg, 1, "base color", baseColorStr)
+    setRow(dbg, 2, "vol/volMA",  str.tostring(volume / volMa, "#.##"))
+    setRow(dbg, 3, "vol ok",     volOk ? "yes" : "no")

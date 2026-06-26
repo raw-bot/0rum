@@ -34,7 +34,7 @@ emitAlerts = input.bool(true,  "Emit alert() payloads", group = "Output")
 strategyId = input.string("ak_macd_15m_v1", "Strategy id", group = "Output")
 showTrades = input.bool(true, "Show STOP/OUT exit markers + entry->exit line", group = "Trade viz")
 vizMaxHold = input.int(120, "Max-hold bars before forced viz exit", group = "Trade viz")
-vizRR      = input.float(2.0, "Viz R:R (display only)", minval = 0.5, maxval = 5.0, step = 0.5, group = "Trade viz")
+vizRR      = input.float(2.0, "TP (Reward:Risk)", minval = 0.5, maxval = 5.0, step = 0.5, group = "Trade viz", tooltip = "Take-profit = entry +/- TP x risk. Display-only on chart; live TP is strategy.yaml reward_risk_ratio.")
 
 // --- Indicators ---
 macdLine   = ta.ema(close, macdFast) - ta.ema(close, macdSlow)
