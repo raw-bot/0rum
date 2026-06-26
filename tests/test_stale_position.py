@@ -6,72 +6,88 @@ from pathlib import Path
 from unittest.mock import patch
 
 from hermes_trading import events, loop
-from hermes_trading.loop import position_is_stale
+from hermes_trading.loop import worker_outage_detected
 
 NOW = datetime(2026, 6, 11, 12, 0, 0, tzinfo=UTC)
 
 
-class StalePositionTests(unittest.TestCase):
-    def test_fresh_position_is_not_stale(self):
-        position = {"opened_at": (NOW - timedelta(minutes=30)).isoformat()}
+def _write_heartbeat(state: Path, age: timedelta | None):
+    """Write a heartbeat whose ts is `age` in the past (or omit it entirely)."""
+    if age is None:
+        return
+    (state / "heartbeat.json").write_text(json.dumps({"ts": (NOW - age).isoformat()}))
 
-        self.assertFalse(position_is_stale(position, now=NOW, max_age_hours=6))
 
-    def test_position_older_than_max_age_is_stale(self):
-        position = {"opened_at": (NOW - timedelta(days=9)).isoformat()}
-
-        self.assertTrue(position_is_stale(position, now=NOW, max_age_hours=6))
-
-    def test_position_without_opened_at_is_stale(self):
-        self.assertTrue(position_is_stale({}, now=NOW, max_age_hours=6))
-        self.assertTrue(position_is_stale({"opened_at": "not-a-date"}, now=NOW, max_age_hours=6))
-
-    def test_load_open_position_quarantines_stale_position(self):
+class WorkerOutageTests(unittest.TestCase):
+    def test_fresh_heartbeat_is_not_an_outage(self):
         with tempfile.TemporaryDirectory() as tmp:
             state = Path(tmp)
-            position_path = state / "open_position.json"
-            position = {
-                "asset": "BTC/USDT",
-                "entry_price": 67915.96,
-                "opened_at": (datetime.now(UTC) - timedelta(days=9)).isoformat(),
-            }
-            position_path.write_text(json.dumps(position))
+            _write_heartbeat(state, timedelta(seconds=60))  # normal loop cadence
+            with patch.object(loop, "HEARTBEAT_PATH", state / "heartbeat.json"):
+                self.assertFalse(worker_outage_detected(now=NOW))
 
-            with (
-                patch.object(loop, "POSITION_PATH", position_path),
-                patch.object(loop, "STATE_DIR", state),
-                patch.object(events, "EVENTS_PATH", state / "events.jsonl"),
-            ):
-                loaded = loop._load_open_position()
-
-            self.assertIsNone(loaded)
-            self.assertFalse(position_path.exists())
-            quarantine = state / "position_quarantine.jsonl"
-            self.assertTrue(quarantine.exists())
-            record = json.loads(quarantine.read_text().splitlines()[0])
-            self.assertEqual(record["asset"], "BTC/USDT")
-            self.assertIn("quarantine_reason", record)
-
-    def test_load_open_position_keeps_fresh_position(self):
+    def test_stale_heartbeat_is_an_outage(self):
         with tempfile.TemporaryDirectory() as tmp:
             state = Path(tmp)
-            position_path = state / "open_position.json"
-            position = {
-                "asset": "BTC/USDT",
-                "entry_price": 67915.96,
-                "opened_at": datetime.now(UTC).isoformat(),
-            }
-            position_path.write_text(json.dumps(position))
+            _write_heartbeat(state, timedelta(hours=3))
+            with patch.object(loop, "HEARTBEAT_PATH", state / "heartbeat.json"):
+                self.assertTrue(worker_outage_detected(now=NOW))
 
+    def test_missing_heartbeat_is_not_an_outage(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp)
+            with patch.object(loop, "HEARTBEAT_PATH", state / "heartbeat.json"):
+                self.assertFalse(worker_outage_detected(now=NOW))
+
+
+class LoadOpenPositionTests(unittest.TestCase):
+    def _run_load(self, state: Path, position: dict):
+        (state / "open_position.json").write_text(json.dumps(position))
+        with (
+            patch.object(loop, "POSITION_PATH", state / "open_position.json"),
+            patch.object(loop, "HEARTBEAT_PATH", state / "heartbeat.json"),
+            patch.object(loop, "STATE_DIR", state),
+            patch.object(events, "EVENTS_PATH", state / "events.jsonl"),
+        ):
+            return loop._load_open_position()
+
+    def test_old_position_is_kept_during_continuous_operation(self):
+        # THE BUG FIX: a position open for 9 days is still VALID as long as the
+        # worker has been running (fresh heartbeat) -- never discarded on age.
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp)
+            _write_heartbeat(state, timedelta(seconds=60))
+            position = {"asset": "BTC/USDT", "direction": "short", "entry_price": 60077.99,
+                        "opened_at": (datetime.now(UTC) - timedelta(days=9)).isoformat()}
+            loaded = self._run_load(state, position)
+            self.assertIsNotNone(loaded)                          # kept, not discarded
+            self.assertTrue((state / "open_position.json").exists())
+            self.assertFalse((state / "position_quarantine.jsonl").exists())
+
+    def test_position_is_resumed_not_discarded_after_outage(self):
+        # After a real outage (stale heartbeat) the position is RESUMED (returned,
+        # file kept) and an event is logged -- it is never thrown away.
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp)
+            _write_heartbeat(state, timedelta(hours=3))
+            position = {"asset": "BTC/USDT", "direction": "short", "entry_price": 60077.99,
+                        "opened_at": (datetime.now(UTC) - timedelta(hours=4)).isoformat()}
+            loaded = self._run_load(state, position)
+            self.assertIsNotNone(loaded)                          # resumed, not discarded
+            self.assertTrue((state / "open_position.json").exists())
+            self.assertFalse((state / "position_quarantine.jsonl").exists())
+            events_logged = (state / "events.jsonl").read_text()
+            self.assertIn("position_resumed_after_outage", events_logged)
+
+    def test_no_position_file_returns_none(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp)
+            _write_heartbeat(state, timedelta(seconds=60))
             with (
-                patch.object(loop, "POSITION_PATH", position_path),
-                patch.object(loop, "STATE_DIR", state),
-                patch.object(events, "EVENTS_PATH", state / "events.jsonl"),
+                patch.object(loop, "POSITION_PATH", state / "open_position.json"),
+                patch.object(loop, "HEARTBEAT_PATH", state / "heartbeat.json"),
             ):
-                loaded = loop._load_open_position()
-
-            self.assertIsNotNone(loaded)
-            self.assertTrue(position_path.exists())
+                self.assertIsNone(loop._load_open_position())
 
 
 if __name__ == "__main__":

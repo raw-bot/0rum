@@ -20,8 +20,11 @@ allowed_external_strategies:
   - id: "ak_macd_15m_v1"
     symbol: "BTCUSDT"           # TradingView identity (syminfo.ticker), match exact
     engine_asset: "BTC/USDT"    # venue the worker prices/risk-manages on (Binance)
-    timeframe: "15m"
-    events: ["BUY_CANDIDATE", "SELL_CANDIDATE", "EXIT"]
+    timeframe: "4h"             # MIGRATED 15m->4h: 15m had no edge (PF 0.74); 4h is where
+                                # the edge lives (backtest 2018-2026 long-only PF ~1.4, OOS-validated).
+                                # Must match the Pine payload timeframe (validate.py checks it).
+    events: ["BUY_CANDIDATE", "EXIT"]   # LONG-ONLY: SELL_CANDIDATE dropped. Shorts lose on BTC's
+                                # structural uptrend (PF ~0.8); this is the authoritative long-only gate.
 
 # Performance targets are evaluation anchors, not risk mandates.
 target_return_30d: 0.07

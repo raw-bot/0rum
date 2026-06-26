@@ -35,3 +35,4 @@ ak_macd:
   confirmation_bars: 2        # require macd[t] > macd[t-1] > macd[t-2]
   candidate_window_bars: 2    # confirm within W closed bars after the flip_up
   regime_filter: true         # block LONG when rolling-return regime is unfavorable
+  require_candle_direction: true  # entry bar must close in trade direction (green=long / red=short)

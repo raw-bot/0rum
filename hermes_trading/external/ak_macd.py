@@ -67,6 +67,7 @@ class AkMacdParams:
     confirmation_bars: int = 2       # require macd[t] > macd[t-1] > ... > macd[t-confirmation_bars]
     candidate_window_bars: int = 2   # confirmation must land within W closed bars after the flip
     regime_filter: bool = True       # block LONG when rolling_return_regime == "unfavorable"
+    require_candle_direction: bool = True  # entry bar must close in the trade direction (green=long / red=short)
 
     @property
     def warmup(self) -> int:
@@ -115,6 +116,7 @@ class AkMacdState:
     """Per-bar series computed once, reused by the entry logic and for audit."""
 
     closes: list[float]
+    opens: list[float]
     highs: list[float]
     lows: list[float]
     volumes: list[float]
@@ -129,6 +131,10 @@ class AkMacdState:
 
 def compute_state(candles: list[dict], params: AkMacdParams) -> AkMacdState:
     closes = [float(c["close"]) for c in candles]
+    # Open is needed for the entry-candle direction gate. Default to NaN when a
+    # caller synthesizes close-only candles, so the gate passes (never blocks on
+    # missing data) rather than treating open==close as a non-directional bar.
+    opens = [float(c["open"]) if "open" in c else float("nan") for c in candles]
     highs = [float(c["high"]) for c in candles]
     lows = [float(c["low"]) for c in candles]
     volumes = [float(c.get("volume", 0.0)) for c in candles]
@@ -159,7 +165,7 @@ def compute_state(candles: list[dict], params: AkMacdParams) -> AkMacdState:
         is_gray.append(not blue and not red)
 
     return AkMacdState(
-        closes=closes, highs=highs, lows=lows, volumes=volumes,
+        closes=closes, opens=opens, highs=highs, lows=lows, volumes=volumes,
         baseline=baseline, macd=macd, signal=signal, vol_ma=vol_ma,
         is_blue=is_blue, is_red=is_red, is_gray=is_gray,
     )
@@ -227,6 +233,16 @@ def _regime_at(closes: list[float], t: int) -> tuple[str, float]:
     return r["label"], r["return_pct"]
 
 
+def _candle_in_direction(st: AkMacdState, t: int, params: AkMacdParams, *, long: bool) -> bool:
+    """Entry-candle price-action gate: the bar the signal fires on must close in
+    the trade direction (green = close>open for long, red = close<open for short).
+    Disabled when require_candle_direction is False, or when the open is unknown
+    (close-only synthesized candles) — never blocks on missing data."""
+    if not params.require_candle_direction or not _is_num(st.opens[t]):
+        return True
+    return st.closes[t] > st.opens[t] if long else st.closes[t] < st.opens[t]
+
+
 def _other_long_conditions(st: AkMacdState, t: int, params: AkMacdParams) -> bool:
     """The existing non-MACD-confirmation LONG conditions (Requirement 5)."""
     return (
@@ -234,6 +250,7 @@ def _other_long_conditions(st: AkMacdState, t: int, params: AkMacdParams) -> boo
         and _is_num(st.baseline[t]) and st.closes[t] > st.baseline[t]
         and _is_num(st.vol_ma[t]) and st.volumes[t] > st.vol_ma[t]
         and _sequenced_long(st, t, params)
+        and _candle_in_direction(st, t, params, long=True)
     )
 
 
@@ -244,6 +261,7 @@ def _other_short_conditions(st: AkMacdState, t: int, params: AkMacdParams) -> bo
         and _is_num(st.baseline[t]) and st.closes[t] < st.baseline[t]
         and _is_num(st.vol_ma[t]) and st.volumes[t] > st.vol_ma[t]
         and _sequenced_short(st, t, params)
+        and _candle_in_direction(st, t, params, long=False)
     )
 
 

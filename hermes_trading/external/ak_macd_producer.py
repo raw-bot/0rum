@@ -105,6 +105,7 @@ def load_ak_macd_params(strategy_path: Path = STRATEGY_PATH) -> AkMacdParams:
         confirmation_bars=_pos_int("confirmation_bars", defaults.confirmation_bars),
         candidate_window_bars=_pos_int("candidate_window_bars", defaults.candidate_window_bars),
         regime_filter=_bool("regime_filter", defaults.regime_filter),
+        require_candle_direction=_bool("require_candle_direction", defaults.require_candle_direction),
     )
 
 

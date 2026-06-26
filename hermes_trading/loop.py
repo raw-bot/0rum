@@ -141,20 +141,32 @@ def is_duplicate_close(closed_trade: dict | None, trades: list[dict]) -> bool:
     return signal is not None and any(trade.get("signal_id") == signal for trade in trades)
 
 
-def position_is_stale(position: dict, *, now: datetime | None = None, max_age_hours: float | None = None) -> bool:
-    """A position older than max_age_hours means the worker was down for a
-    long stretch; closing it against the current price would record a trade
-    spanning the whole outage and pollute every downstream metric."""
-    if max_age_hours is None:
-        max_age_hours = float(os.getenv("HERMES_MAX_POSITION_AGE_HOURS", "6"))
+def _heartbeat_age_seconds(now: datetime | None = None) -> float | None:
+    """Seconds since the worker last wrote a heartbeat, or None if there is no
+    readable heartbeat. The heartbeat is rewritten every loop, so a large value
+    is the ONLY reliable signal that the worker was actually DOWN."""
     now = now or datetime.now(UTC)
     try:
-        opened_at = datetime.fromisoformat(str(position.get("opened_at")))
-    except (TypeError, ValueError):
-        return True
-    if opened_at.tzinfo is None:
-        opened_at = opened_at.replace(tzinfo=UTC)
-    return (now - opened_at).total_seconds() > max_age_hours * 3600
+        hb = json.loads(HEARTBEAT_PATH.read_text() or "{}")
+        ts = datetime.fromisoformat(str(hb["ts"]))
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=UTC)
+    return (now - ts).total_seconds()
+
+
+def worker_outage_detected(*, now: datetime | None = None, max_gap_seconds: float | None = None) -> bool:
+    """True iff the worker's last heartbeat is older than the outage threshold —
+    i.e. the worker was genuinely down. This is the ONLY condition that can
+    orphan an open position. A frozen-bracket position (no max-hold) is valid
+    however long it stays open while the worker runs continuously, so position
+    AGE must never trigger this (the old age-based check silently discarded live,
+    in-profit positions just for being open >6h)."""
+    if max_gap_seconds is None:
+        max_gap_seconds = float(os.getenv("HERMES_OUTAGE_GAP_MINUTES", "15")) * 60.0
+    age = _heartbeat_age_seconds(now=now)
+    return age is not None and age > max_gap_seconds
 
 
 def _quarantine_position(position: dict, reason: str) -> None:
@@ -171,12 +183,20 @@ def _load_open_position() -> dict | None:
     payload = json.loads(POSITION_PATH.read_text() or "{}")
     if not payload:
         return None
-    if position_is_stale(payload):
-        _quarantine_position(
-            payload,
-            f"opened_at={payload.get('opened_at')!r} exceeds HERMES_MAX_POSITION_AGE_HOURS; discarded instead of closing across the outage",
+    # NEVER discard a position on age. A frozen-bracket position is valid until
+    # its SL/TP is hit, however long that takes. If the worker was actually down
+    # (heartbeat gap), we RESUME the position rather than throw it away: the next
+    # loops manage it through the normal bracket exit, which fills at the frozen
+    # SL/TP level, so the realized P&L stays correct. We only log the outage for
+    # operator visibility.
+    if worker_outage_detected():
+        log_event(
+            "position_resumed_after_outage",
+            f"worker heartbeat gap detected; resuming open {payload.get('direction', '?')} position "
+            f"opened_at={payload.get('opened_at')!r} (managed via bracket, not discarded)",
+            asset=payload.get("asset"),
+            signal_id=payload.get("signal_id"),
         )
-        return None
     return payload
 
 

@@ -16,6 +16,7 @@ from hermes_trading.external.ak_macd import (
     ACTION_ARMED,
     ACTION_CONFIRMED,
     ACTION_EXPIRED,
+    ACTION_REJECTED_CONDITIONS,
     ACTION_REJECTED_MACD,
     ACTION_REJECTED_REGIME,
     AkMacdParams,
@@ -35,13 +36,17 @@ def _timestamps(n):
     return [START_TS + i * BAR_MS for i in range(n)]
 
 
-def _state(macd, *, closes=None, baseline=90.0, vol_ma=1.0, volume=2.0,
+def _state(macd, *, closes=None, opens=None, baseline=90.0, vol_ma=1.0, volume=2.0,
            trend_blue=True, pullback_at=(13, 14)):
     """Build a state of len(macd). With trend_blue=True the structural gate is a
     blue trend + gray pullback (sequenced_long); trend_blue=False gives a red trend
-    + gray pullback (sequenced_short). Defaults satisfy volume>vol_ma."""
+    + gray pullback (sequenced_short). Defaults satisfy volume>vol_ma.
+
+    opens default to NaN so the entry-candle direction gate is inert (passes) for
+    tests that don't exercise it; pass explicit opens to test that gate."""
     n = len(macd)
     closes = closes if closes is not None else [100.0] * n
+    opens_l = opens if opens is not None else [NAN] * n
     baseline_l = baseline if isinstance(baseline, list) else [baseline] * n
     vol_ma_l = vol_ma if isinstance(vol_ma, list) else [vol_ma] * n
     volumes = volume if isinstance(volume, list) else [volume] * n
@@ -56,7 +61,7 @@ def _state(macd, *, closes=None, baseline=90.0, vol_ma=1.0, volume=2.0,
             is_red[g] = False
             is_gray[g] = True
     return AkMacdState(
-        closes=closes, highs=highs, lows=lows, volumes=volumes,
+        closes=closes, opens=opens_l, highs=highs, lows=lows, volumes=volumes,
         baseline=baseline_l, macd=list(macd), signal=[NAN] * n, vol_ma=vol_ma_l,
         is_blue=is_blue, is_red=is_red, is_gray=is_gray,
     )
@@ -140,6 +145,31 @@ class AkMacdLongTest(unittest.TestCase):
         self.assertEqual(v.action, ACTION_REJECTED_MACD)
         self.assertIsNone(v.payload)
 
+    # --- entry-candle direction gate (require_candle_direction) ---
+    def test_green_entry_candle_confirms_long(self):
+        # Same confirming pattern, entry bar GREEN (close 100 > open 99) -> long fires.
+        m = _macd(232, 176, 138, 157, 170)
+        opens = [NAN] * (len(m) - 1) + [99.0]
+        v = _run(_state(m, opens=opens))
+        self.assertEqual(v.action, ACTION_CONFIRMED)
+        self.assertEqual(v.payload["event"], "BUY_CANDIDATE")
+
+    def test_red_entry_candle_blocks_long(self):
+        # The 2026-06-24 failure: indicators say long but the entry candle is RED
+        # (close 100 < open 101) -> the gate rejects it.
+        m = _macd(232, 176, 138, 157, 170)
+        opens = [NAN] * (len(m) - 1) + [101.0]
+        v = _run(_state(m, opens=opens))
+        self.assertEqual(v.action, ACTION_REJECTED_CONDITIONS)
+        self.assertIsNone(v.payload)
+
+    def test_red_entry_candle_allowed_when_gate_disabled(self):
+        m = _macd(232, 176, 138, 157, 170)
+        opens = [NAN] * (len(m) - 1) + [101.0]
+        v = _run(_state(m, opens=opens), AkMacdParams(require_candle_direction=False))
+        self.assertEqual(v.action, ACTION_CONFIRMED)
+        self.assertEqual(v.payload["event"], "BUY_CANDIDATE")
+
 
 class AkMacdShortTest(unittest.TestCase):
     def _short_state(self, macd, **kw):
@@ -166,6 +196,22 @@ class AkMacdShortTest(unittest.TestCase):
         v = _run(self._short_state(_macd_dn(-232, -176, -138, -157, -129)))
         self.assertIsNone(v.payload)
         self.assertEqual(v.side, "long")  # flip_up switched the candidate
+
+    def test_red_entry_candle_confirms_short(self):
+        # Entry bar RED (close 70 < open 71) -> short fires.
+        m = _macd_dn(-232, -176, -138, -157, -170)
+        opens = [NAN] * (len(m) - 1) + [71.0]
+        v = _run(self._short_state(m, opens=opens))
+        self.assertEqual(v.action, ACTION_CONFIRMED)
+        self.assertEqual(v.payload["event"], "SELL_CANDIDATE")
+
+    def test_green_entry_candle_blocks_short(self):
+        # Indicators say short but the entry candle is GREEN (close 70 > open 69) -> rejected.
+        m = _macd_dn(-232, -176, -138, -157, -170)
+        opens = [NAN] * (len(m) - 1) + [69.0]
+        v = _run(self._short_state(m, opens=opens))
+        self.assertEqual(v.action, ACTION_REJECTED_CONDITIONS)
+        self.assertIsNone(v.payload)
 
     def test_regime_favorable_blocks_short(self):
         macd = _macd_dn(-232, -176, -138, -157, -170)
