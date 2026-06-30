@@ -1,0 +1,70 @@
+Fetching ~50000 BTCUSDT 15m bars ...
+Got 50000 15m bars: 2025-01-25 → 2026-06-30
+Arm-fire entries (15m): 1155
+Fetching 1m intrabar series (cached) ...
+    1m fetch: 50000 bars ...
+    1m fetch: 100000 bars ...
+    1m fetch: 150000 bars ...
+    1m fetch: 200000 bars ...
+    1m fetch: 250000 bars ...
+    1m fetch: 300000 bars ...
+    1m fetch: 350000 bars ...
+    1m fetch: 400000 bars ...
+    1m fetch: 450000 bars ...
+    1m fetch: 500000 bars ...
+    1m fetch: 550000 bars ...
+    1m fetch: 600000 bars ...
+    1m fetch: 650000 bars ...
+    1m fetch: 700000 bars ...
+    1m fetch: 750000 bars ...
+  (1m fetched + cached: 750005 bars)
+1m bars: 750005
+
+====================================================================================================
+FULL SAMPLE — arm-fire entries, 1m intrabar exits  (2025-01-25 → 2026-06-30)
+====================================================================================================
+  fixed-2R        : 1153 tr | WR 34.4% | net  -249.8R | exp -0.217R | avg-win +1.77R | PF 0.74 | avail 11.3R | capt 37% | maxGB 142.8R
+  runner k=2.0    : 1153 tr | WR 38.2% | net  -291.9R | exp -0.253R | avg-win +1.37R | PF 0.67 | avail 10.3R | capt 33% | maxGB 143.3R
+                    Δ net vs fixed: -42.1R  (still losing)
+  runner k=2.5    : 1153 tr | WR 38.2% | net  -287.8R | exp -0.250R | avg-win +1.38R | PF 0.68 | avail 10.3R | capt 33% | maxGB 143.3R
+                    Δ net vs fixed: -38.1R  (still losing)
+  runner k=3.0    : 1153 tr | WR 38.2% | net  -291.6R | exp -0.253R | avg-win +1.37R | PF 0.67 | avail 10.3R | capt 32% | maxGB 143.3R
+                    Δ net vs fixed: -41.9R  (still losing)
+
+====================================================================================================
+WALK-FORWARD — 5 sequential time folds (consistency of the runner edge)
+====================================================================================================
+
+Fold 1/5  2025-01-25 → 2025-05-09
+    fixed-2R      :  243 tr | WR 28.8% | net   -85.4R | exp -0.352R | avg-win +1.80R | PF 0.60 | avail 16.6R | capt 37% | maxGB 142.8R
+    runner k=2.0 : net  -85.3R  (Δ +0.1R) ✓
+    runner k=2.5 : net  -86.2R  (Δ -0.8R) ✗
+    runner k=3.0 : net  -87.5R  (Δ -2.0R) ✗
+
+Fold 2/5  2025-05-09 → 2025-08-21
+    fixed-2R      :  240 tr | WR 32.5% | net   -75.7R | exp -0.315R | avg-win +1.73R | PF 0.64 | avail 7.9R | capt 38% | maxGB 33.9R
+    runner k=2.0 : net  -97.3R  (Δ -21.6R) ✗
+    runner k=2.5 : net  -96.8R  (Δ -21.1R) ✗
+    runner k=3.0 : net  -96.8R  (Δ -21.1R) ✗
+
+Fold 3/5  2025-08-21 → 2025-12-04
+    fixed-2R      :  218 tr | WR 35.8% | net   -40.1R | exp -0.184R | avg-win +1.76R | PF 0.77 | avail 11.5R | capt 38% | maxGB 58.3R
+    runner k=2.0 : net  -52.4R  (Δ -12.3R) ✗
+    runner k=2.5 : net  -50.3R  (Δ -10.1R) ✗
+    runner k=3.0 : net  -49.4R  (Δ -9.2R) ✗
+
+Fold 4/5  2025-12-04 → 2026-03-18
+    fixed-2R      :  238 tr | WR 40.8% | net    -4.2R | exp -0.018R | avg-win +1.81R | PF 0.98 | avail 12.9R | capt 32% | maxGB 81.9R
+    runner k=2.0 : net   -8.1R  (Δ -3.9R) ✗
+    runner k=2.5 : net   -7.8R  (Δ -3.5R) ✗
+    runner k=3.0 : net   -9.4R  (Δ -5.1R) ✗
+
+Fold 5/5  2026-03-18 → 2026-06-30
+    fixed-2R      :  214 tr | WR 34.6% | net   -44.2R | exp -0.207R | avg-win +1.76R | PF 0.75 | avail 7.4R | capt 43% | maxGB 32.4R
+    runner k=2.0 : net  -48.7R  (Δ -4.5R) ✗
+    runner k=2.5 : net  -46.8R  (Δ -2.5R) ✗
+    runner k=3.0 : net  -48.6R  (Δ -4.3R) ✗
+
+====================================================================================================
+VERDICT: no runner variant beats fixed-2R. The runner thesis is dead on this data.
+====================================================================================================
