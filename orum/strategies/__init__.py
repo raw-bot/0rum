@@ -23,11 +23,13 @@ import importlib
 
 from orum.strategies.ak_macd import AkMacdEngine
 from orum.strategies.base import StrategyEngine
+from orum.strategies.dummy import DummyEngine
 from orum.strategies.native_dsl import NativeDslEngine
 
 _ENGINES: dict[str, type] = {
     "native_dsl": NativeDslEngine,
     "ak_macd": AkMacdEngine,
+    "dummy": DummyEngine,
 }
 
 
