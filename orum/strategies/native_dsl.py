@@ -52,9 +52,9 @@ class NativeDslEngine:
         self._direction = strategy_direction(config)
 
     def on_candle(self, candle: dict, context: StrategyContext) -> Signal | None:
-        if self._direction != "long":
-            return None  # v1: long-only, same restriction as entry_signal_fired
-
+        # exit_signal_fired never checks direction (only entry_signal_fired
+        # does), so the direction gate below applies to entry only -- gating
+        # both would silently strand a non-long position with no DSL exit.
         exit_eval = dsl_evaluator.evaluate(self._exit_group, context.candles)
         if exit_eval["triggered"]:
             return Signal(
@@ -64,6 +64,9 @@ class NativeDslEngine:
                 entry_reason=dsl_evaluator.summarize(self._exit_group, exit_eval),
                 strategy_metadata={"eval": exit_eval},
             )
+
+        if self._direction != "long":
+            return None  # v1: long-only, same restriction as entry_signal_fired
 
         entry_eval = dsl_evaluator.evaluate(self._entry_group, context.candles)
         if entry_eval["triggered"]:

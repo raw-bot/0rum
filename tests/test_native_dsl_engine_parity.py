@@ -78,7 +78,7 @@ class NativeDslEngineParityTests(unittest.TestCase):
 
         self.assertIsNone(_engine().on_candle(candles[-1], _context(candles)))
 
-    def test_short_direction_strategy_never_signals(self):
+    def test_short_direction_strategy_never_enters(self):
         short_strategy = dict(STRATEGY, direction="short")
         closes = [100.0 - index * 0.5 for index in range(20)]
         candles = market_candles(_market(closes))
@@ -86,6 +86,21 @@ class NativeDslEngineParityTests(unittest.TestCase):
         engine.init(short_strategy)
 
         self.assertIsNone(engine.on_candle(candles[-1], _context(candles)))
+
+    def test_short_direction_strategy_still_exits_like_exit_signal_fired(self):
+        # exit_signal_fired never checks direction; the engine must not
+        # either, or a non-long position would be silently stranded.
+        short_strategy = dict(STRATEGY, direction="short")
+        closes = [100.0 + index * 0.5 for index in range(20)]
+        candles = market_candles(_market(closes))
+        self.assertTrue(exit_signal_fired(short_strategy, candles)["triggered"])
+        engine = NativeDslEngine()
+        engine.init(short_strategy)
+
+        signal = engine.on_candle(candles[-1], _context(candles))
+
+        self.assertIsNotNone(signal)
+        self.assertEqual(signal.side, Side.EXIT)
 
 
 def _context(candles):
