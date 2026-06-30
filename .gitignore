@@ -11,3 +11,20 @@ __pycache__/
 .claude/
 .DS_Store
 .gitnexus
+
+# Runtime state — bot output, not source. Records kept tracked below:
+# goal.yaml, strategy.yaml, trades.jsonl, hypotheses.jsonl, events.jsonl,
+# external_signals.jsonl, position_quarantine.jsonl, history/, *_result.txt
+state/*.log
+state/*.out
+state/*.err
+state/*.pid
+state/*.lock
+state/*.bak*
+state/*_shadow.jsonl
+state/heartbeat.json
+state/hermes_watcher.json
+state/candle_history.json
+state/live_candles.json
+state/archive/
+run_local.log

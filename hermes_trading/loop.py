@@ -277,9 +277,69 @@ def close_position_if_needed(
     # bypassed for these positions (the emergency force_close in run_loop still
     # applies, it is a kill-switch, not a strategy exit).
     if position.get("exit_mode") == "bracket":
+        direction = position.get("direction", "long")
+        # SSL band trail (opt-in via exit.trail). Two legs, first to fire wins:
+        #   1. one-way ratchet of the frozen stop toward baseline -/+ k*ATR (the stop
+        #      may only TIGHTEN -> protects winner fills, never loosens);
+        #   2. invalidation close: price closes back through the band ("red line" for
+        #      a long) -> cut the thesis at the close instead of riding the deep
+        #      structural stop for hours. Mutates position["stop_loss_price"] in place
+        #      so run_loop persists the ratchet across bars. Disabled -> frozen bracket.
+        trail = (strategy.get("risk", {}) or {}).get("trail", {}) or {}
+        if trail.get("enabled"):
+            # Lazy import: a top-level import of external.bracket pulls in the
+            # external package __init__ (orchestrator -> executor -> loop), which
+            # would be a circular import at module load. At call time it is resolved.
+            from hermes_trading.external.bracket import band_invalidated, trail_stop
+            # The SSL band must be computed on 15m CLOSED bars — the SAME timeframe
+            # as the AK MACD baseline / the chart's "red line". The worker's own feed
+            # is 1m (only ~13 fifteen-minute bars deep), so we pull a dedicated cached
+            # 15m window (forming bar already dropped). Empty (offline) -> skip the
+            # trail, never fall back to the wrong-timeframe 1m feed.
+            asset = position.get("asset") or os.getenv("HERMES_ASSET", "BTC/USDT")
+            candles = price.recent_15m_candles(asset)
+            atr_mult = float(trail.get("atr_mult", 1.0))
+            baseline_series = dsl_indicators.ema(candles, int(trail.get("base_len", 30)))
+            atr_series = dsl_indicators.atr(candles, int(trail.get("atr_len", 14)))
+            baseline = baseline_series[-1] if baseline_series else math.nan
+            atr_val = atr_series[-1] if atr_series else math.nan
+            if math.isfinite(baseline) and math.isfinite(atr_val):
+                # One-way ratchet of the stop toward the 15m band. OFF by default:
+                # it tightens even underwater longs (the lagging EMA30 keeps band_lo
+                # high) AND is enforced on the fast 1m bracket check, so a 1m wick
+                # can whipsaw the trade out before a recovery while no 15m bar ever
+                # closes red. Enable only with evidence (backtest). The frozen
+                # structural stop remains the catastrophe stop; the 15m-close
+                # invalidation below is the thesis exit.
+                # Profit-only gate: a trailing stop protects GAINS, so it must only
+                # tighten once the trade is actually in profit. Tightening an
+                # underwater position narrows the deliberate risk room and (via the
+                # 1m bracket check) whipsaws winners into losses — the 2026-06-29 bug.
+                # Once green, the worst a 1m wick can do is bank a smaller gain.
+                entry_price = float(position.get("entry_price", current_price))
+                in_profit = current_price > entry_price if direction == "long" else current_price < entry_price
+                if trail.get("ratchet", False) and in_profit:
+                    new_stop = trail_stop(
+                        direction=direction, stop_loss_price=float(position["stop_loss_price"]),
+                        baseline=baseline, atr=atr_val, atr_mult=atr_mult,
+                    )
+                    if new_stop != float(position["stop_loss_price"]):
+                        position["stop_loss_price"] = new_stop
+                        position["sl_basis"] = "ssl_trail"
+                # Invalidation (thesis exit) fires ONLY on a CONFIRMED 15m close back
+                # through the band — exactly the chart's red line. NOT the live 1m
+                # price: a 1m wick that the 15m bar recovers from must never cut the
+                # thesis. The 1m feed stays for awareness + the hard-stop reaction.
+                closed_15m_close = candles[-1]["close"]
+                if trail.get("invalidate", True) and band_invalidated(
+                    direction=direction, close=closed_15m_close,
+                    baseline=baseline, atr=atr_val, atr_mult=atr_mult,
+                ):
+                    return _build_closed_trade(
+                        position, strategy, market, rsi, regime, "ssl_flip", fill_price=current_price
+                    )
         sl = float(position["stop_loss_price"])
         tp = float(position["take_profit_price"])
-        direction = position.get("direction", "long")
         if direction == "short":
             bracket_reason = "stop_loss" if current_price >= sl else "take_profit" if current_price <= tp else None
         else:
@@ -586,6 +646,7 @@ async def run_loop(goal: dict, *, iterations: int | None = None) -> None:
                 log_event("dsl_error", "; ".join(dsl_errors))
             current_signal_id = signal_id(asset, strategy, market)
             position = _load_open_position()
+            _prev_stop = position.get("stop_loss_price") if position else None
             opened_position = False
             trade_closed = False
             all_trades = _load_recent_trades(limit=None)
@@ -639,6 +700,11 @@ async def run_loop(goal: dict, *, iterations: int | None = None) -> None:
                     exit_reason=closed_trade.get("exit_reason"),
                     net_pnl_usd=closed_trade.get("net_pnl_usd"),
                 )
+
+            # Persist a trail-tightened stop so the one-way ratchet survives across
+            # bars (the position file is otherwise only written at open).
+            if position is not None and not trade_closed and position.get("stop_loss_price") != _prev_stop:
+                await _write_json(POSITION_PATH, position)
 
             can_open = (
                 entry_fired

@@ -1,0 +1,47 @@
+Fetching ~50000 BTCUSDT 15m bars from Binance ...
+Got 50000 bars: 2025-01-14 → 2026-06-19
+Raw setups: 1134 valid brackets  (+0 degenerate/no-bracket)
+
+============================================================================================
+CONFIGURATION
+============================================================================================
+  Strategy        : AK MACD 15m (long+short), frozen SL/TP bracket, bracket-only exits
+  Indicator params: MACD 12/26/9, baseline EMA30, ATR14×0.2, volMA9, RR 1.5
+  Account         : start $10,000, risk 2%/trade (non-compounding ref)
+  Costs           : fee 0.04%/side, slippage 0.03%/side
+  Sizing gate     : min_reward_risk 1.0 (fee-adjusted), single position at a time
+  Data window     : 2025-01-14 → 2026-06-19  (50000 bars)
+
+============================================================================================
+ACCEPT / REJECT BY SIZING  (after one-position-at-a-time de-overlap)
+============================================================================================
+  Signals evaluated : 761
+  Accepted (traded) : 533
+  Rejected by sizing: 228
+      - real reward/risk < min: 228
+  Note: RR-refusal is leverage-independent → accepted/rejected set is identical at 1x/2x/3x.
+  SL+TP same-bar (ambiguous, SL assumed): 0
+
+============================================================================================
+LEVERAGE COMPARISON  (same trade set; only position size / exposure differ)
+============================================================================================
+  metric                              1x            2x            3x
+  ------------------------------------------------------------------
+  trades                             533           533           533
+  winrate                          39.6%         39.6%         39.6%
+  profit factor                     0.77          0.74          0.71
+  expectancy (R)                  -0.058        -0.123        -0.175
+  expectancy ($)                 $-11.65       $-24.56       $-35.10
+  net P&L ($)                    $-6,211      $-13,089      $-18,708
+  final equity ($)                $3,789       $-3,089       $-8,708
+  max drawdown ($)                $7,373       $13,987       $19,694
+  max drawdown (%)                 73.7%        139.9%        196.9%
+  worst trade ($)                  $-213         $-228         $-242
+  worst trade (%eq)                -2.1%         -2.3%         -2.4%
+  max losing streak                   11            11            11
+  notional avg ($)                $9,952       $19,090       $26,211
+  notional max ($)               $10,000       $20,000       $30,000
+  leverage avg                     1.00x         1.91x         2.62x
+  leverage max                     1.00x         2.00x         3.00x
+  trades capped                      522           439           313
+============================================================================================

@@ -62,7 +62,10 @@ class DashboardExternalTests(unittest.TestCase):
                 "candle_ts": 1_780_000_600_000, "entry_price": 100.0, "exit_price": 103.0,
                 "pnl_pct": 0.03, "net_pnl_usd": 70.0, "direction": "long", "exit_reason": "take_profit",
             }])
-            with patch.object(dashboard, "STATE_DIR", state):
+            # Stub the live Binance fetch so this test exercises the _price_series
+            # fallback it is about — otherwise the real feed wins and leaks live prices.
+            with patch.object(dashboard, "_binance_15m_candles", return_value=[]), \
+                 patch.object(dashboard, "STATE_DIR", state):
                 snap = dashboard.build_snapshot()
         ps = snap["price_series"]
         self.assertLessEqual(len(ps), 1440)  # downsampled from 3000

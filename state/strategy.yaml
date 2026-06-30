@@ -26,6 +26,20 @@ risk:
   position_size_r: 2.0
   reward_risk_ratio: 2.0      # TP = entry +/- rr*risk - set via dashboard slider
   max_leverage: 3.0           # notional cap (× equity) — set via dashboard slider
+  # SSL band trail (exit_mode="bracket" only). Cuts the trade when a CLOSED 15m bar
+  # closes back through the baseline ∓ k*ATR band — the "red line" exit that the
+  # deep frozen stop never gave. Computed on closed 15m bars only (forming bar
+  # dropped), so a 1m wick never decides the thesis. The frozen structural stop +
+  # TP stay enforced on 1m as the catastrophe/target. enabled: false -> frozen bracket.
+  trail:
+    enabled: true
+    atr_mult: 1.0             # k: band buffer in ATRs (hysteresis). 0.2 = dot color; wider = fewer whipsaws
+    base_len: 30             # baseline EMA length (match the AK MACD baseline)
+    atr_len: 14              # continuation ATR length
+    invalidate: true         # close on a CONFIRMED 15m close back through the band
+    ratchet: false           # profit-only one-way stop-tightening toward the band: only tightens
+                             # once the trade is IN PROFIT (never narrows an underwater stop). OFF
+                             # pending backtest; the 1m-whipsaw bug is fixed but keep it off until proven.
 direction: long
 
 # AK MACD LONG entry confirmation (anti false-bounce). Overrides the AkMacdParams

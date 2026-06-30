@@ -130,3 +130,20 @@
 {"asset": "BTC/USDT", "detail": "Booting hermes-trading worker", "kind": "worker_boot", "ts": "2026-06-26T06:57:27.887467+00:00"}
 {"detail": "closed paper trade BTC/USDT via stop_loss pnl_pct=-0.01141", "exit_reason": "stop_loss", "kind": "trade_closed", "net_pnl_usd": -234.4108245657794, "signal_id": "BTC/USDT|b6dac95fd23d9318|1782455400000", "ts": "2026-06-26T09:52:31.445703+00:00"}
 {"asset": "BTC/USDT", "detail": "Booting hermes-trading worker", "kind": "worker_boot", "ts": "2026-06-26T10:16:51.641438+00:00"}
+{"asset": "BTC/USDT", "detail": "Booting hermes-trading worker", "kind": "worker_boot", "ts": "2026-06-26T23:36:41.162197+00:00"}
+{"asset": "BTC/USDT", "detail": "Booting hermes-trading worker", "kind": "worker_boot", "ts": "2026-06-26T23:37:08.602607+00:00"}
+{"dedup_hash": "5700d5018821f89f", "detail": "BUY_CANDIDATE BTCUSDT 15m bar=1782526500000", "kind": "external_signal_received", "source": "tradingview", "strategy": "ak_macd_15m_v1", "ts": "2026-06-27T02:30:10.377600+00:00"}
+{"dedup_hash": "5700d5018821f89f", "detail": "opened via external BUY_CANDIDATE BTCUSDT @ 60297.23", "entry_price": 60297.23, "kind": "external_signal_executed", "ts": "2026-06-27T02:30:10.379491+00:00"}
+{"detail": "closed paper trade BTC/USDT via stop_loss pnl_pct=-0.00698", "exit_reason": "stop_loss", "kind": "trade_closed", "net_pnl_usd": -238.92200666517263, "signal_id": "BTC/USDT|b6dac95fd23d9318|1782526500000", "ts": "2026-06-28T05:25:44.611849+00:00"}
+{"asset": "BTC/USDT", "detail": "Booting hermes-trading worker", "kind": "worker_boot", "ts": "2026-06-28T08:10:10.216266+00:00"}
+{"asset": "BTC/USDT", "detail": "Booting hermes-trading worker", "kind": "worker_boot", "ts": "2026-06-28T08:11:09.766392+00:00"}
+{"asset": "BTC/USDT", "detail": "Booting hermes-trading worker", "kind": "worker_boot", "ts": "2026-06-28T08:22:36.309160+00:00"}
+{"asset": "BTC/USDT", "detail": "Booting hermes-trading worker", "kind": "worker_boot", "ts": "2026-06-28T08:37:31.298305+00:00"}
+{"dedup_hash": "1b3563b31399ae04", "detail": "SELL_CANDIDATE BTCUSDT 15m bar=1782653400000", "kind": "external_signal_received", "source": "tradingview", "strategy": "ak_macd_15m_v1", "ts": "2026-06-28T13:45:20.729210+00:00"}
+{"dedup_hash": "1b3563b31399ae04", "detail": "opened via external SELL_CANDIDATE BTCUSDT @ 60123.88", "entry_price": 60123.88, "kind": "external_signal_executed", "ts": "2026-06-28T13:45:20.732089+00:00"}
+{"detail": "closed paper trade BTC/USDT via take_profit pnl_pct=0.01108", "exit_reason": "take_profit", "kind": "trade_closed", "net_pnl_usd": 323.23289591747107, "signal_id": "BTC/USDT|b6dac95fd23d9318|1782653400000", "ts": "2026-06-28T17:36:59.437746+00:00"}
+{"dedup_hash": "108350ec5ea9b0c4", "detail": "BUY_CANDIDATE BTCUSDT 15m bar=1782711900000", "kind": "external_signal_received", "source": "tradingview", "strategy": "ak_macd_15m_v1", "ts": "2026-06-29T06:00:10.882923+00:00"}
+{"dedup_hash": "108350ec5ea9b0c4", "detail": "opened via external BUY_CANDIDATE BTCUSDT @ 60102.8", "entry_price": 60102.8, "kind": "external_signal_executed", "ts": "2026-06-29T06:00:10.884770+00:00"}
+{"detail": "closed paper trade BTC/USDT via stop_loss pnl_pct=-0.00525", "exit_reason": "stop_loss", "kind": "trade_closed", "net_pnl_usd": -110.48792158647342, "signal_id": "BTC/USDT|b6dac95fd23d9318|1782711900000", "ts": "2026-06-29T12:01:26.636714+00:00"}
+{"asset": "BTC/USDT", "detail": "Booting hermes-trading worker", "kind": "worker_boot", "ts": "2026-06-29T12:24:43.500341+00:00"}
+{"detail": "closed paper trade BTC/USDT via ssl_flip pnl_pct=-0.00977", "exit_reason": "ssl_flip", "kind": "trade_closed", "net_pnl_usd": -193.014213806248, "signal_id": "BTC/USDT|b6dac95fd23d9318|1782711900000", "ts": "2026-06-29T13:45:43.068697+00:00"}

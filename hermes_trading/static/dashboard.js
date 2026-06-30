@@ -236,7 +236,7 @@ function drawPriceChart() {
         g += `<text class="mk-label out" x="${xx.toFixed(1)}" y="${(xy - 11).toFixed(1)}" text-anchor="middle">OUT</text>`;
       }
       g += `<path class="mk-entry" d="M${ex.toFixed(1)},${(ey - 10).toFixed(1)} L${(ex - 8).toFixed(1)},${(ey + 6).toFixed(1)} L${(ex + 8).toFixed(1)},${(ey + 6).toFixed(1)} Z"><title>IN ${usd(m.entry_price)} · ${m.side}</title></path>`;
-      g += `<text class="mk-label in" x="${ex.toFixed(1)}" y="${(ey + 19).toFixed(1)}" text-anchor="middle">IN</text>`;
+      g += `<text class="mk-label in" x="${ex.toFixed(1)}" y="${(ey + 19).toFixed(1)}" text-anchor="middle">IN ${m.side === "short" ? "S" : "L"}</text>`;
     });
   }
 
@@ -252,7 +252,7 @@ function drawPriceChart() {
       if (P.filter === "signals") return; // an execution belongs to Trades
       g += `<path class="mk-entry" d="M${x.toFixed(1)},${(y - 6).toFixed(1)} L${(x - 5).toFixed(1)},${(y + 4).toFixed(1)} L${(x + 5).toFixed(1)},${(y + 4).toFixed(1)} Z"><title>IN ${usd(sig.price)} · position open</title></path>`;
       g += `<circle class="mk-open-ring" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7"/>`;
-      g += `<text class="mk-label in" x="${x.toFixed(1)}" y="${(y + 15).toFixed(1)}" text-anchor="middle">IN ·open</text>`;
+      g += `<text class="mk-label in" x="${x.toFixed(1)}" y="${(y + 15).toFixed(1)}" text-anchor="middle">IN ${sig.event === "SELL" ? "S" : "L"}</text>`;
       return;
     }
     if (P.filter === "trades") return; // remaining buckets are TV signals

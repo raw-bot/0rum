@@ -89,6 +89,52 @@ def compute_bracket(
     )
 
 
+def ssl_band(*, baseline: float, atr: float, atr_mult: float) -> tuple[float, float]:
+    """SSL continuation band (lower, upper) around the baseline — same geometry as
+    pine/ak_macd_15m.pine: bandLo = baseline - atr*mult, bandUp = baseline + atr*mult.
+
+    Here ``atr_mult`` is the TRAIL buffer (k), intentionally wider than the 0.2 that
+    colors the dots: it is the hysteresis that holds a trend through shallow
+    pullbacks instead of whipsawing the stop out.
+    """
+    buf = atr * atr_mult
+    return baseline - buf, baseline + buf
+
+
+def trail_stop(
+    *, direction: str, stop_loss_price: float, baseline: float, atr: float, atr_mult: float
+) -> float:
+    """One-way ratchet of the bracket stop toward the SSL band.
+
+    The stop may only TIGHTEN — rise for a long, fall for a short — so realized risk
+    can only shrink below the entry ``risk_usd``; it never loosens past the frozen
+    structural stop. Returns the (possibly unchanged) stop price.
+    """
+    lower, upper = ssl_band(baseline=baseline, atr=atr, atr_mult=atr_mult)
+    if direction == "long":
+        return max(stop_loss_price, lower)
+    if direction == "short":
+        return min(stop_loss_price, upper)
+    raise ValueError(f"unknown direction {direction!r}")
+
+
+def band_invalidated(
+    *, direction: str, close: float, baseline: float, atr: float, atr_mult: float
+) -> bool:
+    """True when price has closed back THROUGH the SSL band against the trade.
+
+    This is the "red line" (long) / "blue line" (short) thesis invalidation — the
+    soft exit that cuts a dead trade near break-even instead of riding the frozen
+    structural stop for hours (cf. the 109-candle loser, BTC 27/06).
+    """
+    lower, upper = ssl_band(baseline=baseline, atr=atr, atr_mult=atr_mult)
+    if direction == "long":
+        return close < lower
+    if direction == "short":
+        return close > upper
+    raise ValueError(f"unknown direction {direction!r}")
+
+
 def bracket_sizing(
     *,
     account_equity: float,

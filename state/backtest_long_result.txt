@@ -1,0 +1,12 @@
+Fetching ~50000 BTCUSDT 15m bars from Binance ...
+Got 50000 bars: 2025-01-12 → 2026-06-17
+
+Resolved trades: 699  (target >= 150)
+Fees 0.04%/side, slippage 0.03%/side, RR 1.5, risk 2%
+
+  LONG     :  346 trades | win 38.4% (133W/213L) | net  -125.6R  $ -2512.56 | PF 0.56
+  SHORT    :  353 trades | win 41.4% (146W/207L) | net  -102.9R  $ -2058.12 | PF 0.63
+  COMBINED :  699 trades | win 39.9% (279W/420L) | net  -228.5R  $ -4570.67 | PF 0.60
+
+  SL+TP same-bar (ambiguous, SL assumed): 2 (0.3% of resolved)
+  Final equity (fixed-fractional): $-3570.67 from $1000 (-457.1%)

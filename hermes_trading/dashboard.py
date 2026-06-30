@@ -172,16 +172,18 @@ def _downsample(items: list, max_points: int) -> list:
     return sampled
 
 
-# Chart display source: Coinbase BTC-USD 15m, to match the TradingView view
-# (the worker's own feed is 1m Binance — used for trading, not for this chart).
-_COINBASE_15M_URL = "https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=900"
+# Chart display source: Binance BTCUSDT 15m — the SAME exchange the worker trades
+# on. Using Coinbase here caused price discrepancies between the chart and the
+# trading data (different exchange = different prints); everything is Binance now.
+_BINANCE_15M_URL = "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=300"
 _CB_TTL_SECONDS = 60.0
 _cb_lock = threading.Lock()
 _cb_cache: dict = {"ts": 0.0, "candles": []}
 
 
-def _coinbase_15m_candles(max_points: int = 300) -> list[dict]:
-    """Coinbase BTC-USD 15m OHLCV for the price chart so it matches the TV chart.
+def _binance_15m_candles(max_points: int = 300) -> list[dict]:
+    """Binance BTCUSDT 15m OHLCV for the price chart — same exchange as the worker
+    so the chart and the trading data never diverge.
 
     Cached for _CB_TTL_SECONDS (the dashboard polls often). Returns [] on any
     failure so the caller can fall back to the worker's own feed and the chart
@@ -191,20 +193,20 @@ def _coinbase_15m_candles(max_points: int = 300) -> list[dict]:
         if _cb_cache["candles"] and (now - _cb_cache["ts"]) < _CB_TTL_SECONDS:
             return _cb_cache["candles"]
     try:
-        req = urllib.request.Request(_COINBASE_15M_URL, headers={"User-Agent": "hermes-dashboard"})
+        req = urllib.request.Request(_BINANCE_15M_URL, headers={"User-Agent": "hermes-dashboard"})
         with urllib.request.urlopen(req, timeout=6) as resp:
             raw = json.loads(resp.read().decode())
     except Exception:  # noqa: BLE001 - chart display must never break the snapshot.
         return []
-    # Coinbase rows: [time(sec), low, high, open, close, volume], newest first.
+    # Binance klines rows: [openTime(ms), open, high, low, close, volume, ...], oldest first.
     candles: list[dict] = []
     for row in sorted(raw, key=lambda r: r[0]):
         try:
             candles.append({
-                "ts": int(row[0]) * 1000,
-                "open": float(row[3]),
+                "ts": int(row[0]),
+                "open": float(row[1]),
                 "high": float(row[2]),
-                "low": float(row[1]),
+                "low": float(row[3]),
                 "close": float(row[4]),
                 "volume": float(row[5]),
             })
@@ -592,7 +594,7 @@ def build_snapshot() -> dict:
         "signal_source": str(goal.get("signal_source", "native")),
         "external": _external_feed(events, goal),
         "logs": _logs(events),
-        "price_series": _coinbase_15m_candles() or _price_series(),
+        "price_series": _binance_15m_candles() or _price_series(),
         "trade_markers": _trade_markers(trades),
         "signals": _signal_markers(ext_records, events, open_position.get("external_signal_id")),
         "worker": {
