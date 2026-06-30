@@ -1,0 +1,45 @@
+Fetching ~50000 BTCUSDT 15m bars from Binance ...
+Got 50000 bars: 2025-01-25 → 2026-06-30
+
+Strategy params: AkMacdParams(macd_fast=12, macd_slow=26, macd_signal=9, base_len=30, atr_len=14, atr_mult=0.2, vol_ma_len=9, trend_look=50, pull_look=10, swing_look=10, allow_short=True, confirmation_bars=2, candidate_window_bars=2, regime_filter=True, require_candle_direction=True)
+
+✅ PARITY PROVEN: single-pass confirmations identical to the production brain over the first 3000 bars (83 confirmations).
+
+============================================================================================
+PARITY  — production arm-fire brain (what the bot ACTUALLY trades)
+============================================================================================
+  Raw setups (valid brackets): 1155
+  Accepted (traded)          : 505
+  Rejected by sizing         : 89
+  metric                           1x           2x           3x
+  -------------------------------------------------------------
+  trades                          505          505          505
+  winrate                       38.8%        38.8%        38.8%
+  profit factor                  0.80         0.75         0.72
+  expectancy (R)               -0.064       -0.131       -0.179
+  net P&L ($)                 $-6,458     $-13,200     $-18,059
+  max drawdown %                88.6%       159.1%       212.9%
+  max los. streak                  13           13           13
+============================================================================================
+
+============================================================================================
+BASELINE — loose barssince() entries (the untrustworthy reference)
+============================================================================================
+  Raw setups (valid brackets): 1127
+  Accepted (traded)          : 539
+  Rejected by sizing         : 234
+  metric                           1x           2x           3x
+  -------------------------------------------------------------
+  trades                          539          539          539
+  winrate                       40.1%        40.1%        40.1%
+  profit factor                  0.77         0.75         0.73
+  expectancy (R)               -0.057       -0.117       -0.167
+  net P&L ($)                 $-6,144     $-12,592     $-17,982
+  max drawdown %                73.7%       139.9%       196.4%
+  max los. streak                  11           11           11
+============================================================================================
+
+DELTA (1x):
+  trades :    539  ->     505   (-34)
+  PF     :   0.77  ->    0.80   (+0.02)
+  exp (R): -0.057  ->  -0.064   (-0.007)
