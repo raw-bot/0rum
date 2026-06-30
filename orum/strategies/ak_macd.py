@@ -88,3 +88,8 @@ class AkMacdEngine:
                 "payload": verdict.payload,
             },
         )
+
+
+# Lets the registry (orum/strategies/__init__.py) load this engine by module
+# path, not just by built-in name.
+ENGINE_CLASS = AkMacdEngine
