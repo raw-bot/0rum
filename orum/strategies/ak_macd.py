@@ -53,6 +53,18 @@ class AkMacdEngine:
         self._params = AkMacdParams()
         self.warmup_period = self._params.warmup
 
+    @classmethod
+    def from_params(cls, params: AkMacdParams) -> "AkMacdEngine":
+        """Builds an engine from an already-resolved `AkMacdParams`, bypassing
+        the `ak_macd:`-section override parsing in `init()`. Used by
+        `ak_macd_producer`'s shadow check, which already has the resolved
+        params from `load_ak_macd_params` and would otherwise have to
+        round-trip them through a config dict for no reason."""
+        engine = cls()
+        engine._params = params
+        engine.warmup_period = params.warmup
+        return engine
+
     def init(self, config: dict) -> None:
         """`config` is the `ak_macd:` section of `state/strategy.yaml` (or an
         empty dict). Unknown or out-of-range keys are ignored in favour of
