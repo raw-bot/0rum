@@ -423,19 +423,33 @@ function renderMarkets(s) {
   if (!ms.length) { card.innerHTML = `<h2>Markets</h2><div class="flat">waiting for market data…</div>`; return; }
   const NAMES = { "BTC/USDT": "BTC", "ETH/USDT": "ETH", "PAXG/USDT": "OR (PAXG)" };
   const tiles = ms.map((m, idx) => {
-    const pts = (m.sparkline || []).filter((v) => v > 0);
+    const cs = (m.candles || []).filter((c) => c && c.close > 0);
     const up = Number(m.change_pct || 0) >= 0;
     const col = up ? "#2ecc71" : "#ff5765";
     let svg = `<div class="flat">no data</div>`;
-    if (pts.length >= 2) {
-      const w = 300, h = 80, pad = 3, min = Math.min(...pts), max = Math.max(...pts);
-      const sx = (i) => pad + (i / (pts.length - 1)) * (w - 2 * pad);
-      const sy = (v) => pad + (1 - (v - min) / (max - min || 1)) * (h - 2 * pad);
-      const line = pts.map((v, i) => `${i ? "L" : "M"}${sx(i).toFixed(1)},${sy(v).toFixed(1)}`).join(" ");
-      const area = `${line} L${sx(pts.length - 1).toFixed(1)},${h - pad} L${pad},${h - pad} Z`;
-      svg = `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%;height:80px;display:block">
-        <defs><linearGradient id="mkt${idx}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity="0.35"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
-        <path d="${area}" fill="url(#mkt${idx})"/><path d="${line}" fill="none" stroke="${col}" stroke-width="1.6"/></svg>`;
+    if (cs.length >= 2) {
+      // Mini chart bougies + volume, façon Trade Signals (SVG pur, sans lib)
+      const w = 300, hP = 96, hV = 24, h = hP + hV + 4, pad = 2;
+      const lo = Math.min(...cs.map((c) => c.low)), hi = Math.max(...cs.map((c) => c.high));
+      const vMax = Math.max(...cs.map((c) => c.volume || 0), 1);
+      const slot = (w - 2 * pad) / cs.length, bw = Math.max(slot * 0.6, 0.8);
+      const sx = (i) => pad + i * slot + slot / 2;
+      const sy = (v) => pad + (1 - (v - lo) / (hi - lo || 1)) * (hP - 2 * pad);
+      let g = "";
+      cs.forEach((c, i) => {
+        const cUp = c.close >= c.open, cc = cUp ? "#2ecc71" : "#ff5765";
+        const x = sx(i), yO = sy(c.open), yC = sy(c.close);
+        g += `<line x1="${x.toFixed(1)}" y1="${sy(c.high).toFixed(1)}" x2="${x.toFixed(1)}" y2="${sy(c.low).toFixed(1)}" stroke="${cc}" stroke-width="0.7" opacity="0.9"/>`;
+        g += `<rect x="${(x - bw / 2).toFixed(1)}" y="${Math.min(yO, yC).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(Math.abs(yC - yO), 0.8).toFixed(1)}" fill="${cc}"/>`;
+        const vh = ((c.volume || 0) / vMax) * (hV - 2);
+        g += `<rect x="${(x - bw / 2).toFixed(1)}" y="${(h - vh - 1).toFixed(1)}" width="${bw.toFixed(1)}" height="${vh.toFixed(1)}" fill="${cc}" opacity="0.35"/>`;
+      });
+      const yLast = sy(cs[cs.length - 1].close);
+      g += `<line x1="${pad}" y1="${yLast.toFixed(1)}" x2="${w - pad}" y2="${yLast.toFixed(1)}" stroke="${col}" stroke-width="0.6" stroke-dasharray="3,3" opacity="0.7"/>`;
+      const fmt = (v) => v >= 100 ? Math.round(v).toLocaleString("en-US") : v.toFixed(2);
+      g += `<text x="${pad + 2}" y="10" fill="#8b93a7" font-size="9" font-family="monospace">${fmt(hi)}</text>`;
+      g += `<text x="${pad + 2}" y="${(hP - 4).toFixed(1)}" fill="#8b93a7" font-size="9" font-family="monospace">${fmt(lo)}</text>`;
+      svg = `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%;height:${h + 10}px;display:block">${g}</svg>`;
     }
     const px = Number(m.last_close || 0);
     const badge = m.is_runtime ? `<span class="chip info" style="margin-left:6px">EN TRADE</span>` : "";

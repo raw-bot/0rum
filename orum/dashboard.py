@@ -611,6 +611,7 @@ def _markets(goal: dict) -> list[dict]:
             # change over the fetched 15m window (~3 days), display-only
             "change_pct": ((last / first) - 1.0) if first else 0.0,
             "sparkline": [c["close"] for c in _downsample(series, 160)],
+            "candles": _downsample(series, 110),
         })
     return markets
 
