@@ -39,8 +39,8 @@ from datetime import datetime, timezone
 import baseline_ak_macd as base          # fetch_klines (15m), constants
 import backtest_parity as bp             # confirmations() — proven parity entries
 
-from hermes_trading.external.ak_macd import AkMacdParams, compute_state
-from hermes_trading.external.bracket import compute_bracket
+from orum.external.ak_macd import AkMacdParams, compute_state
+from orum.external.bracket import compute_bracket
 
 RR = 2.0                 # fixed-baseline TP = 2R (live strategy.yaml, runner spec)
 FEE_PCT = 0.0004
@@ -49,7 +49,7 @@ FLOOR_R = 1.5
 RUNNER_R = 2.0
 K_VALUES = [2.0, 2.5, 3.0]
 TF15_S = 900             # 15m in seconds
-CACHE = os.environ.get("HERMES_SCRATCH", "/tmp") + "/btc_1m_cache.json"
+CACHE = os.environ.get("0RUM_SCRATCH", "/tmp") + "/btc_1m_cache.json"
 
 
 # ---------------------------------------------------------------- 1m data (cached)
@@ -73,7 +73,7 @@ def fetch_1m(start_s: int, end_s: int) -> tuple[list[int], list[float], list[flo
     while cursor <= end_ms:
         url = (f"https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m"
                f"&limit=1000&startTime={cursor}")
-        req = urllib.request.Request(url, headers={"User-Agent": "hermes-backtest"})
+        req = urllib.request.Request(url, headers={"User-Agent": "0rum-backtest"})
         with urllib.request.urlopen(req, timeout=30) as r:
             batch = json.loads(r.read().decode())
         if not batch:

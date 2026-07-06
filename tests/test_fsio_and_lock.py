@@ -6,8 +6,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from hermes_trading import reflect
-from hermes_trading.fsio import atomic_write_json, atomic_write_text
+from orum import reflect
+from orum.fsio import atomic_write_json, atomic_write_text
 
 
 class AtomicWriteTests(unittest.TestCase):

@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from hermes_trading import dashboard
+from orum import dashboard
 
 
 def _write(state: Path, name: str, lines: list[dict]):
@@ -80,7 +80,7 @@ class DashboardExternalTests(unittest.TestCase):
 
     def test_signal_markers_join_store_with_event_verdict(self):
         # external_signals.jsonl = the structured proposal (bar_time/price/event);
-        # events.jsonl = Hermes' verdict. _signal_markers joins them by dedup_hash.
+        # events.jsonl = 0rum' verdict. _signal_markers joins them by dedup_hash.
         ext = [
             {"event": "BUY_CANDIDATE", "bar_time": 1781424000000, "price": 100.0, "dedup_hash": "h1", "status": "received"},
             {"event": "EXIT", "bar_time": 1781424900000, "price": 110.0, "dedup_hash": "h2", "status": "received"},

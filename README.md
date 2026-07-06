@@ -1,15 +1,15 @@
-# hermes-trading
+# 0rum-trading
 
 Paper-mode, self-improving trading worker. **No real orders are ever placed**:
 positions and PnL are simulated against live Binance 1-minute candles, and a
-reflection brain (LLM via the external `hermes` CLI, or a deterministic
+reflection brain (LLM via the external `0rum` CLI, or a deterministic
 fallback) mutates the strategy based on outcomes — one structural change
 (one DSL condition added/removed/modified) per reflection at most.
 
 ## Strategy DSL
 
 `strategy.yaml` holds entry/exit **condition groups** interpreted by a pure
-Python evaluator (`hermes_trading/dsl/`); the LLM emits JSON conditions,
+Python evaluator (`orum/dsl/`); the LLM emits JSON conditions,
 never code:
 
 ```yaml
@@ -48,9 +48,9 @@ A legacy (pre-DSL) `strategy.yaml` is migrated automatically at worker boot.
 
 | Process | Command | Role |
 |---|---|---|
-| Worker | `uv run python -m hermes_trading.run` | 60s loop: fetch data, evaluate DSL entry/exit, write trades and heartbeat |
-| Watcher | `uv run python -m hermes_trading.hermes_watch` | every 30 min, runs an LLM reflection once 10 trades closed since the last one |
-| Dashboard | `uv run python -m hermes_trading.dashboard` | http://127.0.0.1:8787 — read-only view + manual reflection button |
+| Worker | `uv run python -m orum.run` | 60s loop: fetch data, evaluate DSL entry/exit, write trades and heartbeat |
+| Watcher | `uv run python -m orum.orum_watch` | every 30 min, runs an LLM reflection once 10 trades closed since the last one |
+| Dashboard | `uv run python -m orum.dashboard` | http://127.0.0.1:8787 — read-only view + manual reflection button |
 
 Run all three under supervision (auto-restart, Ctrl-C stops everything):
 
@@ -75,7 +75,7 @@ uv run python -m unittest discover -s tests
 | `hypotheses.jsonl` | every reflection outcome (changed or held, with reason/model) |
 | `open_position.json` | the single open paper position, if any |
 | `heartbeat.json` | last worker iteration (price, RSI, decision, drawdown, guardrail) — overwritten each loop |
-| `hermes_watcher.json` | watcher status |
+| `orum_watcher.json` | watcher status |
 | `events.jsonl` | persistent incident log: boots, failures, price-source flips, guardrail transitions, opens/closes, quarantines |
 | `position_quarantine.jsonl` | positions discarded instead of traded (stale after outage, duplicate close after crash) |
 | `candle_history.json` | local cache of 1m candles for the non-regression backtest |
@@ -85,7 +85,7 @@ uv run python -m unittest discover -s tests
 ## Accounting model
 
 All performance numbers are **account-level and fee-inclusive**: a trade's
-return is `net_pnl_usd / balance_before` (see `hermes_trading/accounting.py`).
+return is `net_pnl_usd / balance_before` (see `orum/accounting.py`).
 `pnl_pct` on a trade is the raw *price* move on the notional and must not be
 compounded directly. Score, reflection input and the dashboard all share the
 same helpers.
@@ -97,7 +97,7 @@ same helpers.
 | price source = `offline_fallback` | entries **and** exits frozen (`offline_freeze`) |
 | drawdown ≥ `max_drawdown` (5%) | no new entries (`guardrail_halt`) |
 | drawdown ≥ `emergency_stop_drawdown` (6%) | open position closed (`emergency_stop`), all trading halted |
-| open position older than `HERMES_MAX_POSITION_AGE_HOURS` (6h) | quarantined at startup, not traded |
+| open position older than `0RUM_MAX_POSITION_AGE_HOURS` (6h) | quarantined at startup, not traded |
 
 Drawdown is a high-water metric over the whole `trades.jsonl`: once breached
 it cannot recover on its own. **To resume after review**: create
@@ -113,13 +113,13 @@ the dashboard button is rate-limited to one trigger per minute.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `HERMES_TRADING_MODE` | `paper` | recorded on trades; nothing else reads it |
-| `HERMES_LOOP_INTERVAL_SECONDS` | `60` | worker loop period |
-| `HERMES_WATCH_INTERVAL_SECONDS` | `1800` | watcher poll period |
-| `HERMES_MAX_POSITION_AGE_HOURS` | `6` | stale-position quarantine threshold |
-| `HERMES_DASHBOARD_HOST` / `_PORT` | `127.0.0.1` / `8787` | dashboard bind |
-| `HERMES_REFLECT_HOME` | `.sandbox/hermes-local-llm-home` | hermes CLI home for reflections |
-| `GEMINI_API_KEY` | — | read from `<hermes home>/.gemini_api_key` if unset |
+| `ORUM_TRADING_MODE` | `paper` | recorded on trades; nothing else reads it |
+| `0RUM_LOOP_INTERVAL_SECONDS` | `60` | worker loop period |
+| `0RUM_WATCH_INTERVAL_SECONDS` | `1800` | watcher poll period |
+| `0RUM_MAX_POSITION_AGE_HOURS` | `6` | stale-position quarantine threshold |
+| `ORUM_DASHBOARD_HOST` / `_PORT` | `127.0.0.1` / `8787` | dashboard bind |
+| `0RUM_REFLECT_HOME` | `.sandbox/0rum-local-llm-home` | 0rum CLI home for reflections |
+| `GEMINI_API_KEY` | — | read from `<0rum home>/.gemini_api_key` if unset |
 
 ## Known limitations
 

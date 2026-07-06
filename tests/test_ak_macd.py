@@ -12,7 +12,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from hermes_trading.external.ak_macd import (
+from orum.external.ak_macd import (
     ACTION_ARMED,
     ACTION_CONFIRMED,
     ACTION_EXPIRED,
@@ -23,9 +23,9 @@ from hermes_trading.external.ak_macd import (
     AkMacdState,
     run_candidate_machine,
 )
-from hermes_trading.external.ak_macd_producer import load_ak_macd_params
-from hermes_trading.external.signal import parse_external_signal
-from hermes_trading.external.validate import ValidationContext, validate_external_signal
+from orum.external.ak_macd_producer import load_ak_macd_params
+from orum.external.signal import parse_external_signal
+from orum.external.validate import ValidationContext, validate_external_signal
 
 BAR_MS = 900_000
 START_TS = 1_781_424_000_000

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hermes — single launcher for the dashboard + trading worker.
+# 0rum — single launcher for the dashboard + trading worker.
 #
 # Starts the dashboard server, waits until it answers, then starts the worker
 # THROUGH the dashboard's own endpoint so the ON/OFF toggle, the pid file
@@ -9,20 +9,20 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-HOST="${HERMES_DASHBOARD_HOST:-127.0.0.1}"
-PORT="${HERMES_DASHBOARD_PORT:-8787}"
+HOST="${ORUM_DASHBOARD_HOST:-127.0.0.1}"
+PORT="${ORUM_DASHBOARD_PORT:-8787}"
 BASE="http://${HOST}:${PORT}"
 
 # Refuse to start a second dashboard on the same port (the classic cause of
 # "my clicks do nothing": an old server with stale code answers instead).
 if curl -s -o /dev/null "${BASE}/api/state"; then
   echo "✗ something already answers on ${BASE}."
-  echo "  Stop it first:  pkill -f hermes_trading.dashboard"
+  echo "  Stop it first:  pkill -f orum.dashboard"
   exit 1
 fi
 
-echo "▶ starting Hermes dashboard on ${BASE} …"
-uv run python -m hermes_trading.dashboard &
+echo "▶ starting 0rum dashboard on ${BASE} …"
+uv run python -m orum.dashboard &
 DASH_PID=$!
 
 cleanup() {

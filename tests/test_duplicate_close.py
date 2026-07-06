@@ -1,6 +1,6 @@
 import unittest
 
-from hermes_trading.loop import is_duplicate_close
+from orum.loop import is_duplicate_close
 
 
 class DuplicateCloseTests(unittest.TestCase):

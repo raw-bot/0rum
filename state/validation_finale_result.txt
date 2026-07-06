@@ -1,0 +1,21 @@
+  (cache hit GC=F: 5404 days)
+  (cache hit COT 'GOLD - COMMODITY EXCHANGE': 1069 weeks)
+================================================================================================
+A. COT WINDOW OR — grille seuils, équité QUOTIDIENNE (DD intra-fenêtre réel)
+================================================================================================
+              lookback 104w                  lookback 156w                  lookback 208w                
+  comm<=15  | x 1.28 DD 17.4% 18tr  44%w e14.1% | x 1.38 DD 15.4% 17tr  53%w e11.5% | x 1.34 DD 12.1% 15tr  53%w e 9.1% 
+  comm<=20  | x 1.33 DD 19.3% 24tr  46%w e16.7% | x 2.01 DD 13.6% 20tr  65%w e15.0% | x 1.61 DD 14.5% 22tr  64%w e12.4% 
+  comm<=25  | x 1.95 DD 21.2% 34tr  47%w e21.2% | x 2.27 DD 14.5% 28tr  54%w e20.8% | x 2.07 DD 17.4% 29tr  48%w e19.2% 
+  comm<=30  | x 1.77 DD 28.6% 34tr  47%w e26.7% | x 2.30 DD 22.9% 27tr  44%w e25.9% | x 2.22 DD 22.0% 24tr  50%w e24.0% 
+  (cache hit BTCUSDT 1d: 3200 bars)
+
+================================================================================================
+B. DONCHIAN 20/10 DAILY BTC — kill-criteria (distribution backtest 2017-2026)
+================================================================================================
+  trades 64 | win 43.8% | avg win +3.39R | avg loss -0.74R | pire trade -1.71R
+  équité x18.26 | maxDD quotidien 54.3% | pire série de pertes 6
+  KILL-CRITERIA proposés (à écrire dans goal.yaml avant lancement) :
+    - série de pertes live > 9  (pire backtest 6 + marge 3)
+    - drawdown live > 68%  (pire backtest 54% x 1.25)
+    - un trade pire que -2.7R  (jamais vu en backtest => bug harnais/exécution)

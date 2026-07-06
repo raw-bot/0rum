@@ -6,7 +6,13 @@ starting_balance_usd: 10000.0
 # Native RSI DSL is suspended while signal_source = tradingview_external; the
 # worker becomes a pure risk supervisor over what the external orchestrator opens.
 signal_source: tradingview_external
-allow_short: true                 # long + short enabled (paper only)
+allow_short: false                # 2026-07-01: switched to 4h long-only. Rigorous OOS validation
+                                   # (next-bar-open execution, outlier-drop check, parameter sweep,
+                                   # cross-asset check on ETH/SOL/BNB/LINK) found shorts have NO
+                                   # robust edge on BTC/ETH 4h AK MACD (PF well below 1, OOS-negative)
+                                   # while longs hold up OOS (PF ~1.5-2.0, stable across parameters,
+                                   # survives dropping the top 5 winning trades). validate.py already
+                                   # rejects any SELL_CANDIDATE with a clear reason when this is false.
 
 # External-signal allowlist. ONE active strategy on purpose: the engine has no
 # per-strategy "A opens / A closes" ownership yet. symbol must match
@@ -20,11 +26,13 @@ allowed_external_strategies:
   - id: "ak_macd_15m_v1"
     symbol: "BTCUSDT"           # TradingView identity (syminfo.ticker), match exact
     engine_asset: "BTC/USDT"    # venue the worker prices/risk-manages on (Binance)
-    timeframe: "15m"            # REVERTED 4h->15m for faster forward-test iteration; the 4h
-                                # long-only edge (backtest PF ~1.4 OOS) ships later as a parallel variant.
-                                # Must match the Pine/producer payload timeframe (validate.py checks it).
-    events: ["BUY_CANDIDATE", "SELL_CANDIDATE", "EXIT"]   # long+short restored (pre-4h state).
-                                # Note: 4h analysis found shorts weak on BTC's uptrend (PF ~0.8).
+    timeframe: "4h"             # 2026-07-01: switched 15m->4h. Validated long-only edge
+                                # (PF ~1.5-2.0 OOS on BTC and ETH; alts SOL/BNB/LINK rejected,
+                                # in-sample-only, OOS-negative). Must match the Pine/producer
+                                # payload timeframe (validate.py checks it).
+    events: ["BUY_CANDIDATE", "EXIT"]   # SELL_CANDIDATE intentionally dropped: shorts have no
+                                # validated edge (see allow_short note above). EXIT still allowed
+                                # so an open long can always be closed.
 
 # Performance targets are evaluation anchors, not risk mandates.
 target_return_30d: 0.07
@@ -75,7 +83,7 @@ failure_conditions:
   - "three_consecutive_negative_days_with_unfavorable_regime"
   - "hit_rate_or_expectancy_degrades_below_threshold"
 
-hermes_policy:
+0rum_policy:
   evaluate_every_closed_trades: 10
   max_variables_changed_per_cycle: 1
   change_required_each_cycle: false

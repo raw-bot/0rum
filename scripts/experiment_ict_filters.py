@@ -29,8 +29,8 @@ from datetime import datetime, timezone
 import baseline_ak_macd as base
 import backtest_parity as bp
 
-from hermes_trading.external.ak_macd import AkMacdParams, compute_state
-from hermes_trading.external.bracket import compute_bracket
+from orum.external.ak_macd import AkMacdParams, compute_state
+from orum.external.bracket import compute_bracket
 
 
 # --------------------------------------------------------------- HTF (4H) bias

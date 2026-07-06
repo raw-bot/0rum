@@ -1,7 +1,7 @@
 import unittest
 
-from hermes_trading.executor import Executor, PaperExecutor
-from hermes_trading.loop import (
+from orum.executor import Executor, PaperExecutor
+from orum.loop import (
     _build_closed_trade,
     close_position_if_needed,
     open_position_from_signal,

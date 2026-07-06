@@ -5,8 +5,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-from hermes_trading import events, loop
-from hermes_trading.loop import worker_outage_detected
+from orum import events, loop
+from orum.loop import worker_outage_detected
 
 NOW = datetime(2026, 6, 11, 12, 0, 0, tzinfo=UTC)
 

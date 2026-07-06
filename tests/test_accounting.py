@@ -1,8 +1,8 @@
 import unittest
 
-from hermes_trading.accounting import account_returns, compound_balance, trade_net_usd
-from hermes_trading.dashboard import _portfolio
-from hermes_trading.score import score
+from orum.accounting import account_returns, compound_balance, trade_net_usd
+from orum.dashboard import _portfolio
+from orum.score import score
 
 GOAL = {"starting_balance_usd": 10000.0, "target_return_30d": 0.07, "max_drawdown": 0.05, "min_sharpe": 1.3}
 

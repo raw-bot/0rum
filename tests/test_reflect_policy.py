@@ -1,7 +1,7 @@
 import unittest
 
-from hermes_trading.dsl.migrate import migrate_strategy_file
-from hermes_trading.reflect import _fallback
+from orum.dsl.migrate import migrate_strategy_file
+from orum.reflect import _fallback
 
 
 class ReflectPolicyTests(unittest.TestCase):

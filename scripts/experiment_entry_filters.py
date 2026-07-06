@@ -29,12 +29,12 @@ from datetime import datetime, timezone
 import baseline_ak_macd as base
 import backtest_parity as bp
 
-from hermes_trading.external.ak_macd import (
+from orum.external.ak_macd import (
     ACTION_CONFIRMED, AkMacdParams, compute_state, evaluate_ak_macd_verdict,
     _flip_up, _flip_down, _is_num, _strictly_increasing, _strictly_decreasing,
     _sequenced_long, _sequenced_short, _candle_in_direction, _regime_at,
 )
-from hermes_trading.external.bracket import compute_bracket
+from orum.external.bracket import compute_bracket
 
 
 def long_conditions(st, t, p, *, use_seq=True, use_vol=True):

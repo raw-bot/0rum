@@ -1,6 +1,6 @@
 import unittest
 
-from hermes_trading.dashboard import REFLECT_MIN_INTERVAL_SECONDS, origin_allowed, reflect_allowed
+from orum.dashboard import REFLECT_MIN_INTERVAL_SECONDS, origin_allowed, reflect_allowed
 
 
 class OriginGuardTests(unittest.TestCase):

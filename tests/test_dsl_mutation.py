@@ -9,8 +9,8 @@ from unittest.mock import patch
 
 import yaml
 
-from hermes_trading.dsl.diff import group_changes, structural_diff
-from hermes_trading.reflect import _apply_dsl_hypothesis, _hermes, _hermes_prompt
+from orum.dsl.diff import group_changes, structural_diff
+from orum.reflect import _apply_dsl_hypothesis, _orum, _orum_prompt
 
 GOAL = {
     "starting_balance_usd": 10000.0,
@@ -90,7 +90,7 @@ class MutationChainTests(unittest.TestCase):
         entry = copy.deepcopy(strategy["entry"])
         entry["conditions"].append({"indicator": "regime", "operator": "!=", "value_str": "unfavorable"})
 
-        with patch("hermes_trading.reflect._backtest_guard", return_value=None):
+        with patch("orum.reflect._backtest_guard", return_value=None):
             result = _apply_dsl_hypothesis(strategy, _hypothesis(entry=entry), GOAL)
 
         self.assertTrue(result["changed"])
@@ -165,7 +165,7 @@ class MutationChainTests(unittest.TestCase):
         entry = copy.deepcopy(strategy["entry"])
         entry["conditions"].append({"indicator": "regime", "operator": "!=", "value": "unfavorable"})
 
-        with patch("hermes_trading.reflect._backtest_guard", return_value=None):
+        with patch("orum.reflect._backtest_guard", return_value=None):
             result = _apply_dsl_hypothesis(strategy, _hypothesis(entry=entry), GOAL)
 
         self.assertTrue(result["changed"])
@@ -189,7 +189,7 @@ class MutationChainTests(unittest.TestCase):
         entry["conditions"].append(
             {"indicator": "regime", "operator": "!=", "value_str": "unfavorable", "value": "neutral"}
         )
-        with patch("hermes_trading.reflect._backtest_guard", return_value=None):
+        with patch("orum.reflect._backtest_guard", return_value=None):
             result = _apply_dsl_hypothesis(strategy, _hypothesis(entry=entry), GOAL)
         # value_str wins; the stray `value` makes it a rejected malformed condition.
         self.assertTrue(result["rejected"])
@@ -198,7 +198,7 @@ class MutationChainTests(unittest.TestCase):
         strategy = _dsl_strategy()
         entry = copy.deepcopy(strategy["entry"])
         entry["conditions"][0]["value"] = 20.0
-        with patch("hermes_trading.reflect._backtest_guard", return_value="rejected: zero signals in backtest"):
+        with patch("orum.reflect._backtest_guard", return_value="rejected: zero signals in backtest"):
             result = _apply_dsl_hypothesis(strategy, _hypothesis(entry=entry), GOAL)
         self.assertTrue(result["rejected"])
         self.assertIn("backtest", result["reason"])
@@ -207,7 +207,7 @@ class MutationChainTests(unittest.TestCase):
 
 class PromptContractTests(unittest.TestCase):
     def test_prompt_carries_current_dsl_catalogue_and_contract(self):
-        prompt = _hermes_prompt(_dsl_strategy(), GOAL, [], [])
+        prompt = _orum_prompt(_dsl_strategy(), GOAL, [], [])
         self.assertIn('"entry"', prompt)
         self.assertIn("crosses_above", prompt)
         self.assertIn("favorable|neutral|unfavorable", prompt)
@@ -225,13 +225,13 @@ class PromptContractTests(unittest.TestCase):
             {"ts": "t1", "market_regime_at_entry": "unfavorable", "net_pnl_usd": -4.0},
             {"ts": "t2", "market_regime_at_entry": "favorable", "net_pnl_usd": 6.0},
         ]
-        prompt = _hermes_prompt(_dsl_strategy(), GOAL, trades, [])
+        prompt = _orum_prompt(_dsl_strategy(), GOAL, trades, [])
         self.assertIn('"unfavorable"', prompt)
         self.assertIn('"net_pnl_usd": -4.0', prompt)
 
 
-class HermesPipelineTests(unittest.TestCase):
-    def test_hermes_applies_a_valid_structural_proposal_end_to_end(self):
+class OrumPipelineTests(unittest.TestCase):
+    def test_orum_applies_a_valid_structural_proposal_end_to_end(self):
         strategy = _dsl_strategy()
         entry = copy.deepcopy(strategy["entry"])
         entry["conditions"].append({"indicator": "regime", "operator": "!=", "value_str": "unfavorable"})
@@ -249,13 +249,13 @@ class HermesPipelineTests(unittest.TestCase):
         # Reflection now talks straight to Ollama via _reflect_completion;
         # mock that seam (returns raw text + model name) instead of subprocess.
         with (
-            patch("hermes_trading.reflect._reflect_completion", return_value=(llm_output, "test-model")),
-            patch("hermes_trading.reflect._backtest_guard", return_value=None),
+            patch("orum.reflect._reflect_completion", return_value=(llm_output, "test-model")),
+            patch("orum.reflect._backtest_guard", return_value=None),
         ):
-            result = _hermes(strategy, GOAL, [], [])
+            result = _orum(strategy, GOAL, [], [])
 
         self.assertTrue(result["changed"])
-        self.assertEqual(result["mode"], "hermes")
+        self.assertEqual(result["mode"], "0rum")
         self.assertEqual(result["model"], "test-model")
         self.assertEqual(result["provider"], "ollama")
         self.assertEqual(result["issue"], "regime_losses")

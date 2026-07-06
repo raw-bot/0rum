@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Hermes TRADING ENGINE — worker + watcher + AK MACD bridge, with auto-restart.
+# 0rum TRADING ENGINE — worker + watcher + AK MACD bridge, with auto-restart.
 #
 # This is the part that actually trades. The dashboard is NOT here: it runs
 # separately (always-on, via launchd) and starts/stops THIS script as a single
 # detached session. Because every process below shares one process group, the
-# dashboard / `hermes` CLI can stop the whole engine with one killpg — without
+# dashboard / `0rum` CLI can stop the whole engine with one killpg — without
 # ever touching the dashboard itself.
 #
 # Signal brain = the "AK MACD 15m" Pine study on TradingView Desktop, polled by
@@ -14,8 +14,8 @@
 # Mode is SHADOW by default (logs verdicts, zero trades). Live paper execution:
 #   AK_MACD_LIVE=1 ./scripts/run_engine.sh
 #
-# Usage:  ./scripts/run_engine.sh   (normally launched by the dashboard or `hermes`)
-# Stop:   SIGTERM/SIGINT to the process group (Ctrl-C, killpg, or `hermes stop`)
+# Usage:  ./scripts/run_engine.sh   (normally launched by the dashboard or `0rum`)
+# Stop:   SIGTERM/SIGINT to the process group (Ctrl-C, killpg, or `0rum stop`)
 
 set -u
 cd "$(dirname "$0")/.."
@@ -35,11 +35,11 @@ supervise() {
   done
 }
 
-supervise worker  uv run python -m hermes_trading.run &
-supervise watcher uv run python -m hermes_trading.hermes_watch &
+supervise worker  uv run python -m orum.run &
+supervise watcher uv run python -m orum.orum_watch &
 
 BRIDGE_FLAGS="--interval 30"
 [ -n "${AK_MACD_LIVE:-}" ] && BRIDGE_FLAGS="--live ${BRIDGE_FLAGS}"
-supervise bridge  uv run python -m hermes_trading.external.bridge ${BRIDGE_FLAGS} &
+supervise bridge  uv run python -m orum.external.bridge ${BRIDGE_FLAGS} &
 
 wait

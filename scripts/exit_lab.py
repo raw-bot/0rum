@@ -31,8 +31,8 @@ import baseline_ak_macd as base
 import backtest_parity as bp
 import backtest_runner_1m as r1          # reuse fetch_1m, atr15, natural_mfe, TF15_S
 
-from hermes_trading.external.ak_macd import AkMacdParams, compute_state
-from hermes_trading.external.bracket import compute_bracket
+from orum.external.ak_macd import AkMacdParams, compute_state
+from orum.external.bracket import compute_bracket
 
 DON_N = 20
 ATR_K = 3.0
@@ -188,9 +188,9 @@ def main():
     print(f"Entries (AK MACD, unchanged): {len(entries)}", flush=True)
 
     print("Loading 1m intrabar (cached) ...", flush=True)
-    os.environ.setdefault("HERMES_SCRATCH", "/private/tmp/claude-501/-Users-cube/"
+    os.environ.setdefault("0RUM_SCRATCH", "/private/tmp/claude-501/-Users-cube/"
                           "970db104-8da7-4abe-bfec-be3cb9c5de36/scratchpad")
-    r1.CACHE = os.environ["HERMES_SCRATCH"] + "/btc_1m_cache.json"
+    r1.CACHE = os.environ["0RUM_SCRATCH"] + "/btc_1m_cache.json"
     T1, H1, L1 = r1.fetch_1m(t15[0], t15[-1] + r1.TF15_S)
     print(f"1m bars: {len(T1)}\n", flush=True)
 

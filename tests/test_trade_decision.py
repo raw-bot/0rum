@@ -1,6 +1,6 @@
 import unittest
 
-from hermes_trading.loop import (
+from orum.loop import (
     _held_candles,
     close_position_if_needed,
     market_decision,
@@ -8,7 +8,7 @@ from hermes_trading.loop import (
     signal_id,
     should_record_signal,
 )
-from hermes_trading.market_regime import rolling_return_regime
+from orum.market_regime import rolling_return_regime
 
 _MIN = 60_000
 _FIFTEEN_MIN = 15 * _MIN  # 900_000 ms

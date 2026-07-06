@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>0rum · Ops Console</title>
+  <link rel="stylesheet" href="/assets/dashboard.css?v=15" />
+  <!-- Pin to v4: the renderProChart code uses the v4 series API
+       (addCandlestickSeries / addHistogramSeries / addLineSeries / setMarkers),
+       which was removed in v5. Unpinned unpkg served v5 and broke setData. -->
+  <script src="https://unpkg.com/lightweight-charts@4/dist/lightweight-charts.standalone.production.js"></script>
+  <!-- GridStack v10 : fenêtres déplaçables/redimensionnables (layout persisté en localStorage) -->
+  <link rel="stylesheet" href="https://unpkg.com/gridstack@10/dist/gridstack.min.css" />
+  <script src="https://unpkg.com/gridstack@10/dist/gridstack-all.js"></script>
+  <style>
+    /* fallback to ensure the app is never totally unreadable */
+    body { background: #0a0d12; color: #d7dee8; }
+  </style>
+</head>
+<body>
+  <header id="topbar">
+    <div class="brand">0RUM<span class="brand-sub">ops console</span></div>
+    <div id="worker-control" class="worker-control"></div>
+    <div id="topchips" class="chips"></div>
+    <div id="clock" class="clock">--:--:--</div>
+  </header>
+
+  <main>
+    <div id="worker-alert" class="worker-alert" style="display:none"></div>
+
+    <!-- Zone 1 · vigilance : "tout va bien ?" en un regard -->
+    <div id="kpis" class="kpi-row"></div>
+
+    <!-- Pro Chart : hors grille (apparaît pleine largeur quand actif) -->
+    <section class="card wide" id="pro-chart-card" style="display: none;">
+      <h2>Pro Chart <span class="hint" id="pro-px-hint"></span></h2>
+      <div id="tv-chart" style="width: 100%; height: 450px;"></div>
+    </section>
+
+    <!-- Fenêtres déplaçables (drag par le titre) & redimensionnables (bord bas-droit).
+         Disposition par défaut = ergonomie terminal : marché à gauche, risque à droite,
+         config en dessous, log en bas. Layout persisté (localStorage). -->
+    <div class="grid-stack">
+      <div class="grid-stack-item" gs-id="price"    gs-x="0" gs-y="0"  gs-w="8" gs-h="6"><div class="grid-stack-item-content"><section class="card" id="price-card"></section></div></div>
+      <div class="grid-stack-item" gs-id="position" gs-x="8" gs-y="0"  gs-w="4" gs-h="3"><div class="grid-stack-item-content"><section class="card" id="position-card"></section></div></div>
+      <div class="grid-stack-item" gs-id="stats"    gs-x="8" gs-y="3"  gs-w="4" gs-h="3"><div class="grid-stack-item-content"><section class="card" id="stats-card"></section></div></div>
+      <div class="grid-stack-item" gs-id="research" gs-x="0" gs-y="6"  gs-w="8" gs-h="5"><div class="grid-stack-item-content"><section class="card" id="research-portfolio-card"></section></div></div>
+      <div class="grid-stack-item" gs-id="equity"   gs-x="8" gs-y="6"  gs-w="4" gs-h="3"><div class="grid-stack-item-content"><section class="card" id="equity-card"></section></div></div>
+      <div class="grid-stack-item" gs-id="trades"   gs-x="8" gs-y="9"  gs-w="4" gs-h="4"><div class="grid-stack-item-content"><section class="card" id="trades-card"></section></div></div>
+      <div class="grid-stack-item" gs-id="strategy" gs-x="0" gs-y="11" gs-w="4" gs-h="4"><div class="grid-stack-item-content"><section class="card" id="strategy-card"></section></div></div>
+      <div class="grid-stack-item" gs-id="leverage" gs-x="4" gs-y="11" gs-w="4" gs-h="4"><div class="grid-stack-item-content"><section class="card" id="leverage-card"></section></div></div>
+      <div class="grid-stack-item" gs-id="external" gs-x="8" gs-y="13" gs-w="4" gs-h="4"><div class="grid-stack-item-content"><section class="card" id="external-card"></section></div></div>
+      <div class="grid-stack-item" gs-id="log"      gs-x="0" gs-y="15" gs-w="8" gs-h="4"><div class="grid-stack-item-content"><section class="card" id="log-card"></section></div></div>
+    </div>
+  </main>
+
+  <footer id="footer">
+    <span id="conn" class="conn">connecting…</span>
+    <span id="worker-status" class="muted"></span>
+    <button id="reflect-btn" class="btn" title="Trigger one reflection pass">force reflection</button>
+    <span id="reflect-status" class="muted"></span>
+    <button id="layout-reset-btn" class="btn" title="Revenir à la disposition par défaut">reset layout</button>
+  </footer>
+
+  <script src="/assets/dashboard.js?v=15"></script>
+</body>
+</html>

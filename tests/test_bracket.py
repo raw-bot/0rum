@@ -2,8 +2,8 @@
 
 import unittest
 
-from hermes_trading.external.bracket import bracket_sizing, compute_bracket
-from hermes_trading.loop import close_position_if_needed
+from orum.external.bracket import bracket_sizing, compute_bracket
+from orum.loop import close_position_if_needed
 
 
 class TestComputeBracket(unittest.TestCase):

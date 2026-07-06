@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 import baseline_ak_macd as base
 import backtest_parity as bp
 
-from hermes_trading.external.ak_macd import AkMacdParams, compute_state
+from orum.external.ak_macd import AkMacdParams, compute_state
 
 # ---- uniform exit / cost params (fixed) ----
 ATR_LEN = 14
@@ -247,7 +247,9 @@ def main():
     c = [b["close"] for b in bars]; t = [b["time"] for b in bars]
     atr = rma(true_range(h, l, c), ATR_LEN)
     span = (datetime.fromtimestamp(t[0], timezone.utc), datetime.fromtimestamp(t[-1], timezone.utc))
+    mkt = (c[-1] - c[0]) / c[0] * 100
     print(f"Got {len(c)} bars: {span[0]:%Y-%m-%d} → {span[1]:%Y-%m-%d}", flush=True)
+    print(f"MARKET (buy&hold close→close): BTC {c[0]:,.0f} → {c[-1]:,.0f} = {mkt:+.1f}%", flush=True)
     print(f"Uniform exit: SL {SL_ATR}*ATR, RR {RR}, fees {FEE:.2%}+slip {SLIP:.2%}, maxhold {MAX_HOLD}\n",
           flush=True)
 

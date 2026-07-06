@@ -14,7 +14,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from hermes_trading.external.bridge import AkMacdBridge, STUDY_NAME
+from orum.external.bridge import AkMacdBridge, STUDY_NAME
 
 TF_MS = 900_000                       # 15m
 BAR = 1_781_625_600_000               # aligned: BAR % TF_MS == 0

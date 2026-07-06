@@ -1,0 +1,9 @@
+{
+  "detail": "Waiting for 10 more closed trades before 0rum reflection.",
+  "mode": "local_orum_watcher",
+  "reflection_every": 10,
+  "status": "standby",
+  "trades_seen": 0,
+  "trades_since_reflection": 0,
+  "ts": "2026-07-06T07:22:39.977747+00:00"
+}

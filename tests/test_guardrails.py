@@ -1,7 +1,7 @@
 import unittest
 
-from hermes_trading.accounting import max_drawdown
-from hermes_trading.loop import _build_closed_trade, guardrail_action, market_decision
+from orum.accounting import max_drawdown
+from orum.loop import _build_closed_trade, guardrail_action, market_decision
 
 GOAL = {"max_drawdown": 0.05, "emergency_stop_drawdown": 0.06, "starting_balance_usd": 10000.0}
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launches the three hermes-trading processes with auto-restart.
+# Launches the three 0rum-trading processes with auto-restart.
 #
 # The worker deliberately exits after 5 consecutive failures; without a
 # supervisor that meant silent death (only a stale heartbeat revealed it).
@@ -23,9 +23,9 @@ supervise() {
   done
 }
 
-supervise worker uv run python -m hermes_trading.run &
-supervise watcher uv run python -m hermes_trading.hermes_watch &
-supervise dashboard uv run python -m hermes_trading.dashboard &
+supervise worker uv run python -m orum.run &
+supervise watcher uv run python -m orum.orum_watch &
+supervise dashboard uv run python -m orum.dashboard &
 # TV-DRIVEN: the AK MACD Pine on TradingView is the SIGNAL BRAIN. This bridge
 # polls the Pine debug table over CDP and routes accepted candidates to the paper
 # orchestrator (long + short). Worker supervises risk. REQUIRES TradingView
@@ -36,7 +36,7 @@ supervise dashboard uv run python -m hermes_trading.dashboard &
 # execution with:  AK_MACD_LIVE=1 ./scripts/run_local.sh
 BRIDGE_FLAGS="--interval 30"
 [ -n "${AK_MACD_LIVE:-}" ] && BRIDGE_FLAGS="--live ${BRIDGE_FLAGS}"
-supervise bridge uv run python -m hermes_trading.external.bridge ${BRIDGE_FLAGS} &
+supervise bridge uv run python -m orum.external.bridge ${BRIDGE_FLAGS} &
 
 trap 'kill 0' INT TERM
 wait

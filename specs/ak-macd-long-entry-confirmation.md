@@ -82,8 +82,8 @@ n'est pas défavorable. Les entrées SHORT et le reste du système sont inchang�
 
 ## Constraints
 
-- **Scope strict** : modifications limitées à `hermes_trading/external/ak_macd.py`,
-  `hermes_trading/external/ak_macd_producer.py` (lecture config + logs lifecycle),
+- **Scope strict** : modifications limitées à `orum/external/ak_macd.py`,
+  `orum/external/ak_macd_producer.py` (lecture config + logs lifecycle),
   les tests (`tests/`), et un ajout de section `ak_macd:` dans `state/strategy.yaml`.
   **Ne pas** modifier `orchestrator.py`, `validate.py`, `bracket.py`, `loop.py`,
   ni le contrat de payload externe.
@@ -186,4 +186,4 @@ n'est pas défavorable. Les entrées SHORT et le reste du système sont inchang�
 - La lecture de la surcharge `strategy.yaml` se fait au **démarrage du producteur** ;
   changer les seuils nécessite un redémarrage du producteur (cohérent avec « pas de
   hot reload »).
-- Le spec/code est créé dans le projet `.sandbox/hermes-one-shot-home/hermes-trading/`.
+- Le spec/code est créé dans le projet `.sandbox/0rum-one-shot-home/0rum-trading/`.

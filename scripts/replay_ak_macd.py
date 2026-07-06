@@ -18,9 +18,9 @@ from pathlib import Path
 
 import httpx
 
-from hermes_trading.external.ak_macd import AkMacdParams, evaluate_ak_macd
-from hermes_trading.external.ingest import ExternalSignalStore
-from hermes_trading.external.orchestrator import ExternalOrchestrator
+from orum.external.ak_macd import AkMacdParams, evaluate_ak_macd
+from orum.external.ingest import ExternalSignalStore
+from orum.external.orchestrator import ExternalOrchestrator
 
 TF_MS = 900_000  # 15m
 STRATEGY_ID = "ak_macd_15m_v1"

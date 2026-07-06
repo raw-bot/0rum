@@ -8,8 +8,8 @@ The trail adds two exits on top of the frozen bracket (opt-in via risk.trail):
 import unittest
 from unittest.mock import patch
 
-from hermes_trading.external.bracket import band_invalidated, ssl_band, trail_stop
-from hermes_trading.loop import close_position_if_needed
+from orum.external.bracket import band_invalidated, ssl_band, trail_stop
+from orum.loop import close_position_if_needed
 
 
 class TestSslBandHelpers(unittest.TestCase):
@@ -47,7 +47,7 @@ def _feed(last_close=100.0):
 
 def _close(position, strategy, market, *, feed=None):
     """close_position_if_needed with the 15m feed stubbed (closed bars)."""
-    with patch("hermes_trading.adapters.price.recent_15m_candles", return_value=feed if feed is not None else _feed()):
+    with patch("orum.adapters.price.recent_15m_candles", return_value=feed if feed is not None else _feed()):
         return close_position_if_needed(position, strategy, market, rsi=None)
 # Default: invalidation on, ratchet OFF (the shipped config after the 1m-whipsaw fix).
 _TRAIL_STRATEGY = {
@@ -132,7 +132,7 @@ class TestTrailInCloseLoop(unittest.TestCase):
         # Empty 15m feed (network down) must NOT fall back to the 1m timeframe:
         # the trail is skipped and the frozen bracket stop is left untouched.
         pos = _bracket_position("long", stop=95.0)
-        with patch("hermes_trading.adapters.price.recent_15m_candles", return_value=[]):
+        with patch("orum.adapters.price.recent_15m_candles", return_value=[]):
             out = close_position_if_needed(pos, _TRAIL_STRATEGY, _market(100.0), rsi=None)
         self.assertIsNone(out)
         self.assertEqual(pos["stop_loss_price"], 95.0)  # untouched -> no wrong-timeframe band

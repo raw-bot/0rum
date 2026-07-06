@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import yaml
 
-from hermes_trading import reflect
+from orum import reflect
 
 
 class SaveChangeHistoryTests(unittest.TestCase):

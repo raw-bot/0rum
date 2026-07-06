@@ -1,0 +1,28 @@
+  (cache hit BTCUSDT 1d: 3200 bars)
+  (cache hit ETHUSDT 1d: 3200 bars)
+  (cache hit JPY=X: 6881 days)
+  (cache hit GC=F: 5404 days)
+  (cache hit COT 'GOLD - COMMODITY EXCHANGE': 1069 weeks)
+  (cache hit BTCUSDT 1d: 3200 bars)
+================================================================================================
+PORTEFEUILLE MULTI-MOTEURS v2 — trades datés, R vs risque 2*ATR14, frais 0.1% RT
+================================================================================================
+  donchian_btc :  61 tr ( 7.4/an) | win 42.6% | PF 3.42 | exp +1.027R | net   +62.6R
+  donchian_eth :  62 tr ( 7.5/an) | win 46.8% | PF 2.31 | exp +0.659R | net   +40.8R
+  donchian_jpy : 285 tr (11.0/an) | win 34.4% | PF 0.90 | exp -0.051R | net   -14.5R
+  gold_cot     :  20 tr ( 1.2/an) | win 65.0% | PF 8.08 | exp +1.767R | net   +35.3R
+  ak4h_btc     : 139 tr (18.0/an) | win 52.5% | PF 1.61 | exp +0.305R | net   +42.4R
+
+-- VALIDATION DU SCORE DE CONFIANCE (tous moteurs poolés) --
+  score 0: n 141 | exp +0.010R | PF 1.02 | win 35.5%
+  score 1: n  93 | exp +0.189R | PF 1.42 | win 44.1%
+  score 2: n 226 | exp +0.360R | PF 1.77 | win 42.0%
+  score 3: n 107 | exp +0.621R | PF 2.33 | win 49.5%
+  => monotone : OUI — levier dynamique AUTORISÉ
+
+-- POLITIQUES DE SIZING v2 (panier final SANS jpy, équité partagée) --
+  plat 2%                   : x  28.14 | CAGR  +21.6% | maxDD  19.0% | pire année 2018 -12.9% | 282 tr
+  modulé 1/2/4%             : x  41.19 | CAGR  +24.4% | maxDD  23.2% | pire année 2018 -10.0% | 282 tr
+  modulé + videur score-0   : x  34.91 | CAGR  +23.3% | maxDD  23.2% | pire année 2018 -8.6% | 206 tr
+  Kelly expanding (honnête) : x 591.07 | CAGR  +45.4% | maxDD  47.7% | pire année 2022 -38.2% | 282 tr
+  Kelly expanding + videur  : x 279.70 | CAGR  +39.5% | maxDD  38.8% | pire année 2018 -10.2% | 206 tr

@@ -1,6 +1,6 @@
 import unittest
 
-from hermes_trading.external import (
+from orum.external import (
     ExternalSignalStatus,
     ValidationContext,
     parse_external_signal,

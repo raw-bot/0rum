@@ -7,15 +7,15 @@ threshold-straddling cases before the legacy path was removed)."""
 
 import unittest
 
-from hermes_trading.dsl.migrate import (
+from orum.dsl.migrate import (
     is_dsl_strategy,
     legacy_to_dsl_groups,
     migrate_strategy_file,
     risk_value,
     strategy_dsl_groups,
 )
-from hermes_trading.dsl.schema import validate_strategy_dsl
-from hermes_trading.loop import entry_signal_fired, exit_signal_fired, market_candles, signal_id
+from orum.dsl.schema import validate_strategy_dsl
+from orum.loop import entry_signal_fired, exit_signal_fired, market_candles, signal_id
 
 LEGACY_STRATEGY = {
     "version": "03",

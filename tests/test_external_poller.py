@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from hermes_trading.external import (
+from orum.external import (
     ExternalOrchestrator,
     ExternalSignalStatus,
     ExternalSignalStore,
@@ -12,14 +12,14 @@ from hermes_trading.external import (
 
 # A payload exactly like the live Mirror emits — note the pipes inside sig_key.
 LIVE_PAYLOAD = (
-    '{"source":"tradingview","strategy":"hermes_mirror_v1","symbol":"BTCUSD",'
+    '{"source":"tradingview","strategy":"0rum_mirror_v1","symbol":"BTCUSD",'
     '"timeframe":"1w","event":"BUY_CANDIDATE","bar_time":1779667200000,'
-    '"price":73567.99,"version":"tv_hermes_mirror_v1",'
-    '"sig_key":"tradingview|hermes_mirror_v1|BTCUSD|1w|BUY_CANDIDATE|1779667200000"}'
+    '"price":73567.99,"version":"tv_0rum_mirror_v1",'
+    '"sig_key":"tradingview|0rum_mirror_v1|BTCUSD|1w|BUY_CANDIDATE|1779667200000"}'
 )
 
 
-def _table_response(payload: str, *, study="Hermes Mirror", success=True):
+def _table_response(payload: str, *, study="0rum Mirror", success=True):
     return {
         "success": success,
         "studies": [
@@ -66,7 +66,7 @@ GOAL = {
     "max_drawdown": 0.05,
     "emergency_stop_drawdown": 0.06,
     "allowed_external_strategies": [
-        {"id": "hermes_mirror_v1", "symbol": "BTCUSD", "timeframe": "1w",
+        {"id": "0rum_mirror_v1", "symbol": "BTCUSD", "timeframe": "1w",
          "events": ["BUY_CANDIDATE", "SELL_CANDIDATE", "EXIT"]},
     ],
 }

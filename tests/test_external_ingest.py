@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from hermes_trading.external import (
+from orum.external import (
     ExternalSignalStatus,
     ExternalSignalStore,
     parse_external_signal,

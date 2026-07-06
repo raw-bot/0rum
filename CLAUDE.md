@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **hermes-trading** (1430 symbols, 4368 relationships, 117 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **0rum-trading** (1881 symbols, 5838 relationships, 153 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -17,7 +17,7 @@ This project is indexed by GitNexus as **hermes-trading** (1430 symbols, 4368 re
 
 1. `gitnexus_query({query: "<error or symptom>"})` — find execution flows related to the issue
 2. `gitnexus_context({name: "<suspect function>"})` — see all callers, callees, and process participation
-3. `READ gitnexus://repo/hermes-trading/process/{processName}` — trace the full execution flow step by step
+3. `READ gitnexus://repo/0rum-trading/process/{processName}` — trace the full execution flow step by step
 4. For regressions: `gitnexus_detect_changes({scope: "compare", base_ref: "main"})` — see what your branch changed
 
 ## When Refactoring
@@ -56,10 +56,10 @@ This project is indexed by GitNexus as **hermes-trading** (1430 symbols, 4368 re
 
 | Resource | Use for |
 |----------|---------|
-| `gitnexus://repo/hermes-trading/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/hermes-trading/clusters` | All functional areas |
-| `gitnexus://repo/hermes-trading/processes` | All execution flows |
-| `gitnexus://repo/hermes-trading/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/0rum-trading/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/0rum-trading/clusters` | All functional areas |
+| `gitnexus://repo/0rum-trading/processes` | All execution flows |
+| `gitnexus://repo/0rum-trading/process/{name}` | Step-by-step execution trace |
 
 ## Self-Check Before Finishing
 

@@ -1,4 +1,4 @@
-"""Generate TA-Lib reference fixtures for hermes_trading.dsl.indicators tests.
+"""Generate TA-Lib reference fixtures for orum.dsl.indicators tests.
 
 Run once in a venv with ta-lib installed; output is frozen in
 tests/fixtures/talib_reference.json. TA-Lib is NOT a runtime dependency.

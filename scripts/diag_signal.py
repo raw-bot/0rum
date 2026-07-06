@@ -14,7 +14,7 @@ from datetime import datetime
 
 import baseline_ak_macd as base
 
-from hermes_trading.external.ak_macd import (
+from orum.external.ak_macd import (
     ACTION_CONFIRMED, AkMacdParams, compute_state,
     _flip_up, _flip_down, _strictly_increasing, _strictly_decreasing,
     _sequenced_long, _sequenced_short, _candle_in_direction, _regime_at,

@@ -1,6 +1,6 @@
 import unittest
 
-from hermes_trading.loop import entry_signal_fired, market_candles, market_decision, price_is_offline
+from orum.loop import entry_signal_fired, market_candles, market_decision, price_is_offline
 
 STRATEGY = {"entry": {"indicator": "rsi", "threshold": 30, "direction": "long"}}
 

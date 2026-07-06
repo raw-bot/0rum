@@ -7,9 +7,9 @@ import unittest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from hermes_trading.dsl.evaluator import evaluate
-from hermes_trading.dsl.indicators import REGIME_LABELS
-from hermes_trading.dsl.schema import validate_group
+from orum.dsl.evaluator import evaluate
+from orum.dsl.indicators import REGIME_LABELS
+from orum.dsl.schema import validate_group
 
 _PRICES = st.floats(min_value=1.0, max_value=1_000_000.0, allow_nan=False, allow_infinity=False)
 _VALUES = st.floats(min_value=-1_000_000.0, max_value=1_000_000.0, allow_nan=False, allow_infinity=False)

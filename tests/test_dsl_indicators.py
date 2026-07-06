@@ -3,7 +3,7 @@ import math
 import unittest
 from pathlib import Path
 
-from hermes_trading.dsl import indicators
+from orum.dsl import indicators
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "talib_reference.json"
 FIXTURE = json.loads(FIXTURE_PATH.read_text())

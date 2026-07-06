@@ -2,7 +2,7 @@ import json
 import unittest
 from datetime import UTC, datetime
 
-from hermes_trading.external import (
+from orum.external import (
     ExternalSignal,
     ExternalSignalError,
     ExternalSignalEvent,

@@ -1,8 +1,8 @@
 """Offline backtest of the AK MACD 15m strategy (long + short) on real bars.
 
 Replicates ak_macd_15m.pine's indicator logic in Python and reuses the ENGINE's
-own hermes_trading/external/bracket.py to compute SL/TP, so the result reflects
-exactly what Hermes would do once allow_short is enabled. Bracket-only exits
+own orum/external/bracket.py to compute SL/TP, so the result reflects
+exactly what 0rum would do once allow_short is enabled. Bracket-only exits
 (SL or TP), no max_hold — same contract as bracket.py.
 
 Usage:
@@ -17,7 +17,7 @@ import json
 import sys
 from datetime import datetime, timezone
 
-from hermes_trading.external.bracket import compute_bracket
+from orum.external.bracket import compute_bracket
 
 # ---- indicator params (ak_macd_15m.pine defaults) ----
 MACD_FAST, MACD_SLOW, MACD_SIG = 12, 26, 9
@@ -27,7 +27,7 @@ TREND_LOOK, PULL_LOOK, SWING_LOOK = 50, 10, 10
 RR = 1.5
 RISK_PCT = 0.02
 START_EQUITY = 1000.0
-FEE_PCT = 0.0008  # round-trip ~0.08% (matches Hermes $2 on $2500 notional)
+FEE_PCT = 0.0008  # round-trip ~0.08% (matches 0rum $2 on $2500 notional)
 
 
 def ema(xs: list[float], n: int) -> list[float]:

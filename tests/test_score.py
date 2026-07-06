@@ -1,6 +1,6 @@
 import unittest
 
-from hermes_trading.score import score
+from orum.score import score
 
 
 class ScoreTests(unittest.TestCase):

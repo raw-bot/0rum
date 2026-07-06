@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import yaml
 
-from hermes_trading import dashboard
+from orum import dashboard
 
 
 class DashboardStateTests(unittest.TestCase):
@@ -73,16 +73,16 @@ class DashboardStateTests(unittest.TestCase):
             (state / "hypotheses.jsonl").write_text(
                 json.dumps({"changed": False, "score": 0.12, "reason": "hold", "ts": "h1"}) + "\n"
             )
-            (state / "hermes_watcher.json").write_text(
+            (state / "orum_watcher.json").write_text(
                 json.dumps(
                     {
                         "ts": datetime.now(UTC).isoformat(),
                         "status": "standby",
-                        "mode": "local_hermes_watcher",
+                        "mode": "local_orum_watcher",
                         "reflection_every": 10,
                         "trades_seen": 3,
                         "trades_since_reflection": 3,
-                        "detail": "Waiting for 7 more closed trades before Hermes reflection.",
+                        "detail": "Waiting for 7 more closed trades before 0rum reflection.",
                     }
                 )
             )
@@ -106,7 +106,7 @@ class DashboardStateTests(unittest.TestCase):
         self.assertEqual(snapshot["latest_hypothesis"]["reason"], "hold")
         self.assertEqual(snapshot["decisions"][0]["decision"], "hold")
         self.assertEqual(snapshot["decisions"][0]["score"], 0.12)
-        self.assertEqual(snapshot["engine"]["label"], "Hermes watcher connected")
+        self.assertEqual(snapshot["engine"]["label"], "0rum watcher connected")
         self.assertGreaterEqual(len(snapshot["activity"]), 1)
         self.assertEqual(len(snapshot["candles"]), 3)
         self.assertIn("close", snapshot["candles"][0])

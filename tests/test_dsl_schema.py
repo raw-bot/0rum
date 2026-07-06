@@ -1,6 +1,6 @@
 import unittest
 
-from hermes_trading.dsl.schema import DslValidationError, validate_group, validate_strategy_dsl
+from orum.dsl.schema import DslValidationError, validate_group, validate_strategy_dsl
 
 
 def _rsi_condition(**overrides):

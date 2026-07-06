@@ -1,0 +1,55 @@
+  COT 2006: total 52 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2007: total 105 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2008: total 157 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2009: total 209 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2010: total 261 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2011: total 313 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2012: total 366 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2013: total 418 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2014: total 470 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2015: total 522 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2016: total 574 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2017: total 626 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2018: total 679 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2019: total 731 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2020: total 783 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2021: total 835 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2022: total 887 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2023: total 939 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2024: total 992 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2025: total 1044 rows for 'GOLD - COMMODITY EXCHANGE'
+  COT 2026: total 1069 rows for 'GOLD - COMMODITY EXCHANGE'
+  (cache hit GC=F: 5404 days)
+====================================================================================================
+COT GATE STUDY — gold GC, 913 usable weeks (2009-01-02 -> 2026-06-26), COT-index lookback 156w, extremes <=20 / >=80
+  join on usable_from (report+3d) — no lookahead. Horizons >5d overlap: t optimistic.
+====================================================================================================
+
+--- FULL 2009->2026 ---
+  baseline (all)                               |  5d mean  +0.22%  hit  54.9%  t +2.83  (n=913) | 10d mean  +0.41%  hit  54.7%  t +3.83  (n=911) | 20d mean  +0.82%  hit  56.0%  t +5.47  (n=909) | 40d mean  +1.68%  hit  56.9%  t +8.03  (n=905)
+  comm HIGH (>=80)                             |  5d mean  +0.18%  hit  56.1%  t +1.00  (n=148) | 10d mean  +0.25%  hit  53.4%  t +0.86  (n=148) | 20d mean  +0.59%  hit  56.8%  t +1.57  (n=148) | 40d mean  +1.26%  hit  58.8%  t +2.32  (n=148)
+  comm LOW  (<=20)                             |  5d mean  +0.48%  hit  58.9%  t +2.71  (n=168) | 10d mean  +0.93%  hit  61.3%  t +3.77  (n=168) | 20d mean  +1.91%  hit  66.7%  t +5.66  (n=168) | 40d mean  +2.98%  hit  66.7%  t +6.91  (n=168)
+  noncomm HIGH (>=80)                          |  5d mean  +0.40%  hit  56.5%  t +2.14  (n=154) | 10d mean  +0.85%  hit  60.4%  t +3.23  (n=154) | 20d mean  +1.73%  hit  64.9%  t +4.90  (n=154) | 40d mean  +2.81%  hit  64.3%  t +6.27  (n=154)
+  noncomm LOW  (<=20)                          |  5d mean  +0.14%  hit  55.5%  t +0.75  (n=146) | 10d mean  +0.14%  hit  52.1%  t +0.48  (n=146) | 20d mean  +0.66%  hit  55.5%  t +1.72  (n=146) | 40d mean  +1.48%  hit  58.9%  t +2.67  (n=146)
+  divergence LONG  (comm>=80 & nonrep<=20)     |  5d mean  +0.03%  hit  55.7%  t +0.12  (n=106) | 10d mean  -0.04%  hit  50.0%  t -0.10  (n=106) | 20d mean  +0.12%  hit  55.7%  t +0.26  (n=106) | 40d mean  +0.93%  hit  55.7%  t +1.40  (n=106)
+  divergence SHORT (comm<=20 & nonrep>=80)     |  5d mean  +0.50%  hit  54.1%  t +2.23  (n=98) | 10d mean  +0.73%  hit  57.1%  t +2.41  (n=98) | 20d mean  +1.28%  hit  59.2%  t +3.21  (n=98) | 40d mean  +2.00%  hit  58.2%  t +3.82  (n=98)
+
+--- PRE  2016 ---
+  baseline (all)                               |  5d mean  +0.12%  hit  53.4%  t +0.93  (n=365) | 10d mean  +0.20%  hit  53.4%  t +1.06  (n=365) | 20d mean  +0.37%  hit  52.9%  t +1.51  (n=365) | 40d mean  +0.73%  hit  51.5%  t +2.20  (n=365)
+  comm HIGH (>=80)                             |  5d mean  +0.20%  hit  59.2%  t +0.82  (n=98) | 10d mean  +0.27%  hit  57.1%  t +0.71  (n=98) | 20d mean  +0.54%  hit  59.2%  t +1.11  (n=98) | 40d mean  +0.77%  hit  56.1%  t +1.10  (n=98)
+  comm LOW  (<=20)                             |  5d mean  +0.65%  hit  61.4%  t +2.19  (n=57) | 10d mean  +1.19%  hit  61.4%  t +2.56  (n=57) | 20d mean  +2.31%  hit  68.4%  t +3.65  (n=57) | 40d mean  +2.71%  hit  64.9%  t +3.78  (n=57)
+  noncomm HIGH (>=80)                          |  5d mean  +0.49%  hit  55.8%  t +1.48  (n=52) | 10d mean  +1.00%  hit  57.7%  t +1.97  (n=52) | 20d mean  +1.74%  hit  63.5%  t +2.62  (n=52) | 40d mean  +2.40%  hit  61.5%  t +3.06  (n=52)
+  noncomm LOW  (<=20)                          |  5d mean  +0.05%  hit  57.8%  t +0.18  (n=90) | 10d mean  -0.03%  hit  53.3%  t -0.08  (n=90) | 20d mean  +0.37%  hit  55.6%  t +0.74  (n=90) | 40d mean  +0.72%  hit  54.4%  t +0.97  (n=90)
+  divergence LONG  (comm>=80 & nonrep<=20)     |  5d mean  +0.10%  hit  58.8%  t +0.35  (n=80) | 10d mean  +0.09%  hit  55.0%  t +0.20  (n=80) | 20d mean  +0.13%  hit  58.8%  t +0.24  (n=80) | 40d mean  +0.65%  hit  57.5%  t +0.86  (n=80)
+  divergence SHORT (comm<=20 & nonrep>=80)     |  5d mean  +0.15%  hit  51.3%  t +0.42  (n=39) | 10d mean  +0.75%  hit  53.8%  t +1.38  (n=39) | 20d mean  +1.29%  hit  59.0%  t +1.84  (n=39) | 40d mean  +2.42%  hit  61.5%  t +2.68  (n=39)
+
+--- POST 2016 ---
+  baseline (all)                               |  5d mean  +0.28%  hit  55.8%  t +2.95  (n=548) | 10d mean  +0.56%  hit  55.5%  t +4.25  (n=546) | 20d mean  +1.11%  hit  58.1%  t +6.00  (n=544) | 40d mean  +2.33%  hit  60.6%  t +8.71  (n=540)
+  comm HIGH (>=80)                             |  5d mean  +0.15%  hit  50.0%  t +0.56  (n=50) | 10d mean  +0.20%  hit  46.0%  t +0.50  (n=50) | 20d mean  +0.70%  hit  52.0%  t +1.19  (n=50) | 40d mean  +2.22%  hit  64.0%  t +2.65  (n=50)
+  comm LOW  (<=20)                             |  5d mean  +0.40%  hit  57.7%  t +1.79  (n=111) | 10d mean  +0.80%  hit  61.3%  t +2.77  (n=111) | 20d mean  +1.71%  hit  65.8%  t +4.32  (n=111) | 40d mean  +3.11%  hit  67.6%  t +5.76  (n=111)
+  noncomm HIGH (>=80)                          |  5d mean  +0.36%  hit  56.9%  t +1.56  (n=102) | 10d mean  +0.78%  hit  61.8%  t +2.55  (n=102) | 20d mean  +1.72%  hit  65.7%  t +4.16  (n=102) | 40d mean  +3.01%  hit  65.7%  t +5.52  (n=102)
+  noncomm LOW  (<=20)                          |  5d mean  +0.29%  hit  51.8%  t +1.08  (n=56) | 10d mean  +0.41%  hit  50.0%  t +1.05  (n=56) | 20d mean  +1.12%  hit  55.4%  t +1.91  (n=56) | 40d mean  +2.71%  hit  66.1%  t +3.39  (n=56)
+  divergence LONG  (comm>=80 & nonrep<=20)     |  5d mean  -0.18%  hit  46.2%  t -0.43  (n=26) | 10d mean  -0.43%  hit  34.6%  t -0.69  (n=26) | 20d mean  +0.10%  hit  46.2%  t +0.11  (n=26) | 40d mean  +1.78%  hit  50.0%  t +1.28  (n=26)
+  divergence SHORT (comm<=20 & nonrep>=80)     |  5d mean  +0.74%  hit  55.9%  t +2.55  (n=59) | 10d mean  +0.72%  hit  59.3%  t +2.01  (n=59) | 20d mean  +1.27%  hit  59.3%  t +2.66  (n=59) | 40d mean  +1.73%  hit  55.9%  t +2.70  (n=59)
+
+Read: a gate is useful if its mean/hit CLEARLY beats baseline at the same horizon, in BOTH eras, with n large enough to matter.

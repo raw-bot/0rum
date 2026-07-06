@@ -1,0 +1,31 @@
+Fetching ~17000 BTCUSDT 4h bars ...
+Got 17000 bars: 2018-09-30 → 2026-07-04 | runner K=2.5 (fixed a-priori)
+
+=== FULL WINDOW ===  (275 trades)
+  COMBINED  fixed-2R :  275 tr | win 36.4% | net   +12.5R | PF 1.07
+  COMBINED  runner   :  275 tr | win 44.7% | net   +28.6R | PF 1.18
+  LONG-ONLY fixed-2R :  139 tr | win 43.2% | net   +34.9R | PF 1.42
+  LONG-ONLY runner   :  139 tr | win 52.5% | net   +42.4R | PF 1.61
+
+=== IN-SAMPLE (< 2024) ===  (183 trades)
+  COMBINED  fixed-2R :  183 tr | win 35.5% | net    +3.6R | PF 1.03
+  COMBINED  runner   :  183 tr | win 42.6% | net    +8.3R | PF 1.08
+  LONG-ONLY fixed-2R :   87 tr | win 42.5% | net   +20.4R | PF 1.39
+  LONG-ONLY runner   :   87 tr | win 49.4% | net   +18.7R | PF 1.41
+
+=== OUT-OF-SAMPLE (>= 2024) ===  (92 trades)
+  COMBINED  fixed-2R :   92 tr | win 38.0% | net    +8.8R | PF 1.15
+  COMBINED  runner   :   92 tr | win 48.9% | net   +20.3R | PF 1.41
+  LONG-ONLY fixed-2R :   52 tr | win 44.2% | net   +14.5R | PF 1.48
+  LONG-ONLY runner   :   52 tr | win 57.7% | net   +23.7R | PF 2.02
+
+=== PER YEAR (LONG-ONLY runner) — is the edge consistent? ===
+  2018:    2 tr | win  0.0% | net    -2.1R | PF 0.00
+  2019:   14 tr | win 50.0% | net    +3.6R | PF 1.50
+  2020:   19 tr | win 68.4% | net   +12.8R | PF 3.05
+  2021:   16 tr | win 31.2% | net    -3.8R | PF 0.67
+  2022:   16 tr | win 43.8% | net    +1.7R | PF 1.18
+  2023:   20 tr | win 55.0% | net    +6.5R | PF 1.69
+  2024:   16 tr | win 68.8% | net   +12.0R | PF 3.33
+  2025:   26 tr | win 46.2% | net    +4.2R | PF 1.28
+  2026:   10 tr | win 70.0% | net    +7.5R | PF 3.35

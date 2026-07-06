@@ -5,7 +5,7 @@ WHY THIS EXISTS
 The headline backtest numbers (baseline_ak_macd.py: PF ~0.77; backtest_ak_macd.py:
 PF ~0.60) are produced by a LOOSE entry generator that uses ``ta.barssince()``
 order-independent triggers. The LIVE bot does NOT trade that logic. It trades the
-production brain in hermes_trading/external/ak_macd.py: a flip ARMS a candidate
+production brain in orum/external/ak_macd.py: a flip ARMS a candidate
 that must be CONFIRMED within a window by a strictly-monotonic MACD sequence, the
 sequenced trend->pullback order, the volume gate, AND a regime filter (Lever A in
 the diagnostic report).
@@ -43,8 +43,8 @@ from datetime import datetime, timezone
 # Reuse the baseline harness verbatim (same dir is on sys.path when run as a script).
 import baseline_ak_macd as base
 
-from hermes_trading.external.bracket import compute_bracket
-from hermes_trading.external.ak_macd import (
+from orum.external.bracket import compute_bracket
+from orum.external.ak_macd import (
     ACTION_CONFIRMED,
     AkMacdParams,
     _flip_down,
@@ -57,7 +57,7 @@ from hermes_trading.external.ak_macd import (
     compute_state,
     evaluate_ak_macd_verdict,
 )
-from hermes_trading.market_regime import rolling_return_regime
+from orum.market_regime import rolling_return_regime
 
 
 def _regime_labels(closes: list[float]) -> list[str]:

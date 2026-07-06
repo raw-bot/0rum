@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from hermes_trading import events
+from orum import events
 
 
 class EventLogTests(unittest.TestCase):

@@ -1,6 +1,6 @@
 import unittest
 
-from hermes_trading.reflect import _fallback, _worst_daily_return
+from orum.reflect import _fallback, _worst_daily_return
 
 GOAL = {
     "reflection_every": 3,

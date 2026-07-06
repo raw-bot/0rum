@@ -1,4 +1,4 @@
-# ICT / Price-Action Concepts — Reference + Mapping to Hermes
+# ICT / Price-Action Concepts — Reference + Mapping to 0rum
 
 Statut : **REFERENCE + R&D**. Les concepts sont documentés tels que fournis ; la
 section "Mapping" et "Plan de test" disent comment (et SI) on les intègre. Règle
@@ -62,7 +62,7 @@ dans l'OTE. Confluence additionnelle, jamais signal isolé.
 
 ---
 
-## 2. Mapping vers le système Hermes (AK MACD)
+## 2. Mapping vers le système 0rum (AK MACD)
 
 Ce que notre brain fait DÉJÀ, vu sous l'angle ICT :
 | Notre logique | Équivalent ICT |

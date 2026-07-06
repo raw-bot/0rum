@@ -1,0 +1,24 @@
+  (cache hit GC=F: 5404 days)
+
+== GOLD (GC=F) == 2005-01-03 -> 2026-07-03 (5404 days)
+  bh        : x   9.77 | CAGR  +16.7% | maxDD  44.4% | expo 100.0% | trades 1
+  donchian  : x   2.05 | CAGR   +5.0% | maxDD  17.9% | expo  41.1% | trades 127
+  supertrend: x   2.87 | CAGR   +7.4% | maxDD  22.8% | expo  52.7% | trades 106
+  (cache hit BTCUSDT 1d: 3200 bars)
+
+== BTC (Binance 1d) == 2017-09-30 -> 2026-07-04 (3200 days)
+  bh        : x  14.45 | CAGR  +35.6% | maxDD  83.2% | expo 100.0% | trades 1
+  donchian  : x  18.26 | CAGR  +39.3% | maxDD  47.3% | expo  40.1% | trades 64
+  supertrend: x   9.08 | CAGR  +28.6% | maxDD  44.6% | expo  48.8% | trades 38
+  (cache hit ETHUSDT 1d: 3200 bars)
+
+== ETH (Binance 1d) == 2017-09-30 -> 2026-07-04 (3200 days)
+  bh        : x   5.87 | CAGR  +22.4% | maxDD  94.0% | expo 100.0% | trades 1
+  donchian  : x  48.88 | CAGR  +55.9% | maxDD  41.1% | expo  37.8% | trades 63
+  supertrend: x  49.44 | CAGR  +56.1% | maxDD  39.3% | expo  47.1% | trades 34
+  (fetched + cached PAXGUSDT 1d: 2137 bars)
+
+== PAXG (Binance 1d) == 2020-08-28 -> 2026-07-04 (2137 days)
+  bh        : x   2.11 | CAGR  +13.6% | maxDD  27.7% | expo 100.0% | trades 1
+  donchian  : x   1.63 | CAGR   +8.7% | maxDD   7.9% | expo  42.3% | trades 42
+  supertrend: x   1.28 | CAGR   +4.3% | maxDD  12.7% | expo  47.1% | trades 26

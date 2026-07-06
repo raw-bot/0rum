@@ -47,7 +47,7 @@ failure_conditions:
   - "three_consecutive_negative_days_with_unfavorable_regime"
   - "hit_rate_or_expectancy_degrades_below_threshold"
 
-hermes_policy:
+0rum_policy:
   evaluate_every_closed_trades: 10
   max_variables_changed_per_cycle: 1
   change_required_each_cycle: false

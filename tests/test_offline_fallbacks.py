@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import httpx
 
-from hermes_trading.adapters import macro, news, onchain, price
+from orum.adapters import macro, news, onchain, price
 
 
 class OfflineFallbackTests(unittest.IsolatedAsyncioTestCase):

@@ -127,11 +127,19 @@ def _load_goal() -> dict:
     return yaml.safe_load(GOAL_PATH.read_text()) or {}
 
 
-def _strategy_symbol(goal: dict, engine_asset: str) -> tuple[str, str]:
+def _strategy_symbol(goal: dict, engine_asset: str) -> tuple[str, str, str]:
+    """Returns (payload_symbol, engine_asset, timeframe), all read from this
+    strategy's entry in goal.yaml's allowed_external_strategies. Previously
+    the timeframe was hardcoded "15m" at every call site regardless of what
+    goal.yaml said -- harmless while only the 15m variant existed, but it
+    silently desynced candle-fetch/verdict/validation once a 4h config was
+    introduced (validate.py's timeframe check would reject every signal).
+    Defaults to "15m" to match prior behaviour when no entry/timeframe is set."""
     for entry in goal.get("allowed_external_strategies", []):
         if entry.get("id") == STRATEGY_ID:
-            return str(entry.get("symbol", "BTCUSD")), str(entry.get("engine_asset", engine_asset))
-    return "BTCUSD", engine_asset
+            return (str(entry.get("symbol", "BTCUSD")), str(entry.get("engine_asset", engine_asset)),
+                    str(entry.get("timeframe", "15m")))
+    return "BTCUSD", engine_asset, "15m"
 
 
 class AkMacdProducer:
@@ -151,8 +159,8 @@ class AkMacdProducer:
         self.shadow = shadow
         self.goal_loader = goal_loader
         goal = goal_loader()
-        self.payload_symbol, engine_asset = _strategy_symbol(goal, "BTC/USDT")
-        self.reader = reader or binance_reader(engine_asset)
+        self.payload_symbol, engine_asset, self.timeframe = _strategy_symbol(goal, "BTC/USDT")
+        self.reader = reader or binance_reader(engine_asset, interval=self.timeframe)
         self.log_path = log_path
         self._print = printer or (lambda _m: None)
         self._orchestrator = orchestrator
@@ -204,7 +212,7 @@ class AkMacdProducer:
         try:
             engine = AkMacdEngine.from_params(self.params)
             signal = engine.on_candle(
-                candles[-1], StrategyContext(candles=candles, symbol=self.payload_symbol, timeframe="15m")
+                candles[-1], StrategyContext(candles=candles, symbol=self.payload_symbol, timeframe=self.timeframe)
             )
         except Exception as exc:  # noqa: BLE001 - a shadow check must never affect routing
             log_event("strategy_engine_shadow_error", f"AkMacdEngine raised during shadow check: {exc}", asset=self.payload_symbol)
@@ -224,7 +232,7 @@ class AkMacdProducer:
     def poll_once(self) -> ProducerVerdict:
         candles = self.reader()
         verdict = evaluate_ak_macd_verdict(
-            candles, self.params, symbol=self.payload_symbol, timeframe="15m", strategy=STRATEGY_ID,
+            candles, self.params, symbol=self.payload_symbol, timeframe=self.timeframe, strategy=STRATEGY_ID,
         )
 
         # Log/route each CLOSED bar exactly once; repeated polls of the same bar

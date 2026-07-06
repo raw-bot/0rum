@@ -1,0 +1,23 @@
+  (cache hit GC=F: 5404 days)
+  (cache hit COT 'GOLD - COMMODITY EXCHANGE': 1069 weeks)
+====================================================================================================
+COT-GATED GOLD TREND — GC=F daily 2005-01-03 -> 2026-07-03, fees 0.1% RT, gate on ENTRIES only
+====================================================================================================
+
+-- DONCHIAN 20/10 --
+  ungated     : x  2.05 | CAGR   +5.0% | maxDD  17.9% | expo  41.1% | gate-on 100.0% | trades 127 | win 40.2%
+  gate_comm   : x  1.03 | CAGR   +0.2% | maxDD  10.5% | expo   9.3% | gate-on  15.0% | trades  30 | win 40.0%
+  gate_noncomm: x  1.09 | CAGR   +0.6% | maxDD  11.4% | expo   7.8% | gate-on  13.8% | trades  24 | win 41.7%
+  gate_either : x  1.06 | CAGR   +0.4% | maxDD  10.5% | expo   9.3% | gate-on  15.5% | trades  30 | win 43.3%
+
+-- SUPERTREND 10/3 --
+  ungated     : x  2.87 | CAGR   +7.4% | maxDD  22.8% | expo  52.7% | gate-on 100.0% | trades 106 | win 46.2%
+  gate_comm   : x  0.97 | CAGR   -0.2% | maxDD  10.5% | expo   3.8% | gate-on  15.0% | trades   8 | win 25.0%
+  gate_noncomm: x  0.97 | CAGR   -0.2% | maxDD  10.5% | expo   4.7% | gate-on  13.8% | trades   9 | win 33.3%
+  gate_either : x  0.97 | CAGR   -0.2% | maxDD  10.5% | expo   4.7% | gate-on  15.5% | trades   9 | win 33.3%
+
+-- HOLD-WHILE-GATE (étude littérale) --
+  ungated     : x  9.76 | CAGR  +16.6% | maxDD   0.0% | expo 100.0% | gate-on 100.0% | trades   1 | win 100.0%
+  gate_comm   : x  2.01 | CAGR   +4.8% | maxDD   5.2% | expo  15.0% | gate-on  15.0% | trades  20 | win 65.0%
+  gate_noncomm: x  1.66 | CAGR   +3.5% | maxDD  10.5% | expo  13.8% | gate-on  13.8% | trades  18 | win 50.0%
+  gate_either : x  2.14 | CAGR   +5.3% | maxDD  10.7% | expo  15.5% | gate-on  15.5% | trades  21 | win 61.9%

@@ -3,8 +3,8 @@
 import unittest
 from unittest.mock import patch
 
-from hermes_trading.dsl.backtest import simulate
-from hermes_trading.reflect import _backtest_guard
+from orum.dsl.backtest import simulate
+from orum.reflect import _backtest_guard
 
 # 2026-06-01T00:00:00Z, aligned on a UTC midnight so same-day losses accumulate.
 DAY_START_MS = 1_780_272_000_000
@@ -114,7 +114,7 @@ class BacktestGuardTests(unittest.TestCase):
         }
 
     def _guard(self, strategy, proposed, candles):
-        with patch("hermes_trading.reflect.dsl_backtest.load_history", return_value=candles):
+        with patch("orum.reflect.dsl_backtest.load_history", return_value=candles):
             return _backtest_guard(strategy, proposed["entry"], proposed["exit"], GOAL)
 
     def test_zero_signal_proposal_is_rejected(self):
@@ -151,7 +151,7 @@ class BacktestGuardTests(unittest.TestCase):
     def test_missing_history_fails_closed(self):
         strategy = self._strategy()
         with patch(
-            "hermes_trading.reflect.dsl_backtest.load_history",
+            "orum.reflect.dsl_backtest.load_history",
             side_effect=RuntimeError("history fetch returned 0 candles"),
         ):
             reason = _backtest_guard(strategy, strategy["entry"], strategy["exit"], GOAL)

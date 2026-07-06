@@ -1,0 +1,30 @@
+  (cache hit BTCUSDT 1d: 3200 bars)
+  (cache hit ETHUSDT 1d: 3200 bars)
+  (cache hit JPY=X: 6881 days)
+  (cache hit GC=F: 5404 days)
+  (cache hit COT 'GOLD - COMMODITY EXCHANGE': 1069 weeks)
+================================================================================================
+PORTEFEUILLE MULTI-MOTEURS — trades datés, R vs risque 2*ATR14, frais 0.1% RT
+================================================================================================
+  donchian_btc :  61 tr ( 7.4/an) | win 42.6% | PF 3.42 | exp +1.027R | net   +62.6R
+  donchian_eth :  62 tr ( 7.5/an) | win 46.8% | PF 2.31 | exp +0.659R | net   +40.8R
+  donchian_jpy : 285 tr (11.0/an) | win 34.4% | PF 0.90 | exp -0.051R | net   -14.5R
+  gold_cot     :  20 tr ( 1.2/an) | win 65.0% | PF 8.08 | exp +1.767R | net   +35.3R
+
+-- VALIDATION DU SCORE DE CONFIANCE (tous moteurs poolés) --
+  score 0: n  97 | exp -0.010R | PF 0.98 | win 32.0%
+  score 1: n  73 | exp +0.135R | PF 1.30 | win 41.1%
+  score 2: n 168 | exp +0.383R | PF 1.83 | win 38.1%
+  score 3: n  90 | exp +0.567R | PF 2.14 | win 45.6%
+  => monotone : OUI — levier dynamique AUTORISÉ
+
+-- POLITIQUES DE SIZING (équité partagée, fixed-fractional) --
+  (quart-Kelly full-sample, optimiste : donchian_btc 6.0%, donchian_eth 6.0%, donchian_jpy 0.5%, gold_cot 6.0%)
+  --- SANS ETH ---
+  plat 2%               : x   4.03 | CAGR   +5.5% | maxDD  22.5% | pire année 2016 -12.0%
+  modulé 1/2/4% (score) : x   7.30 | CAGR   +8.0% | maxDD  32.4% | pire année 2009 -11.4%
+  quart-Kelly/moteur    : x  96.06 | CAGR  +19.2% | maxDD  35.3% | pire année 2022 -28.0%
+  --- AVEC ETH ---
+  plat 2%               : x   8.46 | CAGR   +8.6% | maxDD  21.0% | pire année 2016 -12.0%
+  modulé 1/2/4% (score) : x  16.93 | CAGR  +11.5% | maxDD  29.7% | pire année 2009 -11.4%
+  quart-Kelly/moteur    : x 614.02 | CAGR  +28.1% | maxDD  37.9% | pire année 2022 -35.9%

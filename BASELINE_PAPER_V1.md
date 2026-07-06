@@ -8,7 +8,7 @@ whether exits / sizing / filters should change.
 ## Frozen configuration (DO NOT CHANGE during the window)
 
 ### Strategy — AK MACD 15m (long + short), unchanged
-- Signal brain: `hermes_trading/external/ak_macd_producer.py` (live, `--interval 30`).
+- Signal brain: `orum/external/ak_macd_producer.py` (live, `--interval 30`).
 - Indicator params (frozen, Pine `ak_macd_15m.pine` defaults):
   MACD 12/26/9 · baseline EMA30 · ATR14 × 0.2 · volMA9 · RR 1.5.
 - Entry confirmation (`strategy.yaml` → `ak_macd:`): `confirmation_bars: 2`,
@@ -45,9 +45,9 @@ excluded rows `EXCL`, and counts only in-baseline trades in the summaries.
 
 **Rule 2 — no selftest writes to live state.** Tests / dry-runs / ad-hoc signal
 injections MUST run against an isolated state, never `state/`. Mechanism added
-`2026-06-19`: `hermes_trading/paths.py` now honours `HERMES_STATE_DIR` —
+`2026-06-19`: `orum/paths.py` now honours `0RUM_STATE_DIR` —
 ```bash
-HERMES_STATE_DIR=$(mktemp -d) uv run python <any test or injection>
+0RUM_STATE_DIR=$(mktemp -d) uv run python <any test or injection>
 ```
 With the env unset, the live default is byte-for-byte unchanged. The standard
 scripts (`replay_ak_macd.py`, `ak_macd_bridge_selftest.py`) are already isolated
@@ -103,8 +103,8 @@ uv run python scripts/daily_paper_report.py 2026-06-20 # a specific day
   `tests/test_bridge_live.py`, which builds the real `ExternalOrchestrator` with
   its default `logger=log_event`; that logger appends to the module-level live
   `EVENTS_PATH`. So **every `pytest` run** leaked synthetic signals into live
-  `events.jsonl`. Fix: added `tests/conftest.py` that sets `HERMES_STATE_DIR` to
-  a tempdir before any hermes import, isolating ALL state I/O for the whole test
+  `events.jsonl`. Fix: added `tests/conftest.py` that sets `0RUM_STATE_DIR` to
+  a tempdir before any 0rum import, isolating ALL state I/O for the whole test
   session (no production code touched). Verified: a full suite run leaves the
   live `@100` count unchanged (11 → 11). The 11 historical polluted events are
   left as-is (rewriting live logs is riskier than filtering them in the report;

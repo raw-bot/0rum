@@ -10,9 +10,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from hermes_trading.external.bridge import AkMacdBridge, STUDY_NAME
-from hermes_trading.external.ingest import ExternalSignalStore
-from hermes_trading.external.orchestrator import ExternalOrchestrator
+from orum.external.bridge import AkMacdBridge, STUDY_NAME
+from orum.external.ingest import ExternalSignalStore
+from orum.external.orchestrator import ExternalOrchestrator
 
 TF_MS = 900_000
 BAR = 1_781_625_600_000          # aligned to the 15m grid

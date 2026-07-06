@@ -142,9 +142,9 @@ def main():
     print(f"Donchian raw breakouts: {len(entries)}", flush=True)
 
     print("Loading 1m intrabar (cached) ...", flush=True)
-    os.environ.setdefault("HERMES_SCRATCH", "/private/tmp/claude-501/-Users-cube/"
+    os.environ.setdefault("0RUM_SCRATCH", "/private/tmp/claude-501/-Users-cube/"
                           "970db104-8da7-4abe-bfec-be3cb9c5de36/scratchpad")
-    r1.CACHE = os.environ["HERMES_SCRATCH"] + "/btc_1m_cache.json"
+    r1.CACHE = os.environ["0RUM_SCRATCH"] + "/btc_1m_cache.json"
     T1, H1, L1 = r1.fetch_1m(t15[0], t15[-1] + r1.TF15_S)
     print(f"1m bars: {len(T1)}\n", flush=True)
 

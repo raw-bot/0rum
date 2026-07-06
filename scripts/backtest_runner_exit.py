@@ -21,7 +21,7 @@ import time
 import urllib.request
 from datetime import datetime, timezone
 
-from hermes_trading.external.bracket import compute_bracket
+from orum.external.bracket import compute_bracket
 
 MACD_FAST, MACD_SLOW, MACD_SIG = 12, 26, 9
 BASE_LEN, ATR_LEN, ATR_MULT = 30, 14, 0.2
@@ -41,7 +41,7 @@ def fetch_klines(symbol="BTCUSDT", interval="15m", n=50000):
     while len(out) < n:
         url = (f"https://api.binance.com/api/v3/klines?symbol={symbol}"
                f"&interval={interval}&limit=1000&endTime={end}")
-        req = urllib.request.Request(url, headers={"User-Agent": "hermes-backtest"})
+        req = urllib.request.Request(url, headers={"User-Agent": "0rum-backtest"})
         with urllib.request.urlopen(req, timeout=30) as r:
             batch = json.loads(r.read().decode())
         if not batch:

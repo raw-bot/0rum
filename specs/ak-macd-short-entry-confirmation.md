@@ -63,8 +63,8 @@ identique ; les deux côtés deviennent symétriques.
 
 ## Constraints
 
-- **Scope strict** : `hermes_trading/external/ak_macd.py` (machine unifiée long/short),
-  `hermes_trading/external/ak_macd_producer.py` (passage du champ `side` au log), les
+- **Scope strict** : `orum/external/ak_macd.py` (machine unifiée long/short),
+  `orum/external/ak_macd_producer.py` (passage du champ `side` au log), les
   tests. **Ne pas** modifier `orchestrator.py`, `validate.py`, `bracket.py`, `loop.py`,
   ni le contrat de payload (event `SELL_CANDIDATE` inchangé). `goal.yaml allow_short`
   reste le maître interrupteur des shorts.

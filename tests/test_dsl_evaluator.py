@@ -1,6 +1,6 @@
 import unittest
 
-from hermes_trading.dsl.evaluator import evaluate
+from orum.dsl.evaluator import evaluate
 
 
 def _candles_from_closes(closes):

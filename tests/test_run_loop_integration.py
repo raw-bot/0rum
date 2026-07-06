@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, patch
 
 import yaml
 
-from hermes_trading import events, loop
+from orum import events, loop
 
 GOAL = {
     "asset": "BTC/USDT",
@@ -57,9 +57,9 @@ class RunLoopIntegrationTests(unittest.TestCase):
         self.price_fetch = AsyncMock()
         for target in ("onchain", "news", "macro"):
             self._stack.enter_context(
-                patch(f"hermes_trading.adapters.{target}.fetch", new=AsyncMock(return_value=dict(SIDE_PAYLOAD)))
+                patch(f"orum.adapters.{target}.fetch", new=AsyncMock(return_value=dict(SIDE_PAYLOAD)))
             )
-        self._stack.enter_context(patch("hermes_trading.adapters.price.fetch", new=self.price_fetch))
+        self._stack.enter_context(patch("orum.adapters.price.fetch", new=self.price_fetch))
         for name, value in {
             "STATE_DIR": self.state,
             "STRATEGY_PATH": self.state / "strategy.yaml",
@@ -70,7 +70,7 @@ class RunLoopIntegrationTests(unittest.TestCase):
         }.items():
             self._stack.enter_context(patch.object(loop, name, value))
         self._stack.enter_context(patch.object(events, "EVENTS_PATH", self.state / "events.jsonl"))
-        self._stack.enter_context(patch.dict("os.environ", {"HERMES_LOOP_INTERVAL_SECONDS": "0"}))
+        self._stack.enter_context(patch.dict("os.environ", {"0RUM_LOOP_INTERVAL_SECONDS": "0"}))
 
     def tearDown(self):
         self._stack.close()
@@ -157,7 +157,7 @@ class RunLoopIntegrationTests(unittest.TestCase):
 
 class RunLoopExternalModeTests(RunLoopIntegrationTests):
     """In tradingview_external mode the worker opens NOTHING natively (TV owns
-    entries) but Hermes still supervises risk: stop_loss / take_profit /
+    entries) but 0rum still supervises risk: stop_loss / take_profit /
     max_hold close a position the external orchestrator opened."""
 
     def _run_external(self, closes: list[float], candle_ts: int) -> None:
@@ -196,18 +196,18 @@ class RunLoopExternalModeTests(RunLoopIntegrationTests):
         heartbeat = json.loads((self.state / "heartbeat.json").read_text())
         self.assertFalse(heartbeat["entry_fired"])
 
-    def test_external_position_closed_by_hermes_take_profit(self):
+    def test_external_position_closed_by_0rum_take_profit(self):
         self._seed_position()
-        take_profit = [100.0] * 19 + [104.0]  # +4% >= 3% -> Hermes take_profit
+        take_profit = [100.0] * 19 + [104.0]  # +4% >= 3% -> 0rum take_profit
         self._run_external(take_profit, candle_ts=_T + _FIFTEEN_MIN)
         self.assertFalse((self.state / "open_position.json").exists())
         trades = self._trades()
         self.assertEqual(len(trades), 1)
         self.assertEqual(trades[0]["exit_reason"], "take_profit")
 
-    def test_external_position_closed_by_hermes_stop_loss(self):
+    def test_external_position_closed_by_0rum_stop_loss(self):
         self._seed_position()
-        stop = [100.0] * 19 + [97.0]  # -3% <= -2% -> Hermes stop_loss
+        stop = [100.0] * 19 + [97.0]  # -3% <= -2% -> 0rum stop_loss
         self._run_external(stop, candle_ts=_T + _FIFTEEN_MIN)
         trades = self._trades()
         self.assertEqual(len(trades), 1)
@@ -220,7 +220,7 @@ class RunLoopExternalModeTests(RunLoopIntegrationTests):
         self._run_external(flat, candle_ts=_T + 20 * _FIFTEEN_MIN)
         self.assertTrue((self.state / "open_position.json").exists())
         self.assertEqual(self._trades(), [])
-        # 31 bars >= 30 -> Hermes max_hold closes. (Before the fix this delta
+        # 31 bars >= 30 -> 0rum max_hold closes. (Before the fix this delta
         # read as 300 1m-candles and would have closed on the first tick.)
         self._run_external(flat, candle_ts=_T + 31 * _FIFTEEN_MIN)
         self.assertFalse((self.state / "open_position.json").exists())

@@ -1,0 +1,21 @@
+Fetching ~140000 BTCUSDT 15m bars from Binance ...
+Got 140000 bars: 2022-07-03 → 2026-06-30
+
+Strategy params: AkMacdParams(macd_fast=12, macd_slow=26, macd_signal=9, base_len=30, atr_len=14, atr_mult=0.2, vol_ma_len=9, trend_look=50, pull_look=10, swing_look=10, allow_short=True, confirmation_bars=2, candidate_window_bars=2, regime_filter=True, require_candle_direction=True)
+
+============================================================================================
+PARITY  — production arm-fire brain (what the bot ACTUALLY trades)
+============================================================================================
+  Raw setups (valid brackets): 3404
+  Accepted (traded)          : 1515
+  Rejected by sizing         : 308
+  metric                           1x           2x           3x
+  -------------------------------------------------------------
+  trades                         1515         1515         1515
+  winrate                       41.5%        41.5%        41.5%
+  profit factor                  0.84         0.82         0.80
+  expectancy (R)               -0.046       -0.090       -0.120
+  net P&L ($)                $-13,861     $-27,240     $-36,425
+  max drawdown %               167.1%       313.0%       414.7%
+  max los. streak                  13           13           13
+============================================================================================
