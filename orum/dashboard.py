@@ -20,6 +20,7 @@ from urllib.parse import urlparse
 import yaml
 
 from orum.accounting import account_returns, compound_balance
+from orum.adapters.price import _binance_symbol
 from orum.dsl.migrate import risk_value
 from orum.paths import STATE_DIR
 from orum.score import score
@@ -172,28 +173,30 @@ def _downsample(items: list, max_points: int) -> list:
     return sampled
 
 
-# Chart display source: Binance BTCUSDT 15m — the SAME exchange the worker trades
-# on. Using Coinbase here caused price discrepancies between the chart and the
+# Chart display source: Binance 15m — the SAME exchange the worker trades on.
+# Using Coinbase here caused price discrepancies between the chart and the
 # trading data (different exchange = different prints); everything is Binance now.
-_BINANCE_15M_URL = "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=15m&limit=300"
+_BINANCE_15M_URL_TMPL = "https://api.binance.com/api/v3/klines?symbol={symbol}&interval=15m&limit=300"
 _CB_TTL_SECONDS = 60.0
 _cb_lock = threading.Lock()
-_cb_cache: dict = {"ts": 0.0, "candles": []}
+_cb_cache: dict[str, dict] = {}
 
 
-def _binance_15m_candles(max_points: int = 300) -> list[dict]:
-    """Binance BTCUSDT 15m OHLCV for the price chart — same exchange as the worker
+def _binance_15m_candles(asset: str = "BTC/USDT", max_points: int = 300) -> list[dict]:
+    """Binance 15m OHLCV for one asset's price chart — same exchange as the worker
     so the chart and the trading data never diverge.
 
-    Cached for _CB_TTL_SECONDS (the dashboard polls often). Returns [] on any
-    failure so the caller can fall back to the worker's own feed and the chart
-    never goes blank. Display-only: does not touch the trading data path."""
+    Cached per asset for _CB_TTL_SECONDS (the dashboard polls often). Returns []
+    on any failure so the caller can fall back to the worker's own feed and the
+    chart never goes blank. Display-only: does not touch the trading data path."""
     now = time.time()
     with _cb_lock:
-        if _cb_cache["candles"] and (now - _cb_cache["ts"]) < _CB_TTL_SECONDS:
-            return _cb_cache["candles"]
+        cached = _cb_cache.get(asset)
+        if cached and cached["candles"] and (now - cached["ts"]) < _CB_TTL_SECONDS:
+            return cached["candles"]
+    url = _BINANCE_15M_URL_TMPL.format(symbol=_binance_symbol(asset))
     try:
-        req = urllib.request.Request(_BINANCE_15M_URL, headers={"User-Agent": "0rum-dashboard"})
+        req = urllib.request.Request(url, headers={"User-Agent": "0rum-dashboard"})
         with urllib.request.urlopen(req, timeout=6) as resp:
             raw = json.loads(resp.read().decode())
     except Exception:  # noqa: BLE001 - chart display must never break the snapshot.
@@ -215,8 +218,7 @@ def _binance_15m_candles(max_points: int = 300) -> list[dict]:
     candles = candles[-max_points:]
     if candles:
         with _cb_lock:
-            _cb_cache["ts"] = now
-            _cb_cache["candles"] = candles
+            _cb_cache[asset] = {"ts": now, "candles": candles}
     return candles
 
 
@@ -587,6 +589,32 @@ def _portfolio_shadow() -> dict:
     }
 
 
+def _markets(goal: dict) -> list[dict]:
+    """Display-only market watch panel: the runtime asset first, then every asset
+    listed in goal.watch_assets. Feeds the top-bar market chips; never touches
+    the trading path (worker keeps reading goal.asset only)."""
+    runtime = goal.get("asset", "BTC/USDT")
+    watch = goal.get("watch_assets") or []
+    assets = [runtime] + [a for a in watch if a and a != runtime]
+    markets: list[dict] = []
+    for asset in assets:
+        series = _binance_15m_candles(asset)
+        if not series and asset == runtime:
+            series = _price_series()
+        closes = [c["close"] for c in series if c.get("close")]
+        last = closes[-1] if closes else 0.0
+        first = closes[0] if closes else 0.0
+        markets.append({
+            "asset": asset,
+            "is_runtime": asset == runtime,
+            "last_close": last,
+            # change over the fetched 15m window (~3 days), display-only
+            "change_pct": ((last / first) - 1.0) if first else 0.0,
+            "sparkline": [c["close"] for c in _downsample(series, 80)],
+        })
+    return markets
+
+
 def build_snapshot() -> dict:
     goal = _read_yaml(STATE_DIR / "goal.yaml")
     strategy = _read_yaml(STATE_DIR / "strategy.yaml")
@@ -624,7 +652,8 @@ def build_snapshot() -> dict:
         "signal_source": str(goal.get("signal_source", "native")),
         "external": _external_feed(events, goal),
         "logs": _logs(events),
-        "price_series": _binance_15m_candles() or _price_series(),
+        "price_series": _binance_15m_candles(goal.get("asset", "BTC/USDT")) or _price_series(),
+        "markets": _markets(goal),
         "trade_markers": _trade_markers(trades),
         "signals": _signal_markers(ext_records, events, open_position.get("external_signal_id")),
         "worker": {

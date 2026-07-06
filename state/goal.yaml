@@ -1,5 +1,10 @@
 asset: "BTC/USDT"
 asset_mutable: true
+
+# Display-only watchlist for the dashboard top bar (orum/dashboard.py _markets).
+# The worker ignores this key entirely — it never affects the trading path.
+# 2026-07-06: ETH added (own OOS notes above: AK MACD 4h long edge holds on ETH too).
+watch_assets: ["ETH/USDT"]
 starting_balance_usd: 10000.0
 
 # PAPER FORWARD-TEST: drive entries from the AK MACD TradingView emitter.

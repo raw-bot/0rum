@@ -400,6 +400,18 @@ function renderTop(s) {
     `<span class="chip ${src === "tradingview_external" ? "info" : ""}"><span class="k">signals</span><b>${src === "tradingview_external" ? "TV EXTERNAL" : "NATIVE"}</b></span>`,
     `<span class="chip ${gMap[gg.status] || ""}"><span class="k">guardrail</span><b>${esc(gg.label || gg.status || "—")}</b></span>`,
   ];
+  // Market watch chips (goal.watch_assets): price + window change per asset,
+  // runtime asset excluded (already shown as the first chip). Display-only.
+  for (const m of (s.markets || [])) {
+    if (m.is_runtime) continue;
+    const up = Number(m.change_pct || 0) >= 0;
+    const px = Number(m.last_close || 0);
+    chips.push(
+      `<span class="chip ${up ? "ok" : "bad"}"><span class="k">${esc(m.asset)}</span>` +
+      `<b>${px ? px.toLocaleString("en-US", { maximumFractionDigits: px >= 100 ? 0 : 2 }) : "—"}</b>` +
+      ` ${up ? "▲" : "▼"}${Math.abs(Number(m.change_pct || 0) * 100).toFixed(1)}%</span>`
+    );
+  }
   $("topchips").innerHTML = chips.join("");
 }
 
