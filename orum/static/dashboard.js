@@ -415,6 +415,41 @@ function renderTop(s) {
   $("topchips").innerHTML = chips.join("");
 }
 
+/* ---- markets: une courbe par actif suivi (BTC / ETH / OR) ------------- */
+function renderMarkets(s) {
+  const card = $("markets-card");
+  if (!card) return;
+  const ms = s.markets || [];
+  if (!ms.length) { card.innerHTML = `<h2>Markets</h2><div class="flat">waiting for market data…</div>`; return; }
+  const NAMES = { "BTC/USDT": "BTC", "ETH/USDT": "ETH", "PAXG/USDT": "OR (PAXG)" };
+  const tiles = ms.map((m, idx) => {
+    const pts = (m.sparkline || []).filter((v) => v > 0);
+    const up = Number(m.change_pct || 0) >= 0;
+    const col = up ? "#2ecc71" : "#ff5765";
+    let svg = `<div class="flat">no data</div>`;
+    if (pts.length >= 2) {
+      const w = 300, h = 80, pad = 3, min = Math.min(...pts), max = Math.max(...pts);
+      const sx = (i) => pad + (i / (pts.length - 1)) * (w - 2 * pad);
+      const sy = (v) => pad + (1 - (v - min) / (max - min || 1)) * (h - 2 * pad);
+      const line = pts.map((v, i) => `${i ? "L" : "M"}${sx(i).toFixed(1)},${sy(v).toFixed(1)}`).join(" ");
+      const area = `${line} L${sx(pts.length - 1).toFixed(1)},${h - pad} L${pad},${h - pad} Z`;
+      svg = `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%;height:80px;display:block">
+        <defs><linearGradient id="mkt${idx}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity="0.35"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
+        <path d="${area}" fill="url(#mkt${idx})"/><path d="${line}" fill="none" stroke="${col}" stroke-width="1.6"/></svg>`;
+    }
+    const px = Number(m.last_close || 0);
+    const badge = m.is_runtime ? `<span class="chip info" style="margin-left:6px">EN TRADE</span>` : "";
+    return `<div style="flex:1;min-width:200px;padding:4px 8px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px">
+        <b>${esc(NAMES[m.asset] || m.asset)}</b>${badge}
+        <span style="margin-left:auto;font-size:1.05em"><b>${px ? px.toLocaleString("en-US", { maximumFractionDigits: px >= 100 ? 0 : 2 }) : "—"}</b></span>
+        <span style="color:${col}">${up ? "▲" : "▼"}${Math.abs(Number(m.change_pct || 0) * 100).toFixed(2)}%</span>
+      </div>${svg}</div>`;
+  }).join("");
+  card.innerHTML = `<h2>Markets <span class="hint">15m · fenêtre ~3 jours · Binance</span></h2>
+    <div class="body" style="display:flex;gap:6px;flex-wrap:wrap">${tiles}</div>`;
+}
+
 /* ---- KPIs ------------------------------------------------------------- */
 function renderKpis(s) {
   const p = s.portfolio || {};
@@ -917,7 +952,7 @@ async function tick() {
     const s = await r.json();
     window.__lastState = s;
     renderTop(s); renderWorker(s); renderKpis(s); renderProChart(s); renderPrice(s); renderStats(s);
-    renderPosition(s); renderEquity(s); renderStrategy(s); renderLeverage(s); renderExternal(s); renderLogs(s); renderTrades(s); renderResearchPortfolio(s);
+    renderPosition(s); renderMarkets(s); renderEquity(s); renderStrategy(s); renderLeverage(s); renderExternal(s); renderLogs(s); renderTrades(s); renderResearchPortfolio(s);
     $("clock").textContent = new Date().toTimeString().slice(0, 8);
     $("conn").textContent = "● live"; $("conn").classList.remove("down");
   } catch (err) {
@@ -954,7 +989,8 @@ setInterval(tick, 3000);
     });
     const saved = localStorage.getItem(LS_KEY);
     if (saved) {
-      try { grid.load(JSON.parse(saved)); } catch (e) { localStorage.removeItem(LS_KEY); }
+      // load(…, false): ne pas supprimer les cartes absentes du layout sauvegardé
+      try { grid.load(JSON.parse(saved), false); } catch (e) { localStorage.removeItem(LS_KEY); }
     }
     const persist = () => {
       try { localStorage.setItem(LS_KEY, JSON.stringify(grid.save(false))); } catch (e) {}
