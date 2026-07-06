@@ -7,7 +7,7 @@
 // (in its own pane) — so they cost ONE slot. The real "AK MACD BB v 1.00" stays
 // as the 2nd indicator. Net: all 3 visible within the 2-slot limit.
 //
-// This is a VISUAL helper (read-only, no orders, no signals). The Hermes signal
+// This is a VISUAL helper (read-only, no orders, no signals). The 0rum signal
 // engine is pine/ak_macd_15m.pine, separate.
 //
 // Fidelity:

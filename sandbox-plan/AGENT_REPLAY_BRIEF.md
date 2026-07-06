@@ -8,7 +8,7 @@ You are executing a sandbox replay of a third-party one-shot prompt. Your job is
 
 ## Immutable Inputs
 
-- Original prompt: `/Users/cube/Documents/00-code/HermesTrading/Docs/Hermes Prompt.md`
+- Original prompt: `/Applications/0rum/Docs/0rum Prompt.md`
 - Expected SHA-256: `22e414c0724f1472129f201c12397d699b9c3e6b38216e89eabde82ac3cf4bc2`
 
 Do not edit the original prompt.
@@ -18,9 +18,9 @@ Do not edit the original prompt.
 Run with:
 
 ```bash
-export HOME=/Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home
-export HERMES_TRADING_MODE=paper
-export HERMES_TRADING_I_ACCEPT_RISK=false
+export HOME=/Applications/0rum/.sandbox/0rum-one-shot-home
+export ORUM_TRADING_MODE=paper
+export ORUM_TRADING_I_ACCEPT_RISK=false
 unset EXCHANGE_API_KEY
 unset EXCHANGE_API_SECRET
 unset GLASSNODE_API_KEY
@@ -30,8 +30,8 @@ unset NEWS_API_KEY
 Only write inside:
 
 ```text
-/Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home
-/Users/cube/Documents/00-code/HermesTrading/sandbox-plan
+/Applications/0rum/.sandbox/0rum-one-shot-home
+/Applications/0rum/sandbox-plan
 ```
 
 ## Hard Stops
@@ -39,10 +39,10 @@ Only write inside:
 Stop immediately if the prompt or generated code attempts any of these:
 
 - read `~/.ssh`, wallets, browser profiles, or unrelated user documents
-- write outside `/Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home`
+- write outside `/Applications/0rum/.sandbox/0rum-one-shot-home`
 - ask for real exchange keys
 - enable live trading
-- run Hermes as a persistent writer
+- run 0rum as a persistent writer
 - run `curl | bash`, `irm | iex`, or any remote installer without inspection
 - deploy to an existing production Railway project
 
@@ -57,21 +57,21 @@ The first replay may:
 
 The first replay must not:
 
-- install Hermes globally
+- install 0rum globally
 - connect real exchange keys
 - enable live trading
-- start an autonomous persistent Hermes loop
+- start an autonomous persistent 0rum loop
 
 ## Reporting
 
 Record commands, outputs, and deviations in:
 
 ```text
-/Users/cube/Documents/00-code/HermesTrading/sandbox-plan/EXECUTION_LOG.md
+/Applications/0rum/sandbox-plan/EXECUTION_LOG.md
 ```
 
 After the replay, complete:
 
 ```text
-/Users/cube/Documents/00-code/HermesTrading/sandbox-plan/POST_RUN_AUDIT.md
+/Applications/0rum/sandbox-plan/POST_RUN_AUDIT.md
 ```

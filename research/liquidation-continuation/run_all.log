@@ -1,0 +1,32 @@
+Loading base data + engineering features...
+Data range: 2020-09-01 00:00:00+00:00 -> 2026-06-29 23:55:00+00:00, n=612864
+Chronological 70/30 split at: 2024-09-29 14:20:00+00:00
+[S1_momentum] signals=11268 trades=9673 net_ret=-1.0 pf=0.5816570351926187 verdict=REJECT (7.4s)
+    - profit factor <= 1 after fees/slippage (0.5816570351926187)
+    - does not beat random-entry baseline with identical exit rule/costs
+    - result is dominated by top-2 trades (fails after removing them)
+    - not robust to nearby parameter choices (return sign flips across grid)
+[S2_imbalance] signals=357 trades=356 net_ret=-0.8891826618692702 pf=0.5098250564108646 verdict=REJECT (0.4s)
+    - profit factor <= 1 after fees/slippage (0.5098250564108646)
+    - result is dominated by top-2 trades (fails after removing them)
+    - not robust to nearby parameter choices (return sign flips across grid)
+[S3_oi] signals=2190 trades=2046 net_ret=-0.9996645652970779 pf=0.6537242726355925 verdict=REJECT (1.9s)
+    - profit factor <= 1 after fees/slippage (0.6537242726355925)
+    - result is dominated by top-2 trades (fails after removing them)
+    - not robust to nearby parameter choices (return sign flips across grid)
+[S4_volatility] signals=11243 trades=9673 net_ret=-1.0 pf=0.6068850947421508 verdict=REJECT (7.4s)
+    - profit factor <= 1 after fees/slippage (0.6068850947421508)
+    - does not beat random-entry baseline with identical exit rule/costs
+    - result is dominated by top-2 trades (fails after removing them)
+    - not robust to nearby parameter choices (return sign flips across grid)
+[S5_levels] signals=7358 trades=6667 net_ret=-0.9999999999998261 pf=0.5855099284282722 verdict=REJECT (4.8s)
+    - profit factor <= 1 after fees/slippage (0.5855099284282722)
+    - result is dominated by top-2 trades (fails after removing them)
+    - not robust to nearby parameter choices (return sign flips across grid)
+
+=== SUMMARY ===
+S1_momentum -> REJECT ['profit factor <= 1 after fees/slippage (0.5816570351926187)', 'does not beat random-entry baseline with identical exit rule/costs', 'result is dominated by top-2 trades (fails after removing them)', 'not robust to nearby parameter choices (return sign flips across grid)']
+S2_imbalance -> REJECT ['profit factor <= 1 after fees/slippage (0.5098250564108646)', 'result is dominated by top-2 trades (fails after removing them)', 'not robust to nearby parameter choices (return sign flips across grid)']
+S3_oi -> REJECT ['profit factor <= 1 after fees/slippage (0.6537242726355925)', 'result is dominated by top-2 trades (fails after removing them)', 'not robust to nearby parameter choices (return sign flips across grid)']
+S4_volatility -> REJECT ['profit factor <= 1 after fees/slippage (0.6068850947421508)', 'does not beat random-entry baseline with identical exit rule/costs', 'result is dominated by top-2 trades (fails after removing them)', 'not robust to nearby parameter choices (return sign flips across grid)']
+S5_levels -> REJECT ['profit factor <= 1 after fees/slippage (0.5855099284282722)', 'result is dominated by top-2 trades (fails after removing them)', 'not robust to nearby parameter choices (return sign flips across grid)']

@@ -1,4 +1,4 @@
-# Hermes One-Shot Sandbox Replay Runbook
+# 0rum One-Shot Sandbox Replay Runbook
 
 This runbook tests the original one-shot prompt without modifying it and without giving it access to the real host environment.
 
@@ -7,29 +7,29 @@ This runbook tests the original one-shot prompt without modifying it and without
 - Preserve the original prompt behavior as much as possible.
 - Keep all prompt-created files inside a disposable HOME.
 - Deploy only a paper-mode Railway test worker.
-- Prevent global Hermes installation during the first replay.
-- Audit generated code before enabling any recurring Hermes loop.
+- Prevent global 0rum installation during the first replay.
+- Audit generated code before enabling any recurring 0rum loop.
 
 ## Non-Goals
 
 - No live trading.
 - No real exchange keys.
-- No global Hermes install on the first replay.
-- No autonomous persistent Hermes writer.
+- No global 0rum install on the first replay.
+- No autonomous persistent 0rum writer.
 - No direct execution with dangerous permission bypass.
 
 ## Current Project Notes
 
 - This folder is not currently a git repository.
 - The original prompt hash is recorded in `sandbox-plan/PROMPT_ORIGINAL.sha256`.
-- The replay should treat `Docs/Hermes Prompt.md` as immutable input.
+- The replay should treat `Docs/0rum Prompt.md` as immutable input.
 
 ## Phase 0: Verify Original Prompt
 
-Run from `/Users/cube/Documents/00-code/HermesTrading`:
+Run from `/Applications/0rum`:
 
 ```bash
-shasum -a 256 "Docs/Hermes Prompt.md"
+shasum -a 256 "Docs/0rum Prompt.md"
 cat sandbox-plan/PROMPT_ORIGINAL.sha256
 ```
 
@@ -46,15 +46,15 @@ If the hash differs, stop and inspect the prompt diff before continuing.
 Create the replay home:
 
 ```bash
-mkdir -p /Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home
-mkdir -p /Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home/hermes-trading
-mkdir -p /Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home/hermes-trading-config
+mkdir -p /Applications/0rum/.sandbox/0rum-one-shot-home
+mkdir -p /Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading
+mkdir -p /Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading-config
 ```
 
 Confirm it is empty except for those folders:
 
 ```bash
-find /Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home -maxdepth 2 -print
+find /Applications/0rum/.sandbox/0rum-one-shot-home -maxdepth 2 -print
 ```
 
 ## Phase 2: Prepare Replay Environment
@@ -62,9 +62,9 @@ find /Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home -
 Use this environment for the replay:
 
 ```bash
-export HOME=/Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home
-export HERMES_TRADING_MODE=paper
-export HERMES_TRADING_I_ACCEPT_RISK=false
+export HOME=/Applications/0rum/.sandbox/0rum-one-shot-home
+export ORUM_TRADING_MODE=paper
+export ORUM_TRADING_I_ACCEPT_RISK=false
 unset EXCHANGE_API_KEY
 unset EXCHANGE_API_SECRET
 unset GLASSNODE_API_KEY
@@ -74,13 +74,13 @@ unset NEWS_API_KEY
 Confirm:
 
 ```bash
-printf 'HOME=%s\nMODE=%s\nRISK=%s\n' "$HOME" "$HERMES_TRADING_MODE" "$HERMES_TRADING_I_ACCEPT_RISK"
+printf 'HOME=%s\nMODE=%s\nRISK=%s\n' "$HOME" "$ORUM_TRADING_MODE" "$ORUM_TRADING_I_ACCEPT_RISK"
 ```
 
 Expected:
 
 ```text
-HOME=/Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home
+HOME=/Applications/0rum/.sandbox/0rum-one-shot-home
 MODE=paper
 RISK=false
 ```
@@ -97,25 +97,25 @@ This opens a shell in the project with the same `HOME`, paper-mode variables, an
 
 Open a fresh Claude Code session or another controlled agent session with:
 
-- current working directory: `/Users/cube/Documents/00-code/HermesTrading`
-- `HOME=/Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home`
+- current working directory: `/Applications/0rum`
+- `HOME=/Applications/0rum/.sandbox/0rum-one-shot-home`
 - manual approvals enabled
 - no dangerous permission bypass
 
 Paste the original prompt from:
 
 ```text
-/Users/cube/Documents/00-code/HermesTrading/Docs/Hermes Prompt.md
+/Applications/0rum/Docs/0rum Prompt.md
 ```
 
-When the prompt reaches Hermes installation, do not execute `curl | bash` or `irm | iex`. Instead stop at that gate and record the attempted command in `sandbox-plan/EXECUTION_LOG.md`.
+When the prompt reaches 0rum installation, do not execute `curl | bash` or `irm | iex`. Instead stop at that gate and record the attempted command in `sandbox-plan/EXECUTION_LOG.md`.
 
 Allowed first replay outcome:
 
-- local worker scaffolded under `/Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home/hermes-trading`
+- local worker scaffolded under `/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading`
 - paper-mode Railway test deploy attempted or completed
 - deterministic fallback reflection attempted or completed
-- Hermes install deferred
+- 0rum install deferred
 - no live trading
 
 ## Phase 4: Railway Constraints
@@ -124,8 +124,8 @@ Use only a disposable Railway project.
 
 Acceptable project names:
 
-- `hermes-trading-paper-test`
-- `hermes-one-shot-replay`
+- `0rum-trading-paper-test`
+- `0rum-one-shot-replay`
 
 Before `railway up --detach`, confirm:
 
@@ -142,7 +142,7 @@ Do not set any real exchange secrets in Railway.
 After the replay stops, capture created files:
 
 ```bash
-find /Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home -maxdepth 5 -type f | sort
+find /Applications/0rum/.sandbox/0rum-one-shot-home -maxdepth 5 -type f | sort
 ```
 
 Paste the output into `sandbox-plan/EXECUTION_LOG.md`.
@@ -163,10 +163,10 @@ Complete `sandbox-plan/POST_RUN_AUDIT.md`.
 
 Required review targets:
 
-- `/Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home/hermes-trading/pyproject.toml`
-- `/Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home/hermes-trading/Dockerfile`
-- `/Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home/hermes-trading/.env`
-- `/Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home/hermes-trading/hermes_trading/`
+- `/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/pyproject.toml`
+- `/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/Dockerfile`
+- `/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/.env`
+- `/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/orum/`
 - Railway variables
 - Railway logs
 
@@ -179,14 +179,14 @@ Do not copy:
 - `.env` with secrets
 - local caches
 - Railway auth files
-- Hermes local state
+- 0rum local state
 - any generated file that was not audited
 
-## Phase 8: Hermes Later, Read-Only First
+## Phase 8: 0rum Later, Read-Only First
 
-After the worker passes audit, install or run Hermes separately in Docker or on a dedicated VPS.
+After the worker passes audit, install or run 0rum separately in Docker or on a dedicated VPS.
 
-Initial Hermes mode:
+Initial 0rum mode:
 
 - read-only
 - cron explicit
@@ -194,4 +194,4 @@ Initial Hermes mode:
 - no direct edit to `strategy.yaml`
 - manual promotion required
 
-Hermes should become a writer only after a paper-mode observation period and a separate approval.
+0rum should become a writer only after a paper-mode observation period and a separate approval.

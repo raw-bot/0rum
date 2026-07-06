@@ -6,7 +6,7 @@ Complete this audit after the one-shot replay stops.
 
 - Replay completed:
 - Railway deployed:
-- Hermes installed:
+- 0rum installed:
 - Live trading enabled:
 - Secrets used:
 - Overall verdict: `PASS`, `PASS WITH FIXES`, or `FAIL`
@@ -14,14 +14,14 @@ Complete this audit after the one-shot replay stops.
 ## Files Reviewed
 
 ```text
-[ ] /Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home/hermes-trading/pyproject.toml
-[ ] /Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home/hermes-trading/Dockerfile
-[ ] /Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home/hermes-trading/.env
-[ ] /Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home/hermes-trading/hermes_trading/run.py
-[ ] /Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home/hermes-trading/hermes_trading/loop.py
-[ ] /Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home/hermes-trading/hermes_trading/reflect.py
-[ ] /Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home/hermes-trading/hermes_trading/score.py
-[ ] /Users/cube/Documents/00-code/HermesTrading/.sandbox/hermes-one-shot-home/hermes-trading/hermes_trading/adapters/
+[ ] /Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/pyproject.toml
+[ ] /Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/Dockerfile
+[ ] /Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/.env
+[ ] /Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/orum/run.py
+[ ] /Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/orum/loop.py
+[ ] /Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/orum/reflect.py
+[ ] /Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/orum/score.py
+[ ] /Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/orum/adapters/
 [ ] Railway variables
 [ ] Railway logs
 ```
@@ -57,7 +57,7 @@ Check all of these:
 ```text
 [ ] Dependencies are listed and explainable.
 [ ] Dockerfile does not execute uninspected remote scripts except approved installers.
-[ ] Hermes installer was not run during first replay.
+[ ] 0rum installer was not run during first replay.
 [ ] No hidden postinstall behavior observed.
 ```
 
@@ -81,7 +81,7 @@ Choose one:
 [ ] Do not promote. Discard replay output.
 [ ] Promote after listed fixes.
 [ ] Promote to durable paper-mode repo.
-[ ] Attach Hermes read-only cron.
+[ ] Attach 0rum read-only cron.
 ```
 
 ## Required Fixes Before Promotion

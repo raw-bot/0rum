@@ -1,8 +1,8 @@
-# PROMPT — Hermes Strategy DSL : mutation structurelle par LLM
+# PROMPT — 0rum Strategy DSL : mutation structurelle par LLM
 
 ## Objectif
 
-Aujourd'hui, le « cerveau » d'Hermes (`reflect.py`) ne peut muter qu'**un scalaire** de
+Aujourd'hui, le « cerveau » d'0rum (`reflect.py`) ne peut muter qu'**un scalaire** de
 `strategy.yaml` (`one_variable_only: true`). Objectif : permettre au LLM de muter la
 **structure** de la stratégie — changer d'indicateur, combiner des conditions, ajouter un
 filtre de régime — en émettant un **JSON de conditions validable par schéma**, interprété
@@ -75,7 +75,7 @@ Sémantique des croisements (reprise de Fincept, elle est correcte) :
 **Limites structurelles (anti-explosion)** : max **4** conditions par groupe, pas de
 groupes imbriqués en v1 (un seul niveau, un seul `logic`), `dsl_version` obligatoire.
 
-## 2. Modules à créer (`hermes_trading/dsl/`)
+## 2. Modules à créer (`orum/dsl/`)
 
 ### `dsl/indicators.py`
 - Calculs sur un buffer de bougies OHLCV 1m (l'adapter Binance retourne des klines ;
@@ -140,7 +140,7 @@ Chaîne de validation, dans cet ordre, chaque étape pouvant `_reject(reason)` :
 Fallback déterministe (`_fallback`) : conserve son comportement actuel, reformulé comme une
 mutation DSL qui n'ajuste qu'un `value` (il reste un nudge de paramètre — c'est sa force).
 
-## 5. Prompt LLM (à intégrer dans `_hermes_prompt`)
+## 5. Prompt LLM (à intégrer dans `_0rum_prompt`)
 
 ```text
 Tu es le module de réflexion d'un bot de paper-trading BTC/USDT (bougies 1m, long-only).

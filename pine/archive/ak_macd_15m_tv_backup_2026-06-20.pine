@@ -1,5 +1,5 @@
 //@version=6
-// AK MACD 15m — read-only candidate-signal emitter for HermesTrading.
+// AK MACD 15m — read-only candidate-signal emitter for 0rum.
 // ARCHIVE: this is the older 109-line version that lived in the TV cloud slot
 // "FPU connectivity test" (id USER;57426a6555034bbfa020511a375f4bc6, v19.0),
 // backed up 2026-06-20 before overwriting with the IN→OUT-viz version. Re-inject
@@ -27,7 +27,7 @@ swingLook  = input.int(10,  "Swing lookback", group = "Setup")
 allowShort = input.bool(true,  "Emit SELL_CANDIDATE (short enabled for paper forward-test)", group = "Output")
 emitExit   = input.bool(false, "Emit EXIT on opposite MACD flip", group = "Output")
 emitAlerts = input.bool(true,  "Emit alert() payloads (once per bar close)", group = "Output")
-strategyId = input.string("ak_macd_15m_v1", "Strategy id (must match Hermes allowlist)", group = "Output")
+strategyId = input.string("ak_macd_15m_v1", "Strategy id (must match 0rum allowlist)", group = "Output")
 
 macdLine   = ta.ema(close, macdFast) - ta.ema(close, macdSlow)
 signalLine = ta.ema(macdLine, macdSig)
@@ -65,10 +65,10 @@ exitCond  = emitExit and (flipDown or flipUp)
 evt    = buyCond ? "BUY_CANDIDATE" : sellCond ? "SELL_CANDIDATE" : exitCond ? "EXIT" : ""
 hasEvt = evt != ""
 
-tfHermes = timeframe.isintraday ? (timeframe.in_seconds() % 3600 == 0 ? str.tostring(timeframe.in_seconds() / 3600) + "h" : str.tostring(timeframe.in_seconds() / 60) + "m") : timeframe.isdaily ? str.tostring(timeframe.multiplier) + "d" : timeframe.isweekly ? str.tostring(timeframe.multiplier) + "w" : timeframe.period
+tf0rum = timeframe.isintraday ? (timeframe.in_seconds() % 3600 == 0 ? str.tostring(timeframe.in_seconds() / 3600) + "h" : str.tostring(timeframe.in_seconds() / 60) + "m") : timeframe.isdaily ? str.tostring(timeframe.multiplier) + "d" : timeframe.isweekly ? str.tostring(timeframe.multiplier) + "w" : timeframe.period
 
 barTimeStr = str.tostring(time, "#")
-payload = '{"source":"tradingview","strategy":"' + strategyId + '","symbol":"' + syminfo.ticker + '","timeframe":"' + tfHermes + '","event":"' + evt + '","bar_time":' + barTimeStr + ',"price":' + str.tostring(close) + ',"version":"tv_ak_macd_15m_v1","macd":' + str.tostring(macdLine) + ',"signal":' + str.tostring(signalLine) + ',"baseline":' + str.tostring(baseline) + ',"base_color":"' + baseColor + '","vol_ratio":' + str.tostring(volume / volMa) + ',"baseline_at_entry":' + str.tostring(baseline) + ',"recent_low":' + str.tostring(recentLow) + ',"recent_high":' + str.tostring(recentHigh) + '}'
+payload = '{"source":"tradingview","strategy":"' + strategyId + '","symbol":"' + syminfo.ticker + '","timeframe":"' + tf0rum + '","event":"' + evt + '","bar_time":' + barTimeStr + ',"price":' + str.tostring(close) + ',"version":"tv_ak_macd_15m_v1","macd":' + str.tostring(macdLine) + ',"signal":' + str.tostring(signalLine) + ',"baseline":' + str.tostring(baseline) + ',"base_color":"' + baseColor + '","vol_ratio":' + str.tostring(volume / volMa) + ',"baseline_at_entry":' + str.tostring(baseline) + ',"recent_low":' + str.tostring(recentLow) + ',"recent_high":' + str.tostring(recentHigh) + '}'
 
 if barstate.isconfirmed and hasEvt and emitAlerts
     alert(payload, alert.freq_once_per_bar_close)
@@ -98,7 +98,7 @@ setRow(table t, int row, string k, string v) =>
 
 var table dbg = table.new(position.top_right, 2, 13, border_width = 1, bgcolor = color.new(color.black, 20))
 if barstate.islast
-    setRow(dbg, 0,  "symbol/tf",  syminfo.ticker + " " + tfHermes)
+    setRow(dbg, 0,  "symbol/tf",  syminfo.ticker + " " + tf0rum)
     setRow(dbg, 1,  "close",      str.tostring(close))
     setRow(dbg, 2,  "MACD",       str.tostring(macdLine, "#.####"))
     setRow(dbg, 3,  "signal",     str.tostring(signalLine, "#.####"))

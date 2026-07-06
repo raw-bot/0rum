@@ -1,0 +1,60 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: Portfolio Value
+      - generic [ref=e6]: $9,972.99
+      - generic [ref=e7]: "Start: $10,000 | PnL: -$27.01"
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - generic [ref=e10]: Overall P&L
+        - generic [ref=e11]: Paper mode
+      - generic [ref=e12]: "-0.27%"
+  - generic [ref=e13]:
+    - generic [ref=e14]:
+      - heading "Live Bot Action" [level=2] [ref=e15]
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - button "1H" [ref=e18] [cursor=pointer]
+          - button "1D" [ref=e19] [cursor=pointer]
+          - button "1W" [ref=e20] [cursor=pointer]
+          - button "1M" [ref=e21] [cursor=pointer]
+        - generic [ref=e22]: BTC/USDT
+    - generic [ref=e23]:
+      - generic [ref=e24]: "Price: 64,518.39 $"
+      - generic [ref=e25]: "RSI: 66.93"
+      - generic [ref=e26]: "Status: Waiting for Signal..."
+      - generic [ref=e27]:
+        - text: "Projection:"
+        - generic [ref=e29]: LR 30 candles
+      - generic [ref=e30]: Historic projection
+    - img [ref=e33]
+  - generic [ref=e35]:
+    - heading "0rum AI Brain Learning Progress" [level=3] [ref=e36]
+    - generic [ref=e37]: 2 / 10 trades until learning
+  - generic [ref=e39]:
+    - generic [ref=e40]:
+      - generic [ref=e41]: Win Rate
+      - generic [ref=e42]: 75.0%
+    - generic [ref=e43]:
+      - generic [ref=e44]: Total Trades
+      - generic [ref=e45]: "23"
+    - generic [ref=e46]:
+      - generic [ref=e47]: Drawdown
+      - generic [ref=e48]: 0.40%
+    - generic [ref=e49]:
+      - generic [ref=e50]: Market Regime
+      - generic [ref=e51]: favorable
+  - generic [ref=e52]:
+    - heading "AI Strategy Levers" [level=3] [ref=e54]
+    - generic [ref=e55]:
+      - generic [ref=e56]:
+        - generic [ref=e57]: Exit RSI
+        - generic [ref=e58]: "--"
+      - generic [ref=e59]:
+        - generic [ref=e60]: Take Profit
+        - generic [ref=e61]: "--"
+      - generic [ref=e62]:
+        - generic [ref=e63]: Max Hold
+        - generic [ref=e64]: "--"
+  - heading "Recent Trade Activity" [level=3] [ref=e67]
+  - button "Run 0rum Reflection Now" [ref=e69] [cursor=pointer]

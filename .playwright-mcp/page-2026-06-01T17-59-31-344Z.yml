@@ -1,7 +1,7 @@
 - main [ref=e2]:
   - generic "Dashboard status" [ref=e3]:
     - generic [ref=e4]:
-      - paragraph [ref=e5]: Hermes Paper Agent
+      - paragraph [ref=e5]: 0rum Paper Agent
       - heading "BTC/USDT" [level=1] [ref=e6]
     - generic [ref=e7]:
       - button "Reset layout" [ref=e8] [cursor=pointer]
@@ -33,8 +33,8 @@
       - button "Move Reflection window" [ref=e38]: ...
       - paragraph [ref=e39]: Reflection engine
       - generic [ref=e40]: 0 trades
-      - paragraph [ref=e41]: Hermes active · Hermes is producing reflection decisions.
-      - button "Run Hermes reflection" [ref=e44] [cursor=pointer]
+      - paragraph [ref=e41]: 0rum active · 0rum is producing reflection decisions.
+      - button "Run 0rum reflection" [ref=e44] [cursor=pointer]
     - article [ref=e45]:
       - button "Move Guardrails window" [ref=e46]: ...
       - paragraph [ref=e47]: Guardrails
@@ -86,12 +86,12 @@
       - heading "No change applied" [level=2] [ref=e96]
       - paragraph [ref=e97]: No trade data available to justify a strategy change.
     - article [ref=e98]:
-      - button "Move Hermes decisions window" [ref=e99]: ...
+      - button "Move 0rum decisions window" [ref=e99]: ...
       - paragraph [ref=e100]: Reflection decisions
       - generic [ref=e102]:
         - generic [ref=e104]:
           - strong [ref=e105]: No change
-          - paragraph [ref=e106]: hermes engine · No trade data available to justify a strategy change.
+          - paragraph [ref=e106]: 0rum engine · No trade data available to justify a strategy change.
         - generic [ref=e107]: "0.000"
     - article [ref=e108]:
       - button "Move Activity log window" [ref=e109]: ...

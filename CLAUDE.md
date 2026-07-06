@@ -1,7 +1,11 @@
+> ⚠️ **RÈGLE DE ROUTAGE (2026-07-06)** : Ce dossier = atelier TradingView/Pine UNIQUEMENT.
+> Le BOT LIVE (127.0.0.1:8787, LaunchAgent com.0rum.dashboard) est dans `.sandbox/0rum-one-shot-home/0rum-trading/` — toutes les modifications du bot vont LÀ-BAS.
+> Le moteur de recherche/backtest (Docker :8008) est dans `~/Documents/00-code/0rum` — recherche walk-forward uniquement.
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **HermesTrading** (365 symbols, 576 relationships, 30 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **0rum** (365 symbols, 576 relationships, 30 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -24,10 +28,10 @@ This project is indexed by GitNexus as **HermesTrading** (365 symbols, 576 relat
 
 | Resource | Use for |
 |----------|---------|
-| `gitnexus://repo/HermesTrading/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/HermesTrading/clusters` | All functional areas |
-| `gitnexus://repo/HermesTrading/processes` | All execution flows |
-| `gitnexus://repo/HermesTrading/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/0rum/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/0rum/clusters` | All functional areas |
+| `gitnexus://repo/0rum/processes` | All execution flows |
+| `gitnexus://repo/0rum/process/{name}` | Step-by-step execution trace |
 
 ## CLI
 

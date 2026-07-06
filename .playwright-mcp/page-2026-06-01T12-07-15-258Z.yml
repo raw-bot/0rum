@@ -1,7 +1,7 @@
 - main [ref=e2]:
   - generic "Dashboard status" [ref=e3]:
     - generic [ref=e4]:
-      - paragraph [ref=e5]: Hermes Paper Agent
+      - paragraph [ref=e5]: 0rum Paper Agent
       - heading "BTC/USDT" [level=1] [ref=e6]
     - generic [ref=e7]:
       - button "Reset layout" [ref=e8] [cursor=pointer]
@@ -33,7 +33,7 @@
       - button "Move Reflection window" [ref=e55]: ...
       - paragraph [ref=e56]: Reflection engine
       - generic [ref=e57]: 16 trades
-      - paragraph [ref=e58]: Fallback only · Hermes CLI is installed, but this bot is still using deterministic fallback reflection.
+      - paragraph [ref=e58]: Fallback only · 0rum CLI is installed, but this bot is still using deterministic fallback reflection.
       - button "Run fallback reflection" [ref=e61] [cursor=pointer]
     - article [ref=e62]:
       - button "Move Guardrails window" [ref=e63]: ...
@@ -118,7 +118,7 @@
       - heading "No change applied" [level=2] [ref=e146]
       - paragraph [ref=e147]: cooldown active after entry.threshold change; 10 more closed trades required
     - article [ref=e148]:
-      - button "Move Hermes decisions window" [ref=e149]: ...
+      - button "Move 0rum decisions window" [ref=e149]: ...
       - paragraph [ref=e150]: Reflection decisions
       - generic [ref=e151]:
         - generic [ref=e152]:

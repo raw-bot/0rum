@@ -1,0 +1,11 @@
+{
+  "window_start": "2023-06-25 01:25:00+00:00",
+  "window_end": "2024-10-14 05:25:00+00:00",
+  "n_bars": 135121,
+  "spearman_corr_intensity_vs_real_liq": 0.4232479155793096,
+  "base_rate_any_real_liq": 0.13778761258427633,
+  "spike_rate_any_real_liq": 0.8581183611532626,
+  "lift_presence": 6.227833874604682,
+  "lift_magnitude": 17.978952659945115,
+  "direction_agreement_top_decile": 0.8302989934872705
+}

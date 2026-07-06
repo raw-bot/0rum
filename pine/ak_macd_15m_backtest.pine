@@ -2,11 +2,11 @@
 // AK MACD 15m — BACKTEST harness (long + short). Faithful to ak_macd_15m.pine:
 // the indicator computation is copied verbatim; this file ONLY adds
 // strategy.entry/exit with the SAME frozen 1.5R bracket as
-// hermes_trading/external/bracket.py, so the backtest reflects exactly what
-// Hermes would do once allow_short is enabled:
+// orum/external/bracket.py, so the backtest reflects exactly what
+// 0rum would do once allow_short is enabled:
 //   LONG : SL = min(baseline, recent_low);  risk = entry-SL; TP = entry + 1.5*risk
 //   SHORT: SL = max(baseline, recent_high); risk = SL-entry; TP = entry - 1.5*risk
-// Purpose: validate the SHORT before flipping it on in Hermes. Backtest only.
+// Purpose: validate the SHORT before flipping it on in 0rum. Backtest only.
 strategy("AK MACD 15m BT", "AKM15-BT", overlay = true, initial_capital = 1000,
      commission_type = strategy.commission.percent, commission_value = 0.04,
      pyramiding = 0, calc_on_every_tick = false, max_labels_count = 200)
@@ -72,7 +72,7 @@ wasBear     = ta.barssince(isRed) < trendLook
 pulledShort = ta.barssince(isGray or isBlue) < pullLook
 sellCond    = allowShort and wasBear and pulledShort and close < baseline and flipDown and belowZero and volOk
 
-// === Frozen 1.5R bracket (mirrors hermes_trading/external/bracket.py) ===
+// === Frozen 1.5R bracket (mirrors orum/external/bracket.py) ===
 longSL    = math.min(baseline, recentLow)
 longRisk  = close - longSL
 longTP    = close + rr * longRisk

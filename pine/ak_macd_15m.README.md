@@ -1,15 +1,15 @@
 # AK MACD 15m — external strategy (NOT ACTIVE)
 
-A self-contained external strategy for HermesTrading, recreated from
+A self-contained external strategy for 0rum, recreated from
 `Docs/AXMACD/AX MACD Strat.md`. It is fully isolated from the native DSL
-strategy and from `hermes_mirror.pine` — it shares no code and runs in a
+strategy and from `0rum_mirror.pine` — it shares no code and runs in a
 different signal-source mode. **Nothing here is active.** The live native config
 keeps running untouched until you explicitly activate it.
 
 ## What it does
 
-Emits the strict Hermes external-signal JSON (`source/strategy/symbol/timeframe/
-event/bar_time/price` + audit fields) on closed 15m bars. Hermes stays master:
+Emits the strict 0rum external-signal JSON (`source/strategy/symbol/timeframe/
+event/bar_time/price` + audit fields) on closed 15m bars. 0rum stays master:
 it validates against the allowlist + risk gates and manages SL/TP. The Pine never
 places an order.
 
@@ -19,7 +19,7 @@ places an order.
 3. **AK MACD BB** dots flip red→green **above** the zero line.
 4. **Volume** bar above its MA(9).
 → all true on a closed bar = `BUY_CANDIDATE`. SL below baseline/swing, TP = 1.5R
-(managed Hermes-side; the Pine does not emit EXIT by default).
+(managed 0rum-side; the Pine does not emit EXIT by default).
 
 ## How to ACTIVATE later (3 steps — do NOT do these to keep current config running)
 
@@ -28,7 +28,7 @@ places an order.
    signal_source: tradingview_external
    ```
 2. Make this the **only** active allowlist entry (no per-strategy ownership yet,
-   so two active externals can step on each other). Comment out `hermes_mirror_v1`
+   so two active externals can step on each other). Comment out `0rum_mirror_v1`
    and add:
    ```yaml
    allowed_external_strategies:

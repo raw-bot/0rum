@@ -1,0 +1,11 @@
+  [premium_5m] 200/2130 {'ok': 200, 'missing': 0, 'cached': 0, 'failed': 0}
+  [premium_5m] 400/2130 {'ok': 400, 'missing': 0, 'cached': 0, 'failed': 0}
+  [premium_5m] 600/2130 {'ok': 600, 'missing': 0, 'cached': 0, 'failed': 0}
+  [premium_5m] 800/2130 {'ok': 800, 'missing': 0, 'cached': 0, 'failed': 0}
+  [premium_5m] 1000/2130 {'ok': 1000, 'missing': 0, 'cached': 0, 'failed': 0}
+  [premium_5m] 1200/2130 {'ok': 1200, 'missing': 0, 'cached': 0, 'failed': 0}
+  [premium_5m] 1400/2130 {'ok': 1400, 'missing': 0, 'cached': 0, 'failed': 0}
+  [premium_5m] 1600/2130 {'ok': 1600, 'missing': 0, 'cached': 0, 'failed': 0}
+  [premium_5m] 1800/2130 {'ok': 1800, 'missing': 0, 'cached': 0, 'failed': 0}
+  [premium_5m] 2000/2130 {'ok': 2000, 'missing': 0, 'cached': 0, 'failed': 0}
+[premium_5m] DONE {'ok': 2127, 'missing': 3, 'cached': 0, 'failed': 0}

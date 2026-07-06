@@ -8,15 +8,15 @@ analyse désormais les bougies lui-même et décide BUY/SELL ; TradingView n'est
 plus que référence visuelle. Tout le downstream (parse → dedup → validate →
 bracket 1.5R → PaperExecutor) est réutilisé inchangé.
 
-Projet réel : `.sandbox/hermes-one-shot-home/hermes-trading/`
+Projet réel : `.sandbox/0rum-one-shot-home/0rum-trading/`
 
 **Fichiers créés / modifiés :**
-- `hermes_trading/external/ak_macd.py` — le cerveau (EMA30 baseline, bande ATR
+- `orum/external/ak_macd.py` — le cerveau (EMA30 baseline, bande ATR
   couleur, MACD slope flip, volume>SMA9, séquence STRICTE trend→pullback→flip,
   recent_low/high). Émet le payload contract identique au Pine.
-- `hermes_trading/external/ak_macd_producer.py` — boucle producteur : fetch 15m
+- `orum/external/ak_macd_producer.py` — boucle producteur : fetch 15m
   Binance, drop bougie en cours, route vers ExternalOrchestrator. Mode shadow/live.
-- `hermes_trading/external/signal.py` — ajout `ExternalSignalSource.LOCAL = "local"`.
+- `orum/external/signal.py` — ajout `ExternalSignalSource.LOCAL = "local"`.
 - `scripts/run_local.sh` — lance le producteur (au lieu du vieux bridge TV).
   Mode shadow par défaut ; `AK_MACD_LIVE=1 ./scripts/run_local.sh` pour le live.
 - `state/strategy.yaml` — `position_size_r: 2.0` (2% par trade, fidèle à la vidéo).
@@ -27,9 +27,9 @@ Projet réel : `.sandbox/hermes-one-shot-home/hermes-trading/`
 
 ## État runtime (au moment du handoff)
 - Le bot tourne **EN LIVE (paper)** via `run_local.sh` (superviseur auto-restart).
-- 4 process : worker (`run`, superviseur de risque) + hermes_watch + dashboard
+- 4 process : worker (`run`, superviseur de risque) + orum_watch + dashboard
   (http://127.0.0.1:8787) + `ak_macd_producer --live --interval 30`.
-- Restart propre : `pkill -f "scripts/run_local.sh"; pkill -9 -f hermes_trading`
+- Restart propre : `pkill -f "scripts/run_local.sh"; pkill -9 -f orum`
   puis `AK_MACD_LIVE=1 nohup ./scripts/run_local.sh > state/run_local.out 2>&1 &`
   (macOS n'a pas `setsid`, utiliser `nohup`).
 

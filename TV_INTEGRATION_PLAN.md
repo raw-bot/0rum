@@ -1,15 +1,15 @@
-# HermesTrading × TradingView — Plan d'intégration
+# 0rum × TradingView — Plan d'intégration
 
-> Statut : **TOUTES les phases (0–7) terminées.** Suite à **263 tests verts**. Pine Hermes Mirror live
-> (`pine/hermes_mirror.pine`). Boucle complète TradingView→Hermes démontrée EN LIVE (MCP table → poller →
+> Statut : **TOUTES les phases (0–7) terminées.** Suite à **263 tests verts**. Pine 0rum Mirror live
+> (`pine/0rum_mirror.pine`). Boucle complète TradingView→0rum démontrée EN LIVE (MCP table → poller →
 > orchestrator → paper close). Dashboard refondu (console ops sombre) avec panneau external + event log.
 > Backlog hors-scope priorisé : **1) binding polling always-on**, **2) live exchange**.
-> Décision d'archi maîtresse : **Hermes reste maître** des positions, du risque, des garde-fous,
+> Décision d'archi maîtresse : **0rum reste maître** des positions, du risque, des garde-fous,
 > de l'idempotence, de l'exécution, des logs, de l'accounting et de la **décision finale**.
-> TradingView ne place **jamais** d'ordre sans validation Hermes.
+> TradingView ne place **jamais** d'ordre sans validation 0rum.
 > Référence : `PROCESS_FreePlanUnlocked.md`, `indicators.py`, `schema.py`, `market_regime.py`, `loop.py`.
 
-Canonical tree : `.sandbox/hermes-one-shot-home/hermes-trading/`.
+Canonical tree : `.sandbox/0rum-one-shot-home/0rum-trading/`.
 
 ---
 
@@ -31,8 +31,8 @@ Canonical tree : `.sandbox/hermes-one-shot-home/hermes-trading/`.
 | Sizing / risk fields | `loop.py:_sizing` + `dsl/migrate.py:risk_value` | `position_size_r`, `stop_loss_pct`, `take_profit_pct`, `max_hold_candles`, `fee_rate` |
 | "Executor" | **inline dans `loop.py`** (`open_position_from_signal`, `close_position_if_needed`, `_build_closed_trade`) | **paper-only**, simulé |
 | Dédup / idempotence | `signal_id = asset|sha256(strategy)|candle_ts`, `should_record_signal`, `is_duplicate_close` | |
-| Position stale | `position_is_stale` + `_quarantine_position` | `HERMES_MAX_POSITION_AGE_HOURS` |
-| Boucle paper/live | `loop.py:run_loop`, mode via `HERMES_TRADING_MODE` (défaut `paper`) | |
+| Position stale | `position_is_stale` + `_quarantine_position` | `0RUM_MAX_POSITION_AGE_HOURS` |
+| Boucle paper/live | `loop.py:run_loop`, mode via `ORUM_TRADING_MODE` (défaut `paper`) | |
 | Accounting | `accounting.py` (`compound_balance`, `max_drawdown`) | |
 | Dashboard | `dashboard.py` + `static/` | |
 | État (DB) | **JSONL files** dans `state/` (`trades.jsonl`, `events.jsonl`, `open_position.json`, …) | **pas d'ORM/DB** |
@@ -48,7 +48,7 @@ Dédup, idempotence, guardrails, drawdown, kill-switch, quarantaine stale, gel o
 - Un switch de mode `signal_source: native | tradingview_external`.
 - Une **couture `Executor`** (extraction du paper inline) — pré-requis propre du mode external.
 - Une allowlist `allowed_external_strategies` (identifiants externes uniquement).
-- Indicateur Pine **Hermes Mirror**.
+- Indicateur Pine **0rum Mirror**.
 
 ### Incohérences relevées dans les hypothèses initiales (corrigées)
 1. **Pas de DB/ORM/TradeORM** → on reste JSONL + index dédup en mémoire.
@@ -66,8 +66,8 @@ signal_source: native            # ou: tradingview_external
 ```
 
 ### Mode `native` (défaut, inchangé)
-- Hermes calcule indicateurs + signaux en Python (DSL evaluator).
-- TradingView = **miroir visuel/debug** uniquement (Hermes Mirror).
+- 0rum calcule indicateurs + signaux en Python (DSL evaluator).
+- TradingView = **miroir visuel/debug** uniquement (0rum Mirror).
 - Le Pine n'influence **aucune** décision. On compare visuellement Pine ↔ Python.
 - **Reproductibilité backtest/live intacte.**
 
@@ -75,7 +75,7 @@ signal_source: native            # ou: tradingview_external
 - L'évaluateur DSL natif d'entrée est **désactivé** (pas de mélange des sources).
 - Les signaux arrivent par **polling MCP** (gratuit) — webhook = option future (Pro+).
 - Chaque signal devient un `ExternalSignal`, **jamais exécuté automatiquement**.
-- Hermes valide (section E) → **accepte** (→ signal interne → `Executor`) ou **refuse** (→ log raison).
+- 0rum valide (section E) → **accepte** (→ signal interne → `Executor`) ou **refuse** (→ log raison).
 - Les gates de risque, drawdown, kill-switch, idempotence restent **les mêmes** que native.
 
 ### Flux de données
@@ -83,10 +83,10 @@ signal_source: native            # ou: tradingview_external
 NATIVE :
   price adapter → indicators.py → DSL evaluator → signal interne
       → guardrail_action → Executor.open/close → trades.jsonl
-  (Pine Hermes Mirror lit le chart en parallèle, lecture seule, aucun effet)
+  (Pine 0rum Mirror lit le chart en parallèle, lecture seule, aucun effet)
 
 EXTERNAL :
-  Pine Hermes Mirror (alert JSON) → [polling MCP data_get_pine_labels/tables]
+  Pine 0rum Mirror (alert JSON) → [polling MCP data_get_pine_labels/tables]
       → ingest → ExternalSignal (state/external_signals.jsonl, status=received)
       → validation (E) → accepted | rejected(reason)
       → si accepted : map → signal interne → guardrail_action → Executor.open/close
@@ -156,7 +156,7 @@ Tout champ manquant/typé faux = rejet `malformed`. JSON compact (parsing trivia
 
 ---
 
-## E. Validation Hermes (ordre des checks, court-circuit au 1er échec → log raison)
+## E. Validation 0rum (ordre des checks, court-circuit au 1er échec → log raison)
 
 1. **JSON valide** (sinon `malformed`).
 2. **source autorisée** (`∈ ExternalSignalSource`).
@@ -168,7 +168,7 @@ Tout champ manquant/typé faux = rejet `malformed`. JSON compact (parsing trivia
 8. **kill-switch inactif** (pas en `emergency` sans `manual_resume.ok`).
 9. **risk gates OK** (`guardrail_action != halt_entries/emergency` pour une entrée).
 10. **drawdown OK** (`max_drawdown` sous seuil `goal.max_drawdown`).
-11. **mode paper/live cohérent** (`HERMES_TRADING_MODE`).
+11. **mode paper/live cohérent** (`ORUM_TRADING_MODE`).
 12. **prix non-offline** (adapter pas en fallback ; sinon entrées gelées).
 13. *(live futur)* exchange/API accessible, spread/slippage acceptables — **N/A en paper**.
 14. **log complet** de l'issue (accepted/rejected + raison) dans `external_signals.jsonl` + `events.jsonl`.
@@ -178,7 +178,7 @@ Refusé → aucune action, raison persistée.
 
 ---
 
-## F. Pine Script « Hermes Mirror » (un seul indicateur visible)
+## F. Pine Script « 0rum Mirror » (un seul indicateur visible)
 
 Périmètre — **strictement la whitelist DSL**, rien de générique :
 - Dashboard `table` (lisible MCP `data_get_pine_tables`) : RSI, EMA(s), SMA(s), ATR, Bollinger (upper/middle/lower/pct_b), **régime**, close.
@@ -196,7 +196,7 @@ Périmètre — **strictement la whitelist DSL**, rien de générique :
 | **ATR** | RMA Wilder | `ta.atr` ✓ |
 | **Régime** | aucun builtin Pine | coder `ret=(close-close[19])/close[19]`, seuils ±0.3 %, lookback 20 |
 | **Warm-up** | NaN durant warm-up | masquer/`na` les valeurs avant `first_valid_index` |
-| **Timezone / bar_time** | TV vs Hermes | canoniser `time` en ms UTC dans le payload |
+| **Timezone / bar_time** | TV vs 0rum | canoniser `time` en ms UTC dans le payload |
 | **Bougies clôturées** | repaint | `barstate.isconfirmed` / `freq_once_per_bar_close` |
 
 ---
@@ -234,7 +234,7 @@ Intégration :
 | **3.5** | **Refactor couture `Executor`/`PaperExecutor`** (extraction paper inline) | refactor neutre | non-régression native verte |
 | **4** | Routage paper : signal accepté → `Executor.open/close` → `trades.jsonl` | via switch `signal_source` | trade paper depuis external testé |
 | **5** | Transport MCP : polling `data_get_pine_labels/tables`, dédup par `bar_time` | non | e2e simulé MCP |
-| **6** | Pine **Hermes Mirror** (build + `pine_smart_compile` en live, parité) | non | compile 0 err, valeurs ≈ Python |
+| **6** | Pine **0rum Mirror** (build + `pine_smart_compile` en live, parité) | non | compile 0 err, valeurs ≈ Python |
 | **7** | Dashboard/logs : visibilité external (reçus/acceptés/refusés + raisons) | additif | UI lit `external_signals.jsonl` |
 
 ### Backlog hors-scope priorisé
