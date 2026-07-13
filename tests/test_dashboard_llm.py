@@ -43,6 +43,16 @@ def test_llm_lab_state_is_safe_when_files_are_absent(tmp_path):
 
     assert state["available"] is False
     assert state["last_observed_mode"] == "off"
+    assert state["runtime"] == {
+        "enabled": False,
+        "running": False,
+        "model": "deepseek/deepseek-v4-pro",
+        "interval_minutes": 60,
+        "last_cycle_started_at": None,
+        "last_cycle_completed_at": None,
+        "last_result": "not_started",
+        "last_error": "",
+    }
     assert state["opinion"] == {}
     assert state["timeline"] == []
     assert state["accounts"]["llm_reference"]["status"] == "absent"
@@ -178,10 +188,47 @@ def test_llm_dashboard_static_surface_is_read_only_responsive_and_escapes_model_
     assert ".llm-lab-grid" in css
     assert "@media (max-width: 900px)" in css
     assert "function renderLlmLab(s)" in js
+    assert "const runtime = lab.runtime || {}" in js
+    assert "runtime.model" in js
+    assert "runtime.last_result" in js
+    assert "runtime.last_cycle_completed_at" in js
+    assert "esc(runtime.last_error" in js
     assert "esc(opinion.memo_fr" in js
     assert "esc(decision.memo_fr" in js
     assert "renderLlmLab(s)" in js
     assert js.count('["llm-lab",') == 3
+
+
+def test_llm_lab_exposes_only_bounded_runtime_status(tmp_path):
+    (tmp_path / "llm_runtime_status.json").write_text(
+        json.dumps({
+            "enabled": True,
+            "running": False,
+            "model": "deepseek/deepseek-v4-pro",
+            "interval_minutes": 60,
+            "last_cycle_started_at": NOW.isoformat(),
+            "last_cycle_completed_at": NOW.isoformat(),
+            "last_result": "ok",
+            "last_error": "<redacted error>",
+            "unexpected": "must-not-escape",
+        }),
+        encoding="utf-8",
+    )
+
+    state = dashboard._llm_lab_state(tmp_path, now=NOW)
+
+    assert state["available"] is True
+    assert state["runtime"] == {
+        "enabled": True,
+        "running": False,
+        "model": "deepseek/deepseek-v4-pro",
+        "interval_minutes": 60,
+        "last_cycle_started_at": NOW.isoformat(),
+        "last_cycle_completed_at": NOW.isoformat(),
+        "last_result": "ok",
+        "last_error": "<redacted error>",
+    }
+    assert "must-not-escape" not in json.dumps(state)
 
 
 def test_llm_lab_ignores_structurally_corrupt_optional_records(tmp_path):

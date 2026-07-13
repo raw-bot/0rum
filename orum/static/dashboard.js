@@ -1113,6 +1113,7 @@ function renderProChart(s) {
 function renderLlmLab(s) {
   const card = $("llm-lab-card");
   const lab = s.llm_lab || {};
+  const runtime = lab.runtime || {};
   if (!lab.available) {
     card.innerHTML = `<h2>Laboratoire LLM <span class="hint">lecture seule · inactif</span></h2><div class="flat">Aucun journal LLM disponible</div>`;
     return;
@@ -1165,9 +1166,16 @@ function renderLlmLab(s) {
   const ref = comparison.llm_reference || {};
   const evo = comparison.llm_evolving || {};
   const alertRows = alerts.map((alert) => `<div class="llm-alert ${esc(alert.level)}"><b>${esc(alert.kind)}</b><span>${esc(alert.message)}</span></div>`).join("") || `<div class="llm-empty">Aucune alerte LLM</div>`;
+  const runtimeState = runtime.running ? "cycle en cours" : runtime.enabled ? "agent horaire actif" : "agent désactivé";
+  const runtimeError = runtime.last_error ? `<div class="llm-alert error"><b>runtime</b><span>${esc(runtime.last_error)}</span></div>` : "";
 
   card.innerHTML = `<h2>Laboratoire LLM <span class="hint">lecture seule · dernier mode observé ${esc(lab.last_observed_mode || "off")}</span></h2>
     <div class="body llm-lab-body">
+      <section class="llm-panel" aria-label="État du runtime LLM">
+        <h3>Runtime <span class="llm-badge ${runtime.running ? "info" : runtime.enabled ? "good" : "neutral"}">${esc(runtimeState)}</span></h3>
+        <div class="llm-metrics"><span>${esc(runtime.model || "modèle inconnu")}</span><span>cadence ${Number(runtime.interval_minutes || 60)} min</span><span>résultat ${esc(runtime.last_result || "not_started")}</span><span>dernier ${ago(runtime.last_cycle_completed_at)}</span></div>
+        ${runtimeError}
+      </section>
       <div class="llm-alerts" aria-label="Alertes LLM">${alertRows}</div>
       <div class="llm-lab-grid">
         <section class="llm-panel llm-opinion">

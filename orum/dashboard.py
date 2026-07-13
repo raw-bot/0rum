@@ -214,6 +214,38 @@ def _llm_timeline_item(record: Mapping[str, object]) -> dict:
 
 def _llm_lab_state(state_dir: Path, *, now: datetime | None = None) -> dict:
     now_utc = (now or datetime.now(UTC)).astimezone(UTC)
+    runtime_record = _read_optional_json(state_dir / "llm_runtime_status.json")
+    runtime = {
+        "enabled": False,
+        "running": False,
+        "model": "deepseek/deepseek-v4-pro",
+        "interval_minutes": 60,
+        "last_cycle_started_at": None,
+        "last_cycle_completed_at": None,
+        "last_result": "not_started",
+        "last_error": "",
+    }
+    if isinstance(runtime_record, Mapping) and runtime_record:
+        if isinstance(runtime_record.get("enabled"), bool):
+            runtime["enabled"] = runtime_record["enabled"]
+        if isinstance(runtime_record.get("running"), bool):
+            runtime["running"] = runtime_record["running"]
+        model = runtime_record.get("model")
+        if isinstance(model, str) and model:
+            runtime["model"] = model[:120]
+        interval = runtime_record.get("interval_minutes")
+        if isinstance(interval, int) and not isinstance(interval, bool) and 1 <= interval <= 1440:
+            runtime["interval_minutes"] = interval
+        for key in ("last_cycle_started_at", "last_cycle_completed_at"):
+            value = runtime_record.get(key)
+            if isinstance(value, str) and value:
+                runtime[key] = value[:80]
+        result = runtime_record.get("last_result")
+        if isinstance(result, str) and result:
+            runtime["last_result"] = result[:80]
+        error = runtime_record.get("last_error")
+        if isinstance(error, str):
+            runtime["last_error"] = error[:300]
     brief_records = _read_jsonl_tail(state_dir / "llm_market_briefs.jsonl", limit=10)
     decision_records = _read_jsonl_tail(state_dir / "llm_decisions.jsonl", limit=60)
     fill_records = _read_jsonl_tail(state_dir / "llm_paper_fills.jsonl", limit=30)
@@ -353,10 +385,11 @@ def _llm_lab_state(state_dir: Path, *, now: datetime | None = None) -> dict:
         mode = "observer"
     else:
         mode = "off"
-    available = bool(brief_records or decision_records or fill_records or outcome_records or postmortem_records or lesson_records or any(value["status"] != "absent" for value in accounts.values()))
+    available = bool(runtime_record or brief_records or decision_records or fill_records or outcome_records or postmortem_records or lesson_records or any(value["status"] != "absent" for value in accounts.values()))
     return {
         "available": available,
         "last_observed_mode": mode,
+        "runtime": runtime,
         "opinion": opinion,
         "timeline": timeline,
         "accounts": accounts,
