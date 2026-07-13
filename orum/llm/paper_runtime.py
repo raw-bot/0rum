@@ -111,3 +111,25 @@ class PaperLaneExecutor:
         return PaperExecutionResult(
             decision.decision_id, decision.lane, "executed", (), fill_ids
         )
+
+    def monitor(self, *, lane: str, candle: dict) -> tuple:
+        account = self.store.load(lane, starting_balance_usd=self.starting_balance_usd)
+        if not account.positions:
+            return ()
+        simulation = self.simulator.monitor_candle(account, candle)
+        if simulation.account.to_mapping() == account.to_mapping() and not simulation.fills:
+            return ()
+        committed = self.store.commit(account, simulation)
+        if simulation.fills:
+            self.audit_journal.append({
+                "schema_version": 1,
+                "kind": "paper_monitor",
+                "recorded_at": self._clock().astimezone(UTC).isoformat(),
+                "lane": lane,
+                "candle_ts": int(candle["ts"]),
+                "fill_ids": [fill.fill_id for fill in simulation.fills],
+                "actions": [fill.action for fill in simulation.fills],
+                "balance_after_usd": committed.balance_usd,
+                "equity_after_usd": committed.equity_usd,
+            })
+        return simulation.fills

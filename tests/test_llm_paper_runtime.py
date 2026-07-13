@@ -96,3 +96,26 @@ def test_executor_replay_is_idempotent(tmp_path):
     assert first.status == "executed"
     assert second.status == "already_processed"
     assert len(store.fills.read()) == 1
+
+
+def test_monitor_commits_pessimistic_exit_once(tmp_path):
+    executor, store, audit = _executor(tmp_path)
+    executor.execute(
+        decision=_decision(), leverage=_leverage(), market_price=100_000,
+        snapshot_id="snap-1", snapshot_hash="hash-1", snapshot_cutoff=NOW,
+        candle_ts=1_000,
+    )
+
+    first = executor.monitor(
+        lane="llm_reference",
+        candle={"ts": 2_000, "open": 100_000, "high": 101_000, "low": 96_000, "close": 97_500},
+    )
+    second = executor.monitor(
+        lane="llm_reference",
+        candle={"ts": 2_000, "open": 100_000, "high": 101_000, "low": 96_000, "close": 97_500},
+    )
+
+    assert [fill.action for fill in first] == ["stop"]
+    assert second == ()
+    assert store.load("llm_reference", starting_balance_usd=10_000).positions == {}
+    assert audit.read()[-1]["kind"] == "paper_monitor"

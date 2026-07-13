@@ -50,8 +50,9 @@ class LlmLabRuntime:
         reference_trader: Any,
         evolving_trader: Any,
         decision_journal: JsonlJournal,
-        lesson_provider: Callable[[int], Sequence[Mapping[str, Any]]],
+        lesson_provider: Callable[[MarketSnapshot, MarketBrief, int], Sequence[Mapping[str, Any]]],
         paper_executor: Any | None = None,
+        learning_processor: Any | None = None,
     ) -> None:
         self.config = config
         self.snapshot_factory = snapshot_factory
@@ -61,6 +62,7 @@ class LlmLabRuntime:
         self.decision_journal = decision_journal
         self.lesson_provider = lesson_provider
         self.paper_executor = paper_executor
+        self.learning_processor = learning_processor
 
     def run_once(self) -> LlmRunResult:
         mode = self.config.mode
@@ -72,6 +74,16 @@ class LlmLabRuntime:
             raise LlmRuntimeError("paper_autonomous requires an isolated paper executor")
 
         snapshot = self.snapshot_factory()
+        if mode is LlmMode.PAPER_AUTONOMOUS:
+            candles = snapshot.candles.get(self.config.decision_timeframe)
+            if not isinstance(candles, list) or not candles:
+                raise LlmRuntimeError("decision timeframe has no closed candle")
+            latest_candle = candles[-1]
+            for lane in ("llm_reference", "llm_evolving"):
+                closed_fills = self.paper_executor.monitor(lane=lane, candle=latest_candle)
+                if self.learning_processor is not None:
+                    for fill in closed_fills:
+                        self.learning_processor.process(fill=fill, snapshot=snapshot)
         brief: MarketBrief = self.analyst.analyze(snapshot)
         if mode is LlmMode.OBSERVER:
             return LlmRunResult(
@@ -84,7 +96,9 @@ class LlmLabRuntime:
         if mode not in {LlmMode.SHADOW, LlmMode.PAPER_AUTONOMOUS}:
             raise LlmRuntimeError(f"unsupported LLM laboratory mode: {mode.value}")
 
-        lessons = tuple(self.lesson_provider(self.config.max_retrieved_lessons))
+        lessons = tuple(
+            self.lesson_provider(snapshot, brief, self.config.max_retrieved_lessons)
+        )
         lane_results = (
             self._run_lane(
                 lane="llm_reference",

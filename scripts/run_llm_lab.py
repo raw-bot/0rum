@@ -21,12 +21,16 @@ from orum.dsl.indicators import atr, ema, rsi
 from orum.llm.config import ConfigError, LlmMode, LlmTradingConfig
 from orum.llm.derivatives import BinanceUsdMPublicProvider
 from orum.llm.journal import JsonlJournal
+from orum.llm.learning import LearningProcessor
+from orum.llm.lessons import LessonBook, MarketCase
 from orum.llm.news import GdeltNewsProvider
 from orum.llm.openrouter import OpenRouterClient, OpenRouterConfigError
+from orum.llm.outcomes import OutcomeEvaluator
 from orum.llm.paper_runtime import PaperLaneExecutor
 from orum.llm.paper_simulator import LlmPaperSimulator
 from orum.llm.paper_store import LlmPaperStore
 from orum.llm.paper_validator import PaperDecisionValidator
+from orum.llm.postmortem import PostMortemService
 from orum.llm.runtime import (
     PAPER_MODE_ERROR,
     LaneRunResult,
@@ -38,6 +42,8 @@ from orum.llm.services import LlmServiceError, MarketAnalyst, ShadowTrader
 from orum.llm.snapshot import MarketSnapshotBuilder
 from orum.paths import (
     LLM_DECISIONS_PATH,
+    LLM_OUTCOMES_PATH,
+    LLM_POSTMORTEMS_PATH,
     LLM_LESSONS_PATH,
     LLM_MARKET_BRIEFS_PATH,
     LLM_PAPER_FILLS_PATH,
@@ -106,19 +112,44 @@ def _indicators(candles: Mapping[str, list[dict[str, object]]]) -> dict[str, obj
     return result
 
 
-def _read_paper_account(path: Path = PAPER_POSITIONS_PATH) -> dict[str, object]:
+def _read_json_object(path: Path) -> tuple[dict[str, object] | None, str | None]:
     if not path.exists():
-        return {"status": "unavailable", "reason": "paper positions file not found"}
+        return None, "file not found"
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        return {
-            "status": "unavailable",
-            "reason": f"paper positions file unreadable: {type(exc).__name__}",
-        }
+        return None, f"unreadable: {type(exc).__name__}"
     if not isinstance(value, Mapping):
-        return {"status": "unavailable", "reason": "paper positions file is not an object"}
-    return {"status": "available", "ledger": dict(value)}
+        return None, "file is not an object"
+    return dict(value), None
+
+
+def _read_paper_account(
+    path: Path = PAPER_POSITIONS_PATH,
+    *,
+    llm_account_paths: Mapping[str, Path] | None = None,
+) -> dict[str, object]:
+    native, native_error = _read_json_object(path)
+    lane_paths = llm_account_paths or {
+        "llm_reference": LLM_REFERENCE_ACCOUNT_PATH,
+        "llm_evolving": LLM_EVOLVING_ACCOUNT_PATH,
+    }
+    lanes: dict[str, object] = {}
+    errors: dict[str, str] = {}
+    for lane, lane_path in lane_paths.items():
+        value, error = _read_json_object(Path(lane_path))
+        if value is not None:
+            lanes[lane] = value
+        elif error is not None:
+            errors[lane] = error
+    if native_error is not None:
+        errors["native"] = native_error
+    return {
+        "status": "available" if native is not None or lanes else "unavailable",
+        "native": native,
+        "llm_accounts": lanes,
+        "errors": errors,
+    }
 
 
 def _snapshot_factory(
@@ -173,17 +204,28 @@ def _snapshot_factory(
     return create_snapshot
 
 
-def _lesson_provider(journal: JsonlJournal) -> Callable[[int], Sequence[Mapping[str, Any]]]:
-    def retrieve(limit: int) -> Sequence[Mapping[str, Any]]:
-        if limit <= 0:
-            return ()
-        records = journal.read(limit=limit)
-        lessons: list[Mapping[str, Any]] = []
-        for record in records:
-            lesson = record.get("lesson", record)
-            if isinstance(lesson, Mapping) and isinstance(lesson.get("lesson_id"), str):
-                lessons.append(dict(lesson))
-        return tuple(lessons)
+def _lesson_provider(book: LessonBook):
+    def retrieve(snapshot, brief, limit: int) -> Sequence[Mapping[str, Any]]:
+        indicators = snapshot.indicators.get("15m", {})
+        atr = indicators.get("atr_14") if isinstance(indicators, Mapping) else None
+        candles = snapshot.candles.get("15m", [])
+        price = None if not candles else float(candles[-1]["close"])
+        volatility = "unknown" if atr is None or price is None else (
+            "high" if float(atr) / price >= 0.02 else "normal"
+        )
+        derivatives = snapshot.derivatives or {}
+        funding = derivatives.get("funding_rate")
+        funding_sign = "unknown" if funding is None else (
+            "positive" if float(funding) >= 0 else "negative"
+        )
+        case = MarketCase(
+            symbol=snapshot.symbol, regime=brief.regime,
+            volatility_bucket=volatility, side="unknown", action="unknown",
+            funding_sign=funding_sign, oi_change_bucket="unknown",
+            narrative_class=brief.narrative_vs_price,
+            exposure_bucket="low" if not snapshot.paper_account.get("positions") else "open",
+        )
+        return tuple(item.to_mapping() for item in book.retrieve(case, limit=limit))
 
     return retrieve
 
@@ -213,6 +255,7 @@ def build_runtime(config: LlmTradingConfig, api_key: str | None) -> LlmLabRuntim
         max_retries=config.max_parse_retries,
     )
     brief_journal = JsonlJournal(LLM_MARKET_BRIEFS_PATH)
+    lesson_book = LessonBook(JsonlJournal(LLM_LESSONS_PATH))
     analyst = MarketAnalyst(client=client, journal=brief_journal)
     trader_options = {
         "client": client,
@@ -222,6 +265,7 @@ def build_runtime(config: LlmTradingConfig, api_key: str | None) -> LlmLabRuntim
         "jurisdiction_profile": config.jurisdiction_profile,
     }
     paper_executor = None
+    learning_processor = None
     if config.mode is LlmMode.PAPER_AUTONOMOUS:
         store = LlmPaperStore(
             account_paths={
@@ -244,6 +288,18 @@ def build_runtime(config: LlmTradingConfig, api_key: str | None) -> LlmLabRuntim
             audit_journal=decision_journal,
             starting_balance_usd=config.paper_starting_balance_usd,
         )
+        learning_processor = LearningProcessor(
+            fills=store.fills,
+            decisions=decision_journal,
+            briefs=brief_journal,
+            outcomes=JsonlJournal(LLM_OUTCOMES_PATH),
+            evaluator=OutcomeEvaluator(fee_rate=config.paper_fee_rate),
+            postmortem=PostMortemService(
+                client=client, journal=JsonlJournal(LLM_POSTMORTEMS_PATH)
+            ),
+            lessons=lesson_book,
+            decision_timeframe=config.decision_timeframe,
+        )
     return LlmLabRuntime(
         config=config,
         snapshot_factory=_snapshot_factory(config),
@@ -251,8 +307,9 @@ def build_runtime(config: LlmTradingConfig, api_key: str | None) -> LlmLabRuntim
         reference_trader=ShadowTrader(**trader_options),
         evolving_trader=ShadowTrader(**trader_options),
         decision_journal=decision_journal,
-        lesson_provider=_lesson_provider(JsonlJournal(LLM_LESSONS_PATH)),
+        lesson_provider=_lesson_provider(lesson_book),
         paper_executor=paper_executor,
+        learning_processor=learning_processor,
     )
 
 

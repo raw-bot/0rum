@@ -143,6 +143,11 @@ class PoisonDependency:
 class PaperExecutor:
     def __init__(self):
         self.calls = []
+        self.monitor_calls = []
+
+    def monitor(self, **kwargs):
+        self.monitor_calls.append(kwargs)
+        return ()
 
     def execute(self, **kwargs):
         self.calls.append(kwargs)
@@ -170,7 +175,7 @@ def _runtime(tmp_path, mode, *, lessons=(), paper_executor=None):
         reference_trader=reference,
         evolving_trader=evolving,
         decision_journal=journal,
-        lesson_provider=lambda limit: tuple(lessons)[:limit],
+        lesson_provider=lambda snapshot, brief, limit: tuple(lessons)[:limit],
         paper_executor=paper_executor,
     )
     return runtime, factory, analyst, reference, evolving, journal
@@ -288,6 +293,9 @@ def test_paper_autonomous_executes_both_isolated_lanes(tmp_path):
     result = runtime.run_once()
 
     assert [call["decision"].lane for call in paper.calls] == [
+        "llm_reference", "llm_evolving"
+    ]
+    assert [call["lane"] for call in paper.monitor_calls] == [
         "llm_reference", "llm_evolving"
     ]
     assert [lane.paper_status for lane in result.lanes] == ["executed", "executed"]
@@ -413,3 +421,21 @@ def test_cli_loads_optional_yaml_and_applies_explicit_mode_override(tmp_path):
     ) == 0
     assert captured[0].mode is LlmMode.OBSERVER
     assert captured[0].paper_max_leverage == 33
+
+
+def test_snapshot_account_reader_labels_native_and_both_llm_lanes(tmp_path):
+    native = tmp_path / "native.json"
+    reference = tmp_path / "reference.json"
+    evolving = tmp_path / "evolving.json"
+    native.write_text('{"balance_usd": 10000}', encoding="utf-8")
+    reference.write_text('{"lane":"llm_reference","positions":{}}', encoding="utf-8")
+    evolving.write_text('{"lane":"llm_evolving","positions":{}}', encoding="utf-8")
+
+    result = run_llm_lab._read_paper_account(
+        native,
+        llm_account_paths={"llm_reference": reference, "llm_evolving": evolving},
+    )
+
+    assert result["native"]["balance_usd"] == 10_000
+    assert result["llm_accounts"]["llm_reference"]["lane"] == "llm_reference"
+    assert result["llm_accounts"]["llm_evolving"]["lane"] == "llm_evolving"
