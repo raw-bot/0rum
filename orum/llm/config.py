@@ -31,6 +31,10 @@ class LlmTradingConfig:
     max_parse_retries: int = 1
     paper_min_leverage: float = 1.0
     paper_max_leverage: float = 40.0
+    paper_starting_balance_usd: float = 10_000.0
+    paper_fee_rate: float = 0.0005
+    paper_maintenance_margin_rate: float = 0.005
+    allow_stop_beyond_liquidation: bool = False
     jurisdiction_profile: str = "fr_retail"
     max_retrieved_lessons: int = 5
 
@@ -49,6 +53,9 @@ class LlmTradingConfig:
             raise ConfigError(f"mode is invalid: {value.get('mode')!r}") from exc
 
         try:
+            allow_destructive = value.get("allow_stop_beyond_liquidation", False)
+            if not isinstance(allow_destructive, bool):
+                raise ConfigError("allow_stop_beyond_liquidation must be boolean")
             config = cls(
                 mode=mode,
                 provider=str(value.get("provider", "openrouter")).strip(),
@@ -59,6 +66,10 @@ class LlmTradingConfig:
                 max_parse_retries=int(value.get("max_parse_retries", 1)),
                 paper_min_leverage=float(value.get("paper_min_leverage", 1)),
                 paper_max_leverage=float(value.get("paper_max_leverage", 40)),
+                paper_starting_balance_usd=float(value.get("paper_starting_balance_usd", 10_000)),
+                paper_fee_rate=float(value.get("paper_fee_rate", 0.0005)),
+                paper_maintenance_margin_rate=float(value.get("paper_maintenance_margin_rate", 0.005)),
+                allow_stop_beyond_liquidation=allow_destructive,
                 jurisdiction_profile=str(value.get("jurisdiction_profile", "fr_retail")).strip(),
                 max_retrieved_lessons=int(value.get("max_retrieved_lessons", 5)),
             )
@@ -84,6 +95,12 @@ class LlmTradingConfig:
             raise ConfigError("paper_min_leverage must be finite and positive")
         if not math.isfinite(self.paper_max_leverage) or self.paper_max_leverage < self.paper_min_leverage:
             raise ConfigError("paper_max_leverage must be finite and at least paper_min_leverage")
+        if not math.isfinite(self.paper_starting_balance_usd) or self.paper_starting_balance_usd <= 0:
+            raise ConfigError("paper_starting_balance_usd must be finite and positive")
+        if not math.isfinite(self.paper_fee_rate) or self.paper_fee_rate < 0:
+            raise ConfigError("paper_fee_rate must be finite and non-negative")
+        if not math.isfinite(self.paper_maintenance_margin_rate) or not 0 <= self.paper_maintenance_margin_rate < 1:
+            raise ConfigError("paper_maintenance_margin_rate must be between 0 and 1")
         if not self.jurisdiction_profile:
             raise ConfigError("jurisdiction_profile must not be empty")
         if self.max_retrieved_lessons < 0:

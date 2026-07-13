@@ -23,6 +23,10 @@ from orum.llm.derivatives import BinanceUsdMPublicProvider
 from orum.llm.journal import JsonlJournal
 from orum.llm.news import GdeltNewsProvider
 from orum.llm.openrouter import OpenRouterClient, OpenRouterConfigError
+from orum.llm.paper_runtime import PaperLaneExecutor
+from orum.llm.paper_simulator import LlmPaperSimulator
+from orum.llm.paper_store import LlmPaperStore
+from orum.llm.paper_validator import PaperDecisionValidator
 from orum.llm.runtime import (
     PAPER_MODE_ERROR,
     LaneRunResult,
@@ -36,12 +40,17 @@ from orum.paths import (
     LLM_DECISIONS_PATH,
     LLM_LESSONS_PATH,
     LLM_MARKET_BRIEFS_PATH,
+    LLM_PAPER_FILLS_PATH,
+    LLM_REFERENCE_ACCOUNT_PATH,
+    LLM_EVOLVING_ACCOUNT_PATH,
     PAPER_POSITIONS_PATH,
 )
 from orum.portfolio.ccxt_provider import CcxtClosedCandleProvider
 
 
-FOUNDATION_MODES = {LlmMode.OFF, LlmMode.OBSERVER, LlmMode.SHADOW}
+FOUNDATION_MODES = {
+    LlmMode.OFF, LlmMode.OBSERVER, LlmMode.SHADOW, LlmMode.PAPER_AUTONOMOUS
+}
 DEFAULT_SYMBOL = "BTC/USDT"
 DEFAULT_CANDLE_LIMIT = 240
 
@@ -190,6 +199,7 @@ def build_runtime(config: LlmTradingConfig, api_key: str | None) -> LlmLabRuntim
             evolving_trader=_disabled,
             decision_journal=decision_journal,
             lesson_provider=_disabled,
+            paper_executor=None,
         )
     if config.mode not in FOUNDATION_MODES:
         raise LlmRuntimeError(PAPER_MODE_ERROR)
@@ -211,6 +221,29 @@ def build_runtime(config: LlmTradingConfig, api_key: str | None) -> LlmLabRuntim
         "paper_max_leverage": config.paper_max_leverage,
         "jurisdiction_profile": config.jurisdiction_profile,
     }
+    paper_executor = None
+    if config.mode is LlmMode.PAPER_AUTONOMOUS:
+        store = LlmPaperStore(
+            account_paths={
+                "llm_reference": LLM_REFERENCE_ACCOUNT_PATH,
+                "llm_evolving": LLM_EVOLVING_ACCOUNT_PATH,
+            },
+            fills_path=LLM_PAPER_FILLS_PATH,
+        )
+        paper_executor = PaperLaneExecutor(
+            store=store,
+            simulator=LlmPaperSimulator(
+                fee_rate=config.paper_fee_rate,
+                maintenance_margin_rate=config.paper_maintenance_margin_rate,
+                allow_stop_beyond_liquidation=config.allow_stop_beyond_liquidation,
+            ),
+            validator=PaperDecisionValidator(
+                maintenance_margin_rate=config.paper_maintenance_margin_rate,
+                allow_stop_beyond_liquidation=config.allow_stop_beyond_liquidation,
+            ),
+            audit_journal=decision_journal,
+            starting_balance_usd=config.paper_starting_balance_usd,
+        )
     return LlmLabRuntime(
         config=config,
         snapshot_factory=_snapshot_factory(config),
@@ -219,6 +252,7 @@ def build_runtime(config: LlmTradingConfig, api_key: str | None) -> LlmLabRuntim
         evolving_trader=ShadowTrader(**trader_options),
         decision_journal=decision_journal,
         lesson_provider=_lesson_provider(JsonlJournal(LLM_LESSONS_PATH)),
+        paper_executor=paper_executor,
     )
 
 
@@ -229,6 +263,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--mode", choices=[mode.value for mode in LlmMode])
     parser.add_argument("--once", action="store_true", help="run exactly one cycle")
     parser.add_argument("--config", type=Path, help="optional YAML configuration")
+    parser.add_argument(
+        "--confirm-paper", action="store_true",
+        help="explicitly authorize isolated paper-account mutation for this run",
+    )
     return parser
 
 
@@ -261,13 +299,16 @@ def main(
     except (ConfigError, ValueError) as exc:
         print(str(exc), file=sys.stderr)
         return 2
-    if config.mode in {LlmMode.PAPER_ASSISTED, LlmMode.PAPER_AUTONOMOUS}:
+    if config.mode is LlmMode.PAPER_ASSISTED:
         print(PAPER_MODE_ERROR, file=sys.stderr)
+        return 2
+    if config.mode is LlmMode.PAPER_AUTONOMOUS and not args.confirm_paper:
+        print("paper_autonomous requires --confirm-paper", file=sys.stderr)
         return 2
 
     environment = os.environ if environ is None else environ
     api_key = environment.get("OPENROUTER_API_KEY")
-    if config.mode in {LlmMode.OBSERVER, LlmMode.SHADOW} and not api_key:
+    if config.mode in {LlmMode.OBSERVER, LlmMode.SHADOW, LlmMode.PAPER_AUTONOMOUS} and not api_key:
         print("OPENROUTER_API_KEY is required for a remote LLM call", file=sys.stderr)
         return 2
     try:

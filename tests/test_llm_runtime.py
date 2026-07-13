@@ -5,6 +5,7 @@ import pytest
 from orum.llm.config import LlmMode, LlmTradingConfig
 from orum.llm.contracts import MarketBrief, ProposedDecision
 from orum.llm.journal import JsonlJournal
+from orum.llm.paper_runtime import PaperExecutionResult
 from orum.llm.runtime import LlmLabRuntime, LlmRuntimeError
 from orum.llm.services import DecisionResult
 from orum.llm.snapshot import MarketSnapshotBuilder
@@ -139,7 +140,23 @@ class PoisonDependency:
         raise AssertionError("dependency must not be called")
 
 
-def _runtime(tmp_path, mode, *, lessons=()):
+class PaperExecutor:
+    def __init__(self):
+        self.calls = []
+
+    def execute(self, **kwargs):
+        self.calls.append(kwargs)
+        decision = kwargs["decision"]
+        return PaperExecutionResult(
+            decision_id=decision.decision_id,
+            lane=decision.lane,
+            status="executed",
+            reasons=(),
+            fill_ids=(),
+        )
+
+
+def _runtime(tmp_path, mode, *, lessons=(), paper_executor=None):
     snapshot = _snapshot()
     factory = SnapshotFactory(snapshot)
     analyst = Analyst(_brief(snapshot))
@@ -154,6 +171,7 @@ def _runtime(tmp_path, mode, *, lessons=()):
         evolving_trader=evolving,
         decision_journal=journal,
         lesson_provider=lambda limit: tuple(lessons)[:limit],
+        paper_executor=paper_executor,
     )
     return runtime, factory, analyst, reference, evolving, journal
 
@@ -243,10 +261,9 @@ def test_duplicate_snapshot_lane_is_skipped_before_trader_call(tmp_path):
     ]
 
 
-@pytest.mark.parametrize("mode", [LlmMode.PAPER_ASSISTED, LlmMode.PAPER_AUTONOMOUS])
-def test_foundation_refuses_paper_modes_before_any_dependency_call(tmp_path, mode):
+def test_assisted_mode_remains_refused_before_any_dependency_call(tmp_path):
     runtime = LlmLabRuntime(
-        config=LlmTradingConfig(mode=mode),
+        config=LlmTradingConfig(mode=LlmMode.PAPER_ASSISTED),
         snapshot_factory=PoisonDependency(),
         analyst=PoisonDependency(),
         reference_trader=PoisonDependency(),
@@ -260,6 +277,20 @@ def test_foundation_refuses_paper_modes_before_any_dependency_call(tmp_path, mod
         match="paper LLM execution is not installed in foundation phase",
     ):
         runtime.run_once()
+
+
+def test_paper_autonomous_executes_both_isolated_lanes(tmp_path):
+    paper = PaperExecutor()
+    runtime, _, _, _, _, _ = _runtime(
+        tmp_path, LlmMode.PAPER_AUTONOMOUS, paper_executor=paper
+    )
+
+    result = runtime.run_once()
+
+    assert [call["decision"].lane for call in paper.calls] == [
+        "llm_reference", "llm_evolving"
+    ]
+    assert [lane.paper_status for lane in result.lanes] == ["executed", "executed"]
 
 
 class CliRuntime:
@@ -322,13 +353,12 @@ def test_cli_prints_shadow_lane_statuses(capsys):
     assert "test-key" not in output
 
 
-@pytest.mark.parametrize("mode", ["paper_assisted", "paper_autonomous"])
-def test_cli_refuses_paper_modes_before_key_or_runtime_construction(capsys, mode):
+def test_cli_refuses_assisted_mode_before_key_or_runtime_construction(capsys):
     def poison_factory(config, api_key):
         raise AssertionError("runtime must not be constructed")
 
     exit_code = run_llm_lab.main(
-        ["--mode", mode, "--once"],
+        ["--mode", "paper_assisted", "--once"],
         environ={},
         runtime_factory=poison_factory,
     )
@@ -338,6 +368,27 @@ def test_cli_refuses_paper_modes_before_key_or_runtime_construction(capsys, mode
         capsys.readouterr().err.strip()
         == "paper LLM execution is not installed in foundation phase"
     )
+
+
+def test_cli_requires_explicit_confirmation_for_autonomous_paper(capsys):
+    built = []
+
+    def factory(config, api_key):
+        built.append(config.mode)
+        return CliRuntime(run_llm_lab.LlmRunResult(config.mode, "snap", "brief", ()))
+
+    assert run_llm_lab.main(
+        ["--mode", "paper_autonomous", "--once"],
+        environ={"OPENROUTER_API_KEY": "test-key"}, runtime_factory=factory,
+    ) == 2
+    assert built == []
+    assert "--confirm-paper" in capsys.readouterr().err
+
+    assert run_llm_lab.main(
+        ["--mode", "paper_autonomous", "--once", "--confirm-paper"],
+        environ={"OPENROUTER_API_KEY": "test-key"}, runtime_factory=factory,
+    ) == 0
+    assert built == [LlmMode.PAPER_AUTONOMOUS]
 
 
 def test_cli_loads_optional_yaml_and_applies_explicit_mode_override(tmp_path):

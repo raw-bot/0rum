@@ -10,6 +10,10 @@ def test_default_config_is_off_and_aggressive_paper_cap_is_explicit():
     assert config.paper_max_leverage == 40.0
     assert config.jurisdiction_profile == "fr_retail"
     assert config.model == "deepseek/deepseek-v4-pro"
+    assert config.paper_starting_balance_usd == 10_000
+    assert config.paper_fee_rate == 0.0005
+    assert config.paper_maintenance_margin_rate == 0.005
+    assert config.allow_stop_beyond_liquidation is False
 
 
 @pytest.mark.parametrize(
@@ -21,6 +25,10 @@ def test_default_config_is_off_and_aggressive_paper_cap_is_explicit():
         ({"max_parse_retries": -1}, "max_parse_retries"),
         ({"paper_min_leverage": 5, "paper_max_leverage": 4}, "paper_max_leverage"),
         ({"model": " "}, "model"),
+        ({"paper_starting_balance_usd": 0}, "paper_starting_balance_usd"),
+        ({"paper_fee_rate": -0.1}, "paper_fee_rate"),
+        ({"paper_maintenance_margin_rate": 1}, "paper_maintenance_margin_rate"),
+        ({"allow_stop_beyond_liquidation": "yes"}, "allow_stop_beyond_liquidation"),
         ({"unknown_option": True}, "unknown_option"),
     ],
 )
