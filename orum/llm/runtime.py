@@ -7,8 +7,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from orum.llm.config import LlmMode, LlmTradingConfig
-from orum.llm.contracts import MarketBrief, MarketSnapshot
+from orum.llm.contracts import ContractError, MarketBrief, MarketSnapshot, ProposedDecision
 from orum.llm.journal import JsonlJournal
+from orum.llm.leverage import apply_leverage_policy
 from orum.llm.services import DecisionResult, LlmServiceError
 
 
@@ -131,27 +132,48 @@ class LlmLabRuntime:
         brief: MarketBrief,
         lessons: Sequence[Mapping[str, Any]],
     ) -> LaneRunResult:
-        existing = self._existing_decision_id(snapshot.snapshot_id, lane)
-        if existing is not None:
+        existing = self._existing_decision_record(snapshot.snapshot_id, lane)
+        if existing is not None and self.config.mode is LlmMode.SHADOW:
             return LaneRunResult(
                 lane=lane,
                 status="skipped_duplicate",
-                decision_id=existing,
+                decision_id=self._decision_id(existing),
             )
-        try:
-            result: DecisionResult = trader.decide(
-                snapshot,
-                brief,
-                lane=lane,
-                lessons=lessons,
-            )
-        except LlmServiceError as exc:
-            return LaneRunResult(
-                lane=lane,
-                status="model_error",
-                decision_id=None,
-                error=str(exc),
-            )
+        resumed = existing is not None
+        if resumed:
+            raw_decision = existing.get("decision")
+            if not isinstance(raw_decision, Mapping):
+                raise LlmRuntimeError("valid journaled decision is missing its payload")
+            try:
+                decision = ProposedDecision.from_mapping(raw_decision)
+            except ContractError as exc:
+                raise LlmRuntimeError(f"invalid journaled decision: {exc}") from exc
+            leverage = None
+            if decision.action in {"open_long", "open_short", "add"}:
+                leverage = apply_leverage_policy(
+                    requested=decision.requested_leverage,
+                    paper_min=self.config.paper_min_leverage,
+                    paper_max=self.config.paper_max_leverage,
+                    jurisdiction_profile=self.config.jurisdiction_profile,
+                    asset_class="crypto",
+                    product_kind="perpetual",
+                )
+            result = DecisionResult(decision=decision, leverage=leverage)
+        else:
+            try:
+                result = trader.decide(
+                    snapshot,
+                    brief,
+                    lane=lane,
+                    lessons=lessons,
+                )
+            except LlmServiceError as exc:
+                return LaneRunResult(
+                    lane=lane,
+                    status="model_error",
+                    decision_id=None,
+                    error=str(exc),
+                )
         paper = None
         if self.config.mode is LlmMode.PAPER_AUTONOMOUS:
             candles = snapshot.candles.get(self.config.decision_timeframe)
@@ -169,14 +191,26 @@ class LlmLabRuntime:
             )
         return LaneRunResult(
             lane=lane,
-            status="created",
+            status="resumed_existing" if resumed else "created",
             decision_id=result.decision.decision_id,
             paper_status=None if paper is None else paper.status,
             fill_ids=() if paper is None else paper.fill_ids,
             rejection_reasons=() if paper is None else paper.reasons,
         )
 
-    def _existing_decision_id(self, snapshot_id: str, lane: str) -> str | None:
+    @staticmethod
+    def _decision_id(record: Mapping[str, Any]) -> str | None:
+        decision = record.get("decision")
+        if not isinstance(decision, Mapping):
+            return None
+        decision_id = decision.get("decision_id")
+        if isinstance(decision_id, str) and decision_id.strip():
+            return decision_id.strip()
+        return None
+
+    def _existing_decision_record(
+        self, snapshot_id: str, lane: str
+    ) -> Mapping[str, Any] | None:
         for record in reversed(self.decision_journal.read()):
             if (
                 record.get("kind") != "proposed_decision"
@@ -185,10 +219,6 @@ class LlmLabRuntime:
                 or record.get("lane") != lane
             ):
                 continue
-            decision = record.get("decision")
-            if not isinstance(decision, Mapping):
-                continue
-            decision_id = decision.get("decision_id")
-            if isinstance(decision_id, str) and decision_id.strip():
-                return decision_id.strip()
+            if self._decision_id(record) is not None:
+                return record
         return None

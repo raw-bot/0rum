@@ -93,3 +93,17 @@ def test_validator_rejects_stop_beyond_liquidation_unless_experiment_allows_it()
 
     assert "stop_at_or_beyond_liquidation" in strict.reasons
     assert destructive.accepted is True
+
+
+def test_validator_rejects_limit_order_until_pending_order_book_exists():
+    report = PaperDecisionValidator().validate(
+        decision=_decision(order_type="limit", limit_price=99_000),
+        account=_account(),
+        leverage=_leverage(),
+        market_price=100_000,
+        snapshot_cutoff=NOW,
+        now=NOW,
+    )
+
+    assert report.accepted is False
+    assert report.reasons == ("limit_order_execution_not_installed",)

@@ -266,6 +266,54 @@ def test_duplicate_snapshot_lane_is_skipped_before_trader_call(tmp_path):
     ]
 
 
+def test_autonomous_resumes_valid_journaled_decision_after_pre_execution_crash(tmp_path):
+    paper = PaperExecutor()
+    runtime, _, _, reference, evolving, journal = _runtime(
+        tmp_path, LlmMode.PAPER_AUTONOMOUS, paper_executor=paper
+    )
+    snapshot = _snapshot()
+    entry = _decision("llm_reference", "existing-reference").to_mapping()
+    entry.update(
+        {
+            "action": "open_long",
+            "equity_fraction": 0.1,
+            "requested_leverage": 20,
+            "stop_loss": 97_000,
+            "take_profits": [{"price": 105_000, "fraction": 1}],
+            "time_exit_minutes": 240,
+            "memo_fr": "J'ouvre le long paper déjà journalisé.",
+        }
+    )
+    for lane, decision in (
+        ("llm_reference", entry),
+        ("llm_evolving", _decision("llm_evolving", "existing-evolving").to_mapping()),
+    ):
+        journal.append(
+            {
+                "kind": "proposed_decision",
+                "status": "valid",
+                "snapshot_id": snapshot.snapshot_id,
+                "lane": lane,
+                "decision": decision,
+            }
+        )
+
+    result = runtime.run_once()
+
+    assert reference.calls == []
+    assert evolving.calls == []
+    assert [call["decision"].decision_id for call in paper.calls] == [
+        "existing-reference",
+        "existing-evolving",
+    ]
+    assert paper.calls[0]["leverage"].paper_effective == 20
+    assert paper.calls[0]["leverage"].fr_retail_eligible == 2
+    assert [(lane.status, lane.paper_status) for lane in result.lanes] == [
+        ("resumed_existing", "executed"),
+        ("resumed_existing", "executed"),
+    ]
+
+
 def test_assisted_mode_remains_refused_before_any_dependency_call(tmp_path):
     runtime = LlmLabRuntime(
         config=LlmTradingConfig(mode=LlmMode.PAPER_ASSISTED),

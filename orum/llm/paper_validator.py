@@ -72,6 +72,8 @@ class PaperDecisionValidator:
             reasons.append("snapshot_stale")
         if not math.isfinite(price) or price <= 0:
             reasons.append("invalid_market_price")
+        if decision.order_type == "limit":
+            reasons.append("limit_order_execution_not_installed")
         if decision.action in {"open_long", "open_short"} and position is not None:
             reasons.append("position_must_be_flat_for_open")
         if decision.action in self.POSITION_ACTIONS and position is None:
