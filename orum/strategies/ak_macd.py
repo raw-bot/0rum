@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from orum.external.bracket import compute_bracket
 from orum.external.ak_macd import (
     DEFAULT_STRATEGY_ID,
     AkMacdParams,
@@ -78,6 +79,7 @@ class AkMacdEngine:
             candidate_window_bars=_pos_int(cfg, "candidate_window_bars", defaults.candidate_window_bars),
             regime_filter=_bool(cfg, "regime_filter", defaults.regime_filter),
             require_candle_direction=_bool(cfg, "require_candle_direction", defaults.require_candle_direction),
+            allow_short=_bool(cfg, "allow_short", defaults.allow_short),
         )
         self.warmup_period = self._params.warmup
 
@@ -87,11 +89,30 @@ class AkMacdEngine:
         )
         if verdict.payload is None or verdict.event not in _EVENT_SIDE:
             return None
+        side = _EVENT_SIDE[verdict.event]
+        suggested_stop = None
+        suggested_take_profit = None
+        try:
+            bracket = compute_bracket(
+                entry_price=float(candle["close"]),
+                baseline_at_entry=float(verdict.payload["baseline_at_entry"]),
+                recent_low=verdict.payload.get("recent_low"),
+                recent_high=verdict.payload.get("recent_high"),
+                direction="long" if side == Side.LONG else "short",
+            )
+            suggested_stop = bracket.stop_loss_price
+            suggested_take_profit = bracket.take_profit_price
+        except (KeyError, TypeError, ValueError):
+            # The signal remains observable, but PaperEngine will refuse to
+            # invent structural levels when the strategy cannot supply them.
+            pass
         return Signal(
-            side=_EVENT_SIDE[verdict.event],
+            side=side,
             symbol=context.symbol,
             timeframe=context.timeframe,
             entry_reason=verdict.reason,
+            suggested_stop=suggested_stop,
+            suggested_take_profit=suggested_take_profit,
             strategy_metadata={
                 "verdict_action": verdict.action,
                 "macd": verdict.macd,

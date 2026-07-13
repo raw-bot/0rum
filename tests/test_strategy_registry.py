@@ -4,6 +4,7 @@ from orum.strategies import StrategyEngineError, load_engine, register_engine
 from orum.strategies.ak_macd import AkMacdEngine
 from orum.strategies.base import StrategyContext
 from orum.strategies.native_dsl import NativeDslEngine
+from orum.strategies.utbot_mtf import UtBotMtfEngine
 
 
 class LoadBuiltinEnginesTests(unittest.TestCase):
@@ -22,6 +23,15 @@ class LoadBuiltinEnginesTests(unittest.TestCase):
         goal = {"strategy_engine": {"name": "ak_macd"}}
         engine = load_engine(goal)  # must not raise on a missing params block
         self.assertIsInstance(engine, AkMacdEngine)
+
+    def test_loads_utbot_mtf_by_built_in_name(self):
+        engine = load_engine({"strategy_engine": {"name": "utbot_mtf"}})
+        self.assertIsInstance(engine, UtBotMtfEngine)
+        self.assertEqual(engine.required_timeframes, ["15m", "1h"])
+
+    def test_kama_squeeze_is_not_registry_activatable(self):
+        with self.assertRaises(StrategyEngineError):
+            load_engine({"strategy_engine": {"name": "kama_squeeze"}})
 
 
 class LoadByModulePathTests(unittest.TestCase):

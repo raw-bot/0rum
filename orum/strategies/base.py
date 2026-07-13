@@ -40,6 +40,7 @@ class StrategyContext:
     symbol: str
     timeframe: str
     regime: dict | None = None
+    candles_by_timeframe: dict[str, list[dict]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

@@ -64,12 +64,24 @@ class DashboardStateTests(unittest.TestCase):
                     }
                 )
             )
-            trades = [
-                {"pnl_pct": 0.01, "ts": "t1", "asset": "BTC/USDT", "entry_price": 100.0, "exit_price": 101.0},
-                {"pnl_pct": -0.02, "ts": "t2", "asset": "BTC/USDT", "entry_price": 101.0, "exit_price": 98.98},
-                {"pnl_pct": 0.005, "ts": "t3", "asset": "BTC/USDT", "entry_price": 98.98, "exit_price": 99.47},
+            # Source of truth for stats moved from the retired mono-asset worker's
+            # trades.jsonl to the unified paper ledger (paper_fills.jsonl, "close"
+            # actions). trades.jsonl is seeded with junk on purpose to prove the
+            # dashboard now IGNORES it.
+            (state / "trades.jsonl").write_text(
+                "\n".join(json.dumps({"pnl_pct": 9.9, "ts": f"junk{i}"}) for i in range(5)) + "\n"
+            )
+            paper_fills = [
+                {"action": "open", "ts": "t0", "strategy_id": "eth_donchian", "symbol": "ETH/USDT",
+                 "side": "long", "price": 2000.0, "qty": 1.0},  # opens are not closed trades -> ignored
+                {"action": "close", "ts": "t1", "strategy_id": "eth_donchian", "symbol": "ETH/USDT",
+                 "side": "long", "entry_px": 2000.0, "price": 2100.0, "qty": 1.0, "realized_pnl_usd": 100.0, "r": 1.0},
+                {"action": "close", "ts": "t2", "strategy_id": "btc_ak_macd_4h", "symbol": "BTC/USDT",
+                 "side": "long", "entry_px": 60000.0, "price": 58000.0, "qty": 0.1, "realized_pnl_usd": -200.0, "r": -1.0},
+                {"action": "close", "ts": "t3", "strategy_id": "eth_donchian", "symbol": "ETH/USDT",
+                 "side": "long", "entry_px": 2050.0, "price": 2075.0, "qty": 2.0, "realized_pnl_usd": 50.0, "r": 0.5},
             ]
-            (state / "trades.jsonl").write_text("\n".join(json.dumps(trade) for trade in trades) + "\n")
+            (state / "paper_fills.jsonl").write_text("\n".join(json.dumps(f) for f in paper_fills) + "\n")
             (state / "hypotheses.jsonl").write_text(
                 json.dumps({"changed": False, "score": 0.12, "reason": "hold", "ts": "h1"}) + "\n"
             )
@@ -113,13 +125,15 @@ class DashboardStateTests(unittest.TestCase):
         self.assertEqual(len(snapshot["equity_curve"]), 3)
         self.assertIn("equity", snapshot["equity_curve"][0])
         self.assertAlmostEqual(snapshot["portfolio"]["starting_balance_usd"], 10000)
-        self.assertAlmostEqual(snapshot["portfolio"]["balance_usd"], 9947.49, places=2)
-        self.assertAlmostEqual(snapshot["portfolio"]["pnl_usd"], -52.51, places=2)
+        # From the 3 paper close fills (+100, -200, +50), not the junk trades.jsonl.
+        self.assertAlmostEqual(snapshot["portfolio"]["balance_usd"], 9950.0, places=2)
+        self.assertAlmostEqual(snapshot["portfolio"]["pnl_usd"], -50.0, places=2)
         self.assertIn(snapshot["guardrail"]["status"], {"normal", "caution", "review", "kill"})
 
-    def test_snapshot_flags_stale_worker_heartbeat(self):
-        # Reuses nothing from the big fixture: a heartbeat from 2026-06-01
-        # is far older than the 180s freshness budget.
+    def test_snapshot_flags_stale_paper_engine(self):
+        # The worker card now reflects the paper engine's freshness
+        # (paper_equity.jsonl), not the retired mono-asset heartbeat. A cycle
+        # from 2026-06-01 is far past the 2h budget -> presumed down.
         import tempfile
         from unittest.mock import patch as _patch
 
@@ -127,9 +141,47 @@ class DashboardStateTests(unittest.TestCase):
             state = Path(tmp)
             (state / "goal.yaml").write_text("asset: BTC/USDT\n")
             (state / "strategy.yaml").write_text("version: '01'\n")
-            (state / "heartbeat.json").write_text(json.dumps({"ts": "2026-06-01T07:25:09Z"}))
+            (state / "paper_equity.jsonl").write_text(
+                json.dumps({"ts": "2026-06-01T07:25:09+00:00", "equity_usd": 10000.0}) + "\n"
+            )
             with _patch.object(dashboard, "STATE_DIR", state):
                 snapshot = dashboard.build_snapshot()
 
         self.assertTrue(snapshot["worker"]["stale"])
-        self.assertGreater(snapshot["worker"]["heartbeat_age_seconds"], 180)
+        self.assertFalse(snapshot["worker"]["running"])
+        self.assertGreater(snapshot["worker"]["heartbeat_age_seconds"], 7200)
+
+    def test_unified_position_exit_metadata_and_legacy_history_stay_separate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp)
+            (state / "goal.yaml").write_text("asset: BTC/USDT\nstarting_balance_usd: 10000\n")
+            (state / "strategy.yaml").write_text("version: '01'\n")
+            (state / "paper_positions.json").write_text(json.dumps({
+                "balance_usd": 9995.0,
+                "positions": {"btc_ak_macd_4h": {
+                    "strategy_id": "btc_ak_macd_4h", "symbol": "BTC/USDT", "side": "long",
+                    "qty": .1, "entry_px": 60_000, "notional_usd": 6_000, "risk_pct": .02,
+                    "opened_ts": "2026-07-13T06:00:00+00:00", "entry_reason": "AK",
+                    "exit_policy": "structural_bracket", "monitor_timeframe": "15m",
+                    "stop_loss_price": 59_000, "take_profit_price": 61_500,
+                    "sl_basis": "baseline", "reward_risk_ratio": 1.5,
+                }},
+            }))
+            (state / "trades.jsonl").write_text(json.dumps({
+                "ts": datetime.now(UTC).isoformat(), "asset": "BTC/USDT",
+                "direction": "long", "entry_price": 60_000, "exit_price": 60_100,
+                "net_pnl_usd": 10.0, "exit_reason": "dsl_exit",
+            }) + "\n")
+            with patch.object(dashboard, "STATE_DIR", state), \
+                 patch.object(dashboard, "worker_running", return_value=True):
+                snapshot = dashboard.build_snapshot()
+
+        position = snapshot["paper"]["open_positions"][0]
+        self.assertEqual(position["stop_loss_price"], 59_000)
+        self.assertEqual(position["take_profit_price"], 61_500)
+        self.assertEqual(position["exit_policy"], "structural_bracket")
+        self.assertEqual(snapshot["trade_count"], 0)
+        self.assertEqual(snapshot["legacy_audit"]["trade_count_7d"], 1)
+        self.assertEqual(snapshot["legacy_audit"]["net_pnl_usd_7d"], 10.0)
+        self.assertFalse(snapshot["legacy_audit"]["authoritative"])
+        self.assertTrue(snapshot["legacy_audit"]["process_running"])

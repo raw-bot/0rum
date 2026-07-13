@@ -20,3 +20,17 @@ HEARTBEAT_PATH = STATE_DIR / "heartbeat.json"
 EVENTS_PATH = STATE_DIR / "events.jsonl"
 WATCHER_HEARTBEAT_PATH = STATE_DIR / "orum_watcher.json"
 HISTORY_DIR = STATE_DIR / "history"
+
+# COT gate cache: written by the separate updater (scripts/update_cot_gate.py),
+# read ONLY by the gold_cot strategy. COT is a weekly, gold-specific dependency;
+# keeping it in a cache file (never fetched inside on_candle) is what isolates it
+# from the BTC/ETH strategies and from the per-loop hot path.
+COT_GATE_PATH = STATE_DIR / "cot_gate.json"
+
+# Unified paper portfolio ledger (single account for every strategy).
+PAPER_FILLS_PATH = STATE_DIR / "paper_fills.jsonl"
+PAPER_POSITIONS_PATH = STATE_DIR / "paper_positions.json"
+PAPER_EQUITY_PATH = STATE_DIR / "paper_equity.jsonl"
+FORECAST_GATE_PATH = STATE_DIR / "forecast_gate.json"
+FORECAST_AUDIT_PATH = STATE_DIR / "forecast_audit.jsonl"
+FORECAST_HISTORY_PATH = STATE_DIR / "forecast_history.jsonl"
