@@ -1,3 +1,5 @@
+import json
+
 from orum.llm.comparison import compare_lanes
 
 
@@ -35,4 +37,6 @@ def test_comparison_handles_ruin_and_missing_lane_without_fabrication():
 
     assert result["coverage_status"] == "no_common_window"
     assert result["llm_reference"]["ruin_rate"] == 1
+    assert result["llm_reference"]["log_growth"] is None
     assert result["llm_evolving"]["decision_count"] == 0
+    json.dumps(result, allow_nan=False)

@@ -31,7 +31,7 @@ def _metrics(rows: list[Mapping[str, object]]) -> dict[str, object]:
         "compounded_return": compounded,
         "max_drawdown": max_drawdown,
         "calmar": None if max_drawdown == 0 else compounded / max_drawdown,
-        "log_growth": float("-inf") if equity == 0 else math.log(equity),
+        "log_growth": None if equity == 0 else math.log(equity),
         "liquidation_rate": 0 if count == 0 else liquidations / count,
         "ruin_rate": 1 if equity == 0 else 0,
         "mean_calibration_error": (

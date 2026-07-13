@@ -10,11 +10,12 @@ import subprocess
 import sys
 import threading
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from statistics import mean
 import urllib.request
+from collections.abc import Mapping
 from urllib.parse import urlparse
 
 import yaml
@@ -22,6 +23,7 @@ import yaml
 from orum.accounting import account_returns, compound_balance
 from orum.adapters.price import _binance_symbol
 from orum.dsl.migrate import risk_value
+from orum.llm.comparison import compare_lanes
 from orum.paths import STATE_DIR
 from orum.portfolio.forecast_history import (
     compose_forecast_history,
@@ -54,6 +56,278 @@ def _read_jsonl(path: Path) -> list[dict]:
     if not path.exists():
         return []
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+
+
+def _read_jsonl_tail(path: Path, *, limit: int, max_bytes: int = 1_048_576) -> list[dict]:
+    """Read a bounded valid tail without letting a torn LLM append break the UI."""
+    if limit <= 0 or not path.exists():
+        return []
+    try:
+        with path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - max_bytes))
+            chunk = handle.read(max_bytes)
+    except OSError:
+        return []
+    lines = chunk.decode("utf-8", errors="replace").splitlines()
+    if size > max_bytes and lines:
+        lines = lines[1:]
+    records: list[dict] = []
+    for line in reversed(lines):
+        if not line.strip():
+            continue
+        try:
+            value = json.loads(line)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            continue
+        if isinstance(value, dict):
+            records.append(value)
+        if len(records) >= limit:
+            break
+    records.reverse()
+    return records
+
+
+def _safe_llm_json(path: Path) -> dict:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _llm_account_state(path: Path, lane: str) -> dict:
+    def empty(status: str) -> dict:
+        return {
+            "lane": lane,
+            "status": status,
+            "balance_usd": None,
+            "equity_usd": None,
+            "positions": [],
+            "processed_decision_count": 0,
+        }
+
+    raw = _safe_llm_json(path)
+    if not raw:
+        return empty("absent")
+    positions = raw.get("positions") if isinstance(raw.get("positions"), Mapping) else {}
+    visible_positions: list[dict] = []
+    unrealized = 0.0
+    for symbol, item in list(positions.items())[:10]:
+        if not isinstance(item, Mapping):
+            continue
+        side = str(item.get("side") or "")
+        try:
+            qty = float(item.get("qty") or 0)
+            entry = float(item.get("entry_px") or 0)
+            mark = float(item.get("mark_px") or entry)
+        except (TypeError, ValueError, OverflowError):
+            return empty("invalid")
+        unrealized += (1 if side == "long" else -1) * qty * (mark - entry)
+        visible_positions.append({
+            "position_id": item.get("position_id"),
+            "decision_id": item.get("decision_id"),
+            "symbol": item.get("symbol") or symbol,
+            "side": side,
+            "qty": qty,
+            "entry_px": entry,
+            "mark_px": mark,
+            "requested_leverage": item.get("requested_leverage"),
+            "effective_leverage": item.get("effective_leverage"),
+            "liquidation_px": item.get("liquidation_px"),
+            "stop_loss": item.get("stop_loss"),
+            "take_profits": list(item.get("take_profits") or [])[:5],
+            "time_exit_at": item.get("time_exit_at"),
+            "thesis": item.get("thesis"),
+            "invalidation": item.get("invalidation"),
+        })
+    try:
+        balance = float(raw.get("balance_usd") or 0)
+    except (TypeError, ValueError, OverflowError):
+        return empty("invalid")
+    return {
+        "lane": lane,
+        "status": "active",
+        "starting_balance_usd": raw.get("starting_balance_usd"),
+        "balance_usd": balance,
+        "equity_usd": balance + unrealized,
+        "positions": visible_positions,
+        "processed_decision_count": len(raw.get("processed_decision_ids") or []),
+    }
+
+
+def _llm_timeline_item(record: Mapping[str, object]) -> dict:
+    kind = str(record.get("kind") or "unknown")
+    decision = record.get("decision") if isinstance(record.get("decision"), Mapping) else {}
+    validation = record.get("validation") if isinstance(record.get("validation"), Mapping) else {}
+    return {
+        "kind": kind,
+        "recorded_at": record.get("recorded_at") or record.get("created_at"),
+        "status": record.get("status") or (
+            "accepted" if validation.get("accepted") is True
+            else "rejected" if validation.get("accepted") is False else None
+        ),
+        "lane": record.get("lane") or decision.get("lane"),
+        "model": record.get("model"),
+        "snapshot_id": record.get("snapshot_id"),
+        "snapshot_hash": record.get("snapshot_hash"),
+        "brief_id": record.get("brief_id"),
+        "decision_id": record.get("decision_id") or decision.get("decision_id"),
+        "fill_id": record.get("fill_id"),
+        "fill_ids": list(record.get("fill_ids") or []),
+        "action": decision.get("action") or record.get("action"),
+        "side": decision.get("side") or record.get("side"),
+        "order_type": decision.get("order_type"),
+        "equity_fraction": decision.get("equity_fraction"),
+        "requested_leverage": decision.get("requested_leverage") or record.get("requested_leverage"),
+        "paper_effective_leverage": record.get("paper_effective_leverage") or validation.get("paper_effective_leverage"),
+        "fr_retail_eligible_leverage": record.get("fr_retail_eligible_leverage") or validation.get("fr_retail_eligible_leverage"),
+        "experimental_only": record.get("experimental_only"),
+        "confidence": decision.get("confidence"),
+        "memo_fr": decision.get("memo_fr"),
+        "thesis": decision.get("thesis"),
+        "counter_thesis": decision.get("counter_thesis"),
+        "risk_rationale": decision.get("risk_rationale"),
+        "invalidation": decision.get("invalidation"),
+        "stop_loss": decision.get("stop_loss"),
+        "take_profits": list(decision.get("take_profits") or [])[:5],
+        "reasons": list(validation.get("reasons") or record.get("reasons") or []),
+        "error": record.get("error"),
+    }
+
+
+def _llm_lab_state(state_dir: Path, *, now: datetime | None = None) -> dict:
+    now_utc = (now or datetime.now(UTC)).astimezone(UTC)
+    brief_records = _read_jsonl_tail(state_dir / "llm_market_briefs.jsonl", limit=10)
+    decision_records = _read_jsonl_tail(state_dir / "llm_decisions.jsonl", limit=60)
+    fill_records = _read_jsonl_tail(state_dir / "llm_paper_fills.jsonl", limit=30)
+    outcome_records = _read_jsonl_tail(state_dir / "llm_outcomes.jsonl", limit=40)
+    postmortem_records = _read_jsonl_tail(state_dir / "llm_postmortems.jsonl", limit=20)
+    lesson_records = _read_jsonl_tail(state_dir / "llm_lessons.jsonl", limit=100)
+
+    valid_briefs = [
+        item for item in brief_records
+        if item.get("status") == "valid" and isinstance(item.get("brief"), Mapping)
+    ]
+    latest_brief = valid_briefs[-1] if valid_briefs else {}
+    brief = latest_brief.get("brief") if isinstance(latest_brief.get("brief"), Mapping) else {}
+    opinion = {} if not brief else {
+        "recorded_at": latest_brief.get("recorded_at"),
+        "model": latest_brief.get("model"),
+        "snapshot_id": latest_brief.get("snapshot_id"),
+        "snapshot_hash": latest_brief.get("snapshot_hash"),
+        "brief_id": brief.get("brief_id"),
+        "bias": brief.get("bias"),
+        "regime": brief.get("regime"),
+        "confidence": brief.get("confidence"),
+        "memo_fr": brief.get("memo_fr"),
+        "interpretation": brief.get("interpretation"),
+        "invalidation": brief.get("invalidation"),
+        "evidence_freshness": brief.get("evidence_freshness"),
+    }
+
+    timeline = [_llm_timeline_item(item) for item in reversed(decision_records)]
+    timeline.extend(
+        _llm_timeline_item({**item, "kind": "paper_fill"})
+        for item in reversed(fill_records)
+    )
+    timeline.sort(key=lambda item: str(item.get("recorded_at") or ""), reverse=True)
+    timeline = timeline[:30]
+
+    outcome_keys = {
+        "lane", "decision_id", "exit_candle_ts", "net_return_on_margin",
+        "exit_reason", "calibration_squared_error",
+    }
+    outcomes = [
+        dict(item["outcome"])
+        for item in outcome_records
+        if isinstance(item.get("outcome"), Mapping)
+        and outcome_keys.issubset(item["outcome"])
+    ][-20:][::-1]
+    postmortems = [
+        dict(item["postmortem"])
+        for item in postmortem_records
+        if item.get("status") == "valid" and isinstance(item.get("postmortem"), Mapping)
+    ][-10:][::-1]
+    latest_lessons: dict[str, dict] = {}
+    for item in lesson_records:
+        lesson = item.get("lesson")
+        if isinstance(lesson, Mapping) and isinstance(lesson.get("lesson_id"), str):
+            latest_lessons[str(lesson["lesson_id"])] = dict(lesson)
+    lessons = sorted(
+        latest_lessons.values(),
+        key=lambda item: str(item.get("updated_at") or item.get("created_at") or ""),
+        reverse=True,
+    )[:20]
+    comparison = compare_lanes(outcomes)
+    accounts = {
+        "llm_reference": _llm_account_state(
+            state_dir / "llm_reference_account.json", "llm_reference"
+        ),
+        "llm_evolving": _llm_account_state(
+            state_dir / "llm_evolving_account.json", "llm_evolving"
+        ),
+    }
+
+    alerts: list[dict] = []
+    if len(valid_briefs) >= 2:
+        previous = valid_briefs[-2]
+        previous_brief = previous.get("brief") if isinstance(previous.get("brief"), Mapping) else {}
+        if previous_brief.get("bias") != brief.get("bias"):
+            alerts.append({"kind": "bias_flip", "level": "warning", "message": "Le biais LLM a changé."})
+        if previous.get("model") != latest_brief.get("model"):
+            alerts.append({"kind": "model_change", "level": "warning", "message": "Le modèle observé a changé."})
+    if opinion:
+        try:
+            recorded = datetime.fromisoformat(str(opinion["recorded_at"]).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            recorded = None
+        if recorded is None or now_utc - recorded.astimezone(UTC) > timedelta(hours=2):
+            alerts.append({"kind": "stale_evidence", "level": "warning", "message": "L'opinion LLM date de plus de deux heures."})
+    for item in timeline:
+        if item.get("status") == "model_error" or item.get("error"):
+            alerts.append({"kind": "model_error", "level": "error", "message": str(item.get("error") or "Erreur modèle")[:300]})
+            break
+    rejected = next((item for item in timeline if item.get("status") == "rejected"), None)
+    if rejected:
+        alerts.append({"kind": "rejection", "level": "warning", "message": "Décision paper rejetée : " + ", ".join(map(str, rejected.get("reasons") or []))})
+        if any("contradiction" in str(reason) for reason in rejected.get("reasons") or []):
+            alerts.append({"kind": "contradiction", "level": "warning", "message": "Contradiction entre texte et action structurée."})
+    leverage_spike = next((
+        item for item in timeline
+        if item.get("paper_effective_leverage") is not None
+        and item.get("fr_retail_eligible_leverage") is not None
+        and float(item["paper_effective_leverage"]) > float(item["fr_retail_eligible_leverage"])
+    ), None)
+    if leverage_spike:
+        alerts.append({"kind": "leverage_spike", "level": "info", "message": "Levier paper supérieur au repère FR retail ; expérimental uniquement."})
+    ref_return = comparison["llm_reference"]["compounded_return"]
+    evo_return = comparison["llm_evolving"]["compounded_return"]
+    if comparison["coverage_status"] == "common_window" and abs(float(ref_return) - float(evo_return)) >= 0.1:
+        alerts.append({"kind": "lane_divergence", "level": "info", "message": "Les lanes référence et évolutive divergent sur la fenêtre commune."})
+
+    if fill_records or any(item.get("kind") in {"paper_validation", "paper_execution", "paper_monitor"} for item in decision_records):
+        mode = "paper_autonomous"
+    elif decision_records:
+        mode = "shadow"
+    elif brief_records:
+        mode = "observer"
+    else:
+        mode = "off"
+    available = bool(brief_records or decision_records or fill_records or outcome_records or postmortem_records or lesson_records or any(value["status"] != "absent" for value in accounts.values()))
+    return {
+        "available": available,
+        "last_observed_mode": mode,
+        "opinion": opinion,
+        "timeline": timeline,
+        "accounts": accounts,
+        "outcomes": outcomes,
+        "postmortems": postmortems,
+        "lessons": lessons,
+        "comparison": comparison,
+        "alerts": alerts[:12],
+    }
 
 
 def _compound_return(trades: list[dict], goal: dict) -> float:
@@ -1202,6 +1476,7 @@ def build_snapshot() -> dict:
         "asset": goal.get("asset", "BTC/USDT"),
         "mode": "paper",
         "paper": paper,
+        "llm_lab": _llm_lab_state(STATE_DIR),
         "legacy_audit": _legacy_audit(),
         "signal_source": str(goal.get("signal_source", "native")),
         "external": _external_feed(events, goal),
