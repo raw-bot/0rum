@@ -155,6 +155,27 @@ def _read_paper_account(
     }
 
 
+def _safe_derivatives_payload(value: object) -> dict[str, object]:
+    """Normalize optional derivatives evidence or degrade it explicitly."""
+
+    raw = value if isinstance(value, Mapping) else None
+    if raw is None:
+        to_mapping = getattr(value, "to_mapping", None)
+        if callable(to_mapping):
+            raw = to_mapping()
+    try:
+        if not isinstance(raw, Mapping):
+            raise TypeError("derivatives payload is not a mapping")
+        return json.loads(
+            json.dumps(raw, allow_nan=False, ensure_ascii=False, sort_keys=True)
+        )
+    except (TypeError, ValueError):
+        return {
+            "status": "unavailable",
+            "error": "invalid_derivatives_snapshot",
+        }
+
+
 def _snapshot_factory(
     config: LlmTradingConfig,
     *,
@@ -184,6 +205,7 @@ def _snapshot_factory(
                 "status": "unavailable",
                 "error": f"{type(exc).__name__}: {exc}",
             }
+        derivative_snapshot = _safe_derivatives_payload(derivative_snapshot)
         try:
             evidence = news.fetch(cutoff=cutoff, lookback_hours=12, limit=30)
         except Exception as exc:  # noqa: BLE001 - optional evidence degrades visibly
@@ -333,10 +355,10 @@ def _refresh_paper_accounts(snapshot):
         cutoff=snapshot.cutoff,
         symbol=snapshot.symbol,
         candles=snapshot.candles,
-        indicators=snapshot.indicators,
-        derivatives=snapshot.derivatives,
-        macro=snapshot.macro,
-        onchain=snapshot.onchain,
+        indicators=dict(snapshot.indicators),
+        derivatives=dict(snapshot.derivatives),
+        macro=dict(snapshot.macro),
+        onchain=dict(snapshot.onchain),
         evidence=snapshot.evidence,
         paper_account=_read_paper_account(),
     )

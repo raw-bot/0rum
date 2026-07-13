@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+import jsonschema
 import pytest
 
 from orum.llm.journal import JsonlJournal
@@ -7,6 +8,7 @@ from orum.llm.openrouter import CompletionResult
 from orum.llm.services import LlmServiceError, MarketAnalyst, ShadowTrader
 from orum.llm.snapshot import MarketSnapshotBuilder
 from orum.llm.contracts import Evidence
+from orum.llm.prompts import PROPOSED_DECISION_SCHEMA, TRADER_PROMPT_VERSION
 
 
 NOW = "2026-07-13T12:00:00+00:00"
@@ -26,6 +28,21 @@ class FakeCompletionClient:
             usage={"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
             request_id="gen-1",
         )
+
+
+def test_trader_schema_requires_trailing_stop_as_decimal_fraction():
+    jsonschema.validate(
+        instance=_decision(trailing_stop_pct=0.015),
+        schema=PROPOSED_DECISION_SCHEMA,
+    )
+
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(
+            instance=_decision(trailing_stop_pct=1.5),
+            schema=PROPOSED_DECISION_SCHEMA,
+        )
+
+    assert TRADER_PROMPT_VERSION == "shadow-trader-fr-v2"
 
 
 def _evidence():

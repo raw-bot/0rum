@@ -15,6 +15,32 @@ from scripts import run_llm_lab
 NOW = datetime(2026, 7, 13, 12, 0, tzinfo=UTC)
 
 
+def test_non_json_derivatives_degrade_to_explicit_unavailable_status():
+    class InvalidDerivatives:
+        @staticmethod
+        def to_mapping():
+            return {"funding_rate": float("nan")}
+
+    assert run_llm_lab._safe_derivatives_payload(InvalidDerivatives()) == {
+        "status": "unavailable",
+        "error": "invalid_derivatives_snapshot",
+    }
+
+
+def test_refresh_paper_accounts_rebuilds_from_immutable_snapshot_mappings(monkeypatch):
+    original = _snapshot()
+    monkeypatch.setattr(
+        run_llm_lab,
+        "_read_paper_account",
+        lambda: {"status": "available", "native": {"balance_usd": 10_000}},
+    )
+
+    refreshed = run_llm_lab._refresh_paper_accounts(original)
+
+    assert dict(refreshed.derivatives) == dict(original.derivatives)
+    assert refreshed.paper_account["status"] == "available"
+
+
 def _snapshot():
     return MarketSnapshotBuilder(clock=lambda: NOW).build(
         cutoff=NOW,

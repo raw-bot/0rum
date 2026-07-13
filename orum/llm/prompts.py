@@ -10,7 +10,7 @@ from orum.llm.contracts import MarketBrief, MarketSnapshot
 
 
 ANALYST_PROMPT_VERSION = "market-analyst-fr-v1"
-TRADER_PROMPT_VERSION = "shadow-trader-fr-v1"
+TRADER_PROMPT_VERSION = "shadow-trader-fr-v2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,7 +101,12 @@ PROPOSED_DECISION_SCHEMA: dict[str, Any] = {
                 "additionalProperties": False,
             },
         },
-        "trailing_stop_pct": _NULLABLE_NUMBER,
+        "trailing_stop_pct": {
+            "type": ["number", "null"],
+            "exclusiveMinimum": 0,
+            "exclusiveMaximum": 1,
+            "description": "Fraction décimale: 1,5 % doit être envoyé comme 0.015.",
+        },
         "time_exit_minutes": {"type": ["integer", "null"], "minimum": 1},
         "confidence": {"type": "number", "minimum": 0, "maximum": 1},
         "thesis": {"type": "string", "minLength": 1},
@@ -171,6 +176,7 @@ def build_trader_prompt(
     system = f"""Tu es le trader d'un laboratoire PAPER expérimental; aucun argent réel n'est engagé.
 Réponds par une décision structurée et un memo_fr clair, pas par un raisonnement caché.
 Tu contrôles action/direction, fraction d'equity, levier demandé, ordre, SL, TP, trailing stop et sortie temporelle.
+trailing_stop_pct est une fraction décimale strictement entre 0 et 1: écris 0.015 pour 1,5 %, jamais 1.5.
 Le levier PAPER demandé peut aller de {paper_min_leverage:g}x à {paper_max_leverage:g}x pour une nouvelle exposition.
 Ne déduis jamais le levier mécaniquement de la confiance: justifie-le par volatilité, distance au stop,
 distance de liquidation et exposition du portefeuille. Une perte ou une liquidation est un résultat expérimental valide.
