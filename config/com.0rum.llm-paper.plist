@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.0rum.llm-paper</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>cd "/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading" &amp;&amp; uv run python scripts/run_llm_paper_agent.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/cube/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>/Users/cube</string>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+        <key>LLM_PAPER_ENABLED</key>
+        <string>1</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartInterval</key>
+    <integer>3600</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/state/llm_agent.out</string>
+    <key>StandardErrorPath</key>
+    <string>/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/state/llm_agent.err</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>
