@@ -132,6 +132,18 @@ class PostMortemService:
         self.journal.append(self._record("valid", decision, outcome, completion, result.to_mapping(), None))
         return result
 
+    def existing(self, *, decision_id: str, outcome_id: str) -> PostMortem | None:
+        for record in reversed(self.journal.read()):
+            payload = record.get("postmortem")
+            if (
+                record.get("status") == "valid"
+                and record.get("decision_id") == decision_id
+                and record.get("outcome_id") == outcome_id
+                and isinstance(payload, Mapping)
+            ):
+                return PostMortem.from_mapping(payload)
+        return None
+
     def _record(self, status, decision, outcome, completion, payload, error):
         return {
             "schema_version": 1, "kind": "llm_postmortem", "status": status,

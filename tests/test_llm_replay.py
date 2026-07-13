@@ -71,3 +71,23 @@ def test_llm_execution_surface_contains_no_private_exchange_order_method():
     combined = "\n".join(path.read_text(encoding="utf-8") for path in sources)
 
     assert not any(token in combined for token in forbidden)
+
+
+def test_replay_rejects_unsorted_or_duplicate_candles():
+    fixture = replay_llm_lab.default_fixture()
+    fixture["candles"] = list(reversed(fixture["candles"]))
+    try:
+        replay_llm_lab.run_replay(fixture)
+    except ValueError as exc:
+        assert "chronological" in str(exc)
+    else:
+        raise AssertionError("unsorted candles must be rejected")
+
+    fixture = replay_llm_lab.default_fixture()
+    fixture["candles"][1]["ts"] = fixture["candles"][0]["ts"]
+    try:
+        replay_llm_lab.run_replay(fixture)
+    except ValueError as exc:
+        assert "chronological" in str(exc)
+    else:
+        raise AssertionError("duplicate candles must be rejected")

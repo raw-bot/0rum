@@ -41,10 +41,6 @@ class LearningProcessor:
     def process(self, *, fill: LlmPaperFill, snapshot: MarketSnapshot) -> LearningResult:
         if fill.action not in self.FINAL_ACTIONS:
             return LearningResult(fill.decision_id, "not_final")
-        for record in self.outcomes.read():
-            outcome = record.get("outcome")
-            if isinstance(outcome, Mapping) and outcome.get("decision_id") == fill.decision_id:
-                return LearningResult(fill.decision_id, "already_learned", outcome.get("outcome_id"))
         fill_rows = self.fills.read()
         related = [row for row in fill_rows if row.get("position_id") == fill.position_id]
         entries = [row for row in related if row.get("action") in {"open", "add"}]
@@ -57,50 +53,70 @@ class LearningProcessor:
             return LearningResult(fill.decision_id, "position_still_open")
         opening = entries[0]
         original_decision_id = str(opening["decision_id"])
+        existing_outcome = None
         for record in self.outcomes.read():
             outcome = record.get("outcome")
             if isinstance(outcome, Mapping) and outcome.get("decision_id") == original_decision_id:
-                return LearningResult(original_decision_id, "already_learned", outcome.get("outcome_id"))
+                existing_outcome = outcome
+        existing_lesson = self.lessons.for_decision(original_decision_id)
+        if existing_outcome is not None and existing_lesson is not None:
+            return LearningResult(
+                original_decision_id,
+                "already_learned",
+                str(existing_outcome.get("outcome_id")),
+                existing_lesson.lesson_id,
+            )
 
         decision_record = self._decision_record(original_decision_id)
         if decision_record is None:
             return LearningResult(original_decision_id, "missing_decision")
         decision = decision_record["decision"]
-        validation = self._validation_record(original_decision_id)
-        leverage = float(decision_record.get("paper_effective_leverage") or decision.get("requested_leverage") or 1)
-        liquidation = (
-            None if validation is None else validation.get("estimated_liquidation_price")
-        )
         entry_price = float(opening["price"])
-        if liquidation is None:
-            liquidation = entry_price * (1 - 1 / leverage + 0.005) if fill.side == "long" else entry_price * (1 + 1 / leverage - 0.005)
         candles = [
             row for row in snapshot.candles.get(self.decision_timeframe, [])
-            if int(opening["candle_ts"]) <= int(row["ts"]) <= fill.candle_ts
+            if int(opening["candle_ts"]) < int(row["ts"]) <= fill.candle_ts
         ]
-        if not candles:
+        if existing_outcome is None and not candles:
             return LearningResult(original_decision_id, "missing_candles")
-        targets = decision.get("take_profits") or []
-        outcome = self.evaluator.evaluate(
-            decision_id=original_decision_id, lane=fill.lane, symbol=fill.symbol,
-            side=fill.side, entry_price=entry_price, leverage=leverage,
-            equity_fraction=float(decision.get("equity_fraction", 1)),
-            confidence=float(decision.get("confidence", 0.5)),
-            stop_loss=decision.get("stop_loss"),
-            take_profit=None if not targets else float(targets[0]["price"]),
-            liquidation_price=float(liquidation), candles=candles,
-            evaluated_at=self._clock().astimezone(UTC),
+        if existing_outcome is None:
+            outcome = self.evaluator.evaluate_fills(
+                decision_id=original_decision_id, lane=fill.lane, symbol=fill.symbol,
+                side=fill.side,
+                equity_fraction=float(decision.get("equity_fraction", 1)),
+                confidence=float(decision.get("confidence", 0.5)),
+                fills=related, candles=candles,
+                evaluated_at=self._clock().astimezone(UTC),
+            )
+            outcome_mapping = outcome.to_mapping()
+            self.outcomes.append({
+                "schema_version": 1, "kind": "decision_outcome",
+                "recorded_at": self._clock().astimezone(UTC).isoformat(),
+                "outcome": outcome_mapping,
+            })
+        else:
+            outcome_mapping = existing_outcome
+        existing_postmortem = getattr(self.postmortem, "existing", lambda **kwargs: None)(
+            decision_id=original_decision_id,
+            outcome_id=str(outcome_mapping["outcome_id"]),
         )
-        self.outcomes.append({
-            "schema_version": 1, "kind": "decision_outcome",
-            "recorded_at": self._clock().astimezone(UTC).isoformat(),
-            "outcome": outcome.to_mapping(),
-        })
-        postmortem = self.postmortem.review(
-            decision=decision, outcome=outcome.to_mapping()
+        postmortem = existing_postmortem or self.postmortem.review(
+            decision=decision, outcome=outcome_mapping
         )
+        if fill.lane != "llm_evolving":
+            return LearningResult(
+                original_decision_id,
+                "evaluated_reference",
+                str(outcome_mapping["outcome_id"]),
+            )
         brief = self._brief(decision_record.get("brief_id"))
-        case = self._case(snapshot, decision, brief, fill.side, entry_price)
+        case = self._case(
+            snapshot,
+            decision,
+            brief,
+            fill.side,
+            entry_price,
+            self.decision_timeframe,
+        )
         lesson = self.lessons.record(LessonCandidate(
             error_category=postmortem.primary_error, conditions=case,
             adjustment=postmortem.lesson_adjustment_fr,
@@ -109,7 +125,12 @@ class LearningProcessor:
             created_at=self._clock().astimezone(UTC),
             expires_at=self._clock().astimezone(UTC) + timedelta(days=90),
         ))
-        return LearningResult(original_decision_id, "learned", outcome.outcome_id, lesson.lesson_id)
+        return LearningResult(
+            original_decision_id,
+            "learned",
+            str(outcome_mapping["outcome_id"]),
+            lesson.lesson_id,
+        )
 
     def _decision_record(self, decision_id: str):
         for record in reversed(self.decisions.read()):
@@ -133,18 +154,15 @@ class LearningProcessor:
         return {}
 
     @staticmethod
-    def _case(snapshot, decision, brief, side, entry_price):
-        indicators = snapshot.indicators.get("15m", {})
-        atr = indicators.get("atr_14") if isinstance(indicators, Mapping) else None
-        volatility = "unknown" if atr is None else ("high" if float(atr) / entry_price >= 0.02 else "normal")
-        derivatives = snapshot.derivatives or {}
-        funding = derivatives.get("funding_rate")
-        funding_sign = "unknown" if funding is None else ("positive" if float(funding) >= 0 else "negative")
+    def _case(snapshot, decision, brief, side, entry_price, decision_timeframe):
+        fraction = float(decision.get("equity_fraction", 0) or 0)
+        exposure = "high" if fraction >= 0.5 else "medium" if fraction >= 0.2 else "low"
         return MarketCase(
-            symbol=snapshot.symbol, regime=str(brief.get("regime", "unknown")),
-            volatility_bucket=volatility, side=side,
-            action=str(decision.get("action", "unknown")), funding_sign=funding_sign,
+            symbol=str(decision.get("symbol") or snapshot.symbol),
+            regime=str(brief.get("regime", "unknown")),
+            volatility_bucket="unknown", side=side,
+            action=str(decision.get("action", "unknown")), funding_sign="unknown",
             oi_change_bucket="unknown",
             narrative_class=str(brief.get("narrative_vs_price", "unknown")),
-            exposure_bucket="low",
+            exposure_bucket=exposure,
         )

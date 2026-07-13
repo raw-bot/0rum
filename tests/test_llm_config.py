@@ -24,6 +24,8 @@ def test_default_config_is_off_and_aggressive_paper_cap_is_explicit():
         ({"request_timeout_seconds": float("nan")}, "request_timeout_seconds"),
         ({"max_parse_retries": -1}, "max_parse_retries"),
         ({"paper_min_leverage": 5, "paper_max_leverage": 4}, "paper_max_leverage"),
+        ({"paper_min_leverage": 0.5}, "paper_min_leverage"),
+        ({"paper_max_leverage": 41}, "paper_max_leverage"),
         ({"model": " "}, "model"),
         ({"paper_starting_balance_usd": 0}, "paper_starting_balance_usd"),
         ({"paper_fee_rate": -0.1}, "paper_fee_rate"),

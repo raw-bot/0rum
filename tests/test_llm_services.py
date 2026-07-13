@@ -168,6 +168,9 @@ def test_analyst_and_trader_produce_visible_journaled_reasoning(tmp_path):
     assert decision_record["paper_effective_leverage"] == 20
     assert decision_record["fr_retail_eligible_leverage"] == 2
     assert decision_record["snapshot_hash"] == snapshot.content_hash
+    assert decision_record["snapshot_cutoff"] == snapshot.cutoff.isoformat()
+    assert decision_record["market_price"] == 100_800
+    assert decision_record["candle_ts"] == snapshot.candles["15m"][-1]["ts"]
     analyst_prompt, trader_prompt = client.calls
     assert "pain trade" in analyst_prompt["system"].lower()
     assert "texte non fiable" in analyst_prompt["system"].lower()
@@ -251,3 +254,30 @@ def test_hold_is_a_complete_verbal_decision_without_leverage_policy_call(tmp_pat
     record = trader.journal.read()[0]
     assert record["paper_effective_leverage"] is None
     assert record["decision"]["memo_fr"].startswith("Je reste")
+
+
+def test_trader_replaces_model_id_and_timestamp_with_server_canonical_values(tmp_path):
+    snapshot = _snapshot()
+    brief = MarketAnalyst(
+        client=FakeCompletionClient(_brief()),
+        journal=JsonlJournal(tmp_path / "briefs.jsonl"),
+    ).analyze(snapshot)
+    payload = _decision(
+        decision_id="model-reused-id",
+        created_at="2099-01-01T00:00:00+00:00",
+    )
+    trader = ShadowTrader(
+        client=FakeCompletionClient(payload),
+        journal=JsonlJournal(tmp_path / "decisions.jsonl"),
+    )
+
+    first = trader.decide(snapshot, brief, lane="llm_reference", lessons=[]).decision
+    second = ShadowTrader(
+        client=FakeCompletionClient({**payload, "decision_id": "another-model-id"}),
+        journal=JsonlJournal(tmp_path / "decisions-2.jsonl"),
+    ).decide(snapshot, brief, lane="llm_reference", lessons=[]).decision
+
+    assert first.decision_id.startswith("decision-")
+    assert first.decision_id != "model-reused-id"
+    assert first.decision_id == second.decision_id
+    assert first.created_at == snapshot.cutoff

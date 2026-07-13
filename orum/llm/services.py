@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
+import hashlib
+import json
 from typing import Any
 
 from orum.llm.contracts import ContractError, MarketBrief, MarketSnapshot, ProposedDecision
@@ -133,7 +135,6 @@ class MarketAnalyst:
             "error": None if error is None else str(error)[:1000],
         }
 
-
 class ShadowTrader:
     ENTRY_ACTIONS = frozenset({"open_long", "open_short", "add"})
 
@@ -147,6 +148,7 @@ class ShadowTrader:
         jurisdiction_profile: str = "fr_retail",
         asset_class: str = "crypto",
         product_kind: str = "perpetual",
+        decision_timeframe: str = "15m",
         clock: Callable[[], datetime] = _utcnow,
     ) -> None:
         self.client = client
@@ -156,6 +158,7 @@ class ShadowTrader:
         self.jurisdiction_profile = jurisdiction_profile
         self.asset_class = asset_class
         self.product_kind = product_kind
+        self.decision_timeframe = decision_timeframe
         self._clock = clock
 
     def decide(
@@ -196,6 +199,11 @@ class ShadowTrader:
                 lane=lane,
                 lessons=normalized_lessons,
             )
+            decision = self._canonicalize_decision(
+                decision=decision,
+                snapshot=snapshot,
+                lane=lane,
+            )
             leverage = None
             if decision.action in self.ENTRY_ACTIONS:
                 leverage = apply_leverage_policy(
@@ -235,6 +243,27 @@ class ShadowTrader:
             )
         )
         return result
+
+    @staticmethod
+    def _canonicalize_decision(
+        *, decision: ProposedDecision, snapshot: MarketSnapshot, lane: str
+    ) -> ProposedDecision:
+        payload = decision.to_mapping()
+        payload.pop("decision_id", None)
+        payload.pop("created_at", None)
+        canonical = json.dumps(
+            {"snapshot_id": snapshot.snapshot_id, "lane": lane, "decision": payload},
+            allow_nan=False,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        decision_id = f"decision-{hashlib.sha256(canonical).hexdigest()[:24]}"
+        return replace(
+            decision,
+            decision_id=decision_id,
+            created_at=snapshot.cutoff,
+        )
 
     @staticmethod
     def _validate_provenance(
@@ -297,6 +326,9 @@ class ShadowTrader:
             "prompt_version": prompt_version,
             "snapshot_id": snapshot.snapshot_id,
             "snapshot_hash": snapshot.content_hash,
+            "snapshot_cutoff": snapshot.cutoff.isoformat(),
+            "market_price": self._latest_market_price(snapshot),
+            "candle_ts": self._latest_candle_ts(snapshot),
             "brief_id": brief.brief_id,
             "latency_ms": None if completion is None else completion.latency_ms,
             "usage": None if completion is None else completion.usage,
@@ -316,3 +348,11 @@ class ShadowTrader:
             "error_type": None if error is None else type(error).__name__,
             "error": None if error is None else str(error)[:1000],
         }
+
+    def _latest_market_price(self, snapshot: MarketSnapshot) -> float | None:
+        candles = snapshot.candles.get(self.decision_timeframe, [])
+        return None if not candles else float(candles[-1]["close"])
+
+    def _latest_candle_ts(self, snapshot: MarketSnapshot) -> int | None:
+        candles = snapshot.candles.get(self.decision_timeframe, [])
+        return None if not candles else int(candles[-1]["ts"])

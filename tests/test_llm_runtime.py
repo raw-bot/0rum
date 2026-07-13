@@ -144,6 +144,10 @@ class PaperExecutor:
     def __init__(self):
         self.calls = []
         self.monitor_calls = []
+        self.processed = set()
+
+    def decision_status(self, *, lane, decision_id):
+        return "executed" if (lane, decision_id) in self.processed else None
 
     def monitor(self, **kwargs):
         self.monitor_calls.append(kwargs)
@@ -152,6 +156,7 @@ class PaperExecutor:
     def execute(self, **kwargs):
         self.calls.append(kwargs)
         decision = kwargs["decision"]
+        self.processed.add((decision.lane, decision.decision_id))
         return PaperExecutionResult(
             decision_id=decision.decision_id,
             lane=decision.lane,
@@ -314,6 +319,34 @@ def test_autonomous_resumes_valid_journaled_decision_after_pre_execution_crash(t
     ]
 
 
+def test_autonomous_resumes_pending_decision_even_when_restart_snapshot_changed(tmp_path):
+    paper = PaperExecutor()
+    runtime, _, _, reference, evolving, journal = _runtime(
+        tmp_path, LlmMode.PAPER_AUTONOMOUS, paper_executor=paper
+    )
+    old_snapshot = _snapshot()
+    for lane, decision_id in (
+        ("llm_reference", "pending-reference"),
+        ("llm_evolving", "pending-evolving"),
+    ):
+        decision = _decision(lane, decision_id).to_mapping()
+        journal.append({
+            "kind": "proposed_decision", "status": "valid", "lane": lane,
+            "snapshot_id": "old-snapshot", "snapshot_hash": "old-hash",
+            "snapshot_cutoff": old_snapshot.cutoff.isoformat(),
+            "market_price": 99_000, "candle_ts": 1234,
+            "decision": decision,
+        })
+
+    result = runtime.run_once()
+
+    assert reference.calls == []
+    assert evolving.calls == []
+    assert [call["snapshot_id"] for call in paper.calls] == ["old-snapshot", "old-snapshot"]
+    assert [call["market_price"] for call in paper.calls] == [99_000, 99_000]
+    assert [lane.status for lane in result.lanes] == ["resumed_pending", "resumed_pending"]
+
+
 def test_assisted_mode_remains_refused_before_any_dependency_call(tmp_path):
     runtime = LlmLabRuntime(
         config=LlmTradingConfig(mode=LlmMode.PAPER_ASSISTED),
@@ -347,6 +380,41 @@ def test_paper_autonomous_executes_both_isolated_lanes(tmp_path):
         "llm_reference", "llm_evolving"
     ]
     assert [lane.paper_status for lane in result.lanes] == ["executed", "executed"]
+
+
+def test_autonomous_monitors_every_closed_candle_oldest_to_newest(tmp_path):
+    snapshot = MarketSnapshotBuilder(clock=lambda: NOW).build(
+        cutoff=NOW,
+        symbol="BTC/USDT",
+        candles={
+            "15m": [
+                {"ts": 1_000, "open": 100, "high": 101, "low": 94, "close": 100, "volume": 1},
+                {"ts": 2_000, "open": 100, "high": 102, "low": 99, "close": 101, "volume": 1},
+            ]
+        },
+        indicators={}, derivatives={}, macro={}, onchain={}, evidence=[],
+        paper_account={"status": "unavailable", "positions": []},
+    )
+    paper = PaperExecutor()
+    brief = _brief(snapshot)
+    runtime = LlmLabRuntime(
+        config=LlmTradingConfig(mode=LlmMode.PAPER_AUTONOMOUS),
+        snapshot_factory=lambda: snapshot,
+        analyst=Analyst(brief),
+        reference_trader=Trader(_decision("llm_reference", "ref")),
+        evolving_trader=Trader(_decision("llm_evolving", "evo")),
+        decision_journal=JsonlJournal(tmp_path / "decisions.jsonl"),
+        lesson_provider=lambda *args: (),
+        paper_executor=paper,
+    )
+
+    runtime.run_once()
+
+    assert [(call["lane"], call["candle"]["ts"]) for call in paper.monitor_calls] == [
+        ("llm_reference", 1_000), ("llm_evolving", 1_000),
+        ("llm_reference", 2_000), ("llm_evolving", 2_000),
+    ]
+    assert {call["candle"]["close_ts"] - call["candle"]["ts"] for call in paper.monitor_calls} == {900_000}
 
 
 class CliRuntime:

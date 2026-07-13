@@ -25,6 +25,7 @@ def test_long_outcome_computes_mfe_mae_costs_and_counterfactual():
     assert outcome.mfe_pct == pytest.approx(11)
     assert outcome.mae_pct == pytest.approx(-2)
     assert outcome.net_return_on_margin == pytest.approx(1.979)
+    assert outcome.account_return == pytest.approx(0.1979)
     assert outcome.opposite_net_return_on_margin < 0
     assert outcome.hold_return_on_margin == 0
 

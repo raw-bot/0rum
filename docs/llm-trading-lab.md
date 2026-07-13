@@ -134,7 +134,9 @@ quantity = notional / entry_price
 
 The simulator supports long/short, 1x–40x by default, fees, add/reduce/close,
 partial take profits, stop, time exit and an explicit isolated-liquidation
-estimate. It consumes closed OHLC candles only. Same-bar ambiguity is
+estimate. A trailing stop ratchets only after the current candle's adverse
+events have been evaluated, so it cannot use that candle's future path. It
+consumes closed OHLC candles only. Same-bar ambiguity is
 pessimistic and deterministic:
 
 ```text
@@ -144,23 +146,32 @@ liquidation → stop → take profit
 One decision/candle/position event is idempotent. Fills are appended before an
 atomic account publication, so a retry completes or reuses the operation
 without charging fees twice. A valid proposal journaled before a crash is
-resumed on the next autonomous run without asking the model again.
+resumed on the next autonomous run without asking the model again, using its
+server-recorded snapshot cutoff, price and candle timestamp even when the next
+snapshot has changed. Journal and account publication use inter-process file
+locks in addition to atomic replacement.
 
 This is an experimental approximation, not an exchange liquidation engine.
 
 ## Outcomes, post-mortems and lessons
 
-Final paper fills trigger deterministic metrics: cost-adjusted return, account
-return, MFE, MAE, exit reason/time, HOLD and opposite-direction
+Final paper fills trigger deterministic metrics derived from the complete fill
+ledger: cost-adjusted margin return, actual account return, MFE, MAE, actual
+exit reason/time, HOLD and opposite-direction
 counterfactuals, pessimistic collision result and confidence calibration.
 The LLM post-mortem receives those immutable metrics and a fixed error
 taxonomy; it cannot rewrite performance.
 
 Lessons are append-only state transitions. One matching case creates a
-`candidate`; two corroborating completed cases can create `active`. Retrieval
-is deterministic and capped at five by default. The reference lane receives no
-lessons; only the evolving lane receives matching active lessons. This keeps a
-stable control lane for common-window comparison.
+`candidate`; two non-conflicting corroborating completed cases can create
+`active`. Counterexamples can reject an active lesson. Retrieval requires a
+minimum deterministic similarity and is capped at five by default. The
+reference lane is evaluated but never trains or receives lessons; only the
+evolving lane can train and receive matching active lessons. Historical
+learning conditions come from the persisted decision and brief; unavailable
+point-in-time fields stay `unknown` instead of borrowing future indicators.
+Comparison compounds actual account returns inside a calendar interval where
+both lanes have outcomes, otherwise it labels the coverage as missing.
 
 ## Dashboard and audit trail
 
@@ -176,8 +187,9 @@ renders a read-only LLM card with:
 - alerts for stale evidence, bias/model changes, rejection, contradiction,
   leverage excess and lane divergence.
 
-Reads are bounded and tolerate malformed JSONL tails. Model text is HTML
-escaped. The dashboard has no LLM activation button.
+Reads are bounded and tolerate malformed JSONL tails, wrong optional types and
+oversized account files. Model text is HTML escaped. The dashboard has no LLM
+activation button.
 
 Trace the journals directly when needed:
 
@@ -198,7 +210,8 @@ export 0RUM_STATE_DIR="$(mktemp -d)"
 
 ## Offline replay
 
-Replay uses recorded decisions and historical closed candles. It never calls
+Replay validates unique chronological candles, aligns each decision to an
+eligible candle close, and derives outcomes only after the fill loop. It never calls
 OpenRouter, GDELT, Binance or current news:
 
 ```bash

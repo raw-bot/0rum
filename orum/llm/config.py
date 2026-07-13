@@ -91,10 +91,16 @@ class LlmTradingConfig:
             raise ConfigError("request_timeout_seconds must be finite and positive")
         if self.max_parse_retries < 0:
             raise ConfigError("max_parse_retries must be non-negative")
-        if not math.isfinite(self.paper_min_leverage) or self.paper_min_leverage <= 0:
-            raise ConfigError("paper_min_leverage must be finite and positive")
-        if not math.isfinite(self.paper_max_leverage) or self.paper_max_leverage < self.paper_min_leverage:
-            raise ConfigError("paper_max_leverage must be finite and at least paper_min_leverage")
+        if not math.isfinite(self.paper_min_leverage) or self.paper_min_leverage < 1:
+            raise ConfigError("paper_min_leverage must be finite and at least 1")
+        if (
+            not math.isfinite(self.paper_max_leverage)
+            or self.paper_max_leverage < self.paper_min_leverage
+            or self.paper_max_leverage > 40
+        ):
+            raise ConfigError(
+                "paper_max_leverage must be finite, at least paper_min_leverage, and at most 40"
+            )
         if not math.isfinite(self.paper_starting_balance_usd) or self.paper_starting_balance_usd <= 0:
             raise ConfigError("paper_starting_balance_usd must be finite and positive")
         if not math.isfinite(self.paper_fee_rate) or self.paper_fee_rate < 0:

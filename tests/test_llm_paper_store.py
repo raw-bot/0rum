@@ -80,3 +80,14 @@ def test_corrupt_account_fails_closed(tmp_path):
 
     with pytest.raises(PaperStoreError, match="cannot load"):
         store.load("llm_reference", starting_balance_usd=10_000)
+
+
+def test_ensure_account_persists_initial_empty_lane(tmp_path):
+    path = tmp_path / "account.json"
+    store = LlmPaperStore(
+        account_paths={"llm_reference": path}, fills_path=tmp_path / "fills.jsonl"
+    )
+    account = store.ensure_account("llm_reference", starting_balance_usd=10_000)
+    assert path.exists()
+    assert account.balance_usd == 10_000
+    assert store.load("llm_reference", starting_balance_usd=1).balance_usd == 10_000

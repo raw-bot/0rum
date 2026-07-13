@@ -232,3 +232,87 @@ def test_add_then_reduce_changes_only_the_isolated_lane_position():
     assert reduced.account.positions["BTC/USDT"].qty == pytest.approx(
         added.account.positions["BTC/USDT"].qty / 2
     )
+
+
+def test_trailing_stop_ratchets_after_candle_and_triggers_on_next_candle():
+    simulator = LlmPaperSimulator(fee_rate=0)
+    first_open = int((NOW.timestamp() - 15 * 60) * 1000)
+    second_open = int(NOW.timestamp() * 1000)
+    opened = simulator.apply_decision(
+        _account(), _decision(trailing_stop_pct=0.02), _leverage(),
+        price=100_000, candle_ts=first_open,
+    )
+
+    ratcheted = simulator.monitor_candle(
+        opened.account,
+        {"ts": second_open, "close_ts": second_open + 900_000, "open": 100_000, "high": 104_000,
+         "low": 99_000, "close": 103_000},
+    )
+    position = ratcheted.account.positions["BTC/USDT"]
+    assert position.stop_loss == pytest.approx(101_920)
+
+    stopped = simulator.monitor_candle(
+        ratcheted.account,
+        {"ts": second_open + 900_000, "close_ts": second_open + 1_800_000, "open": 103_000, "high": 103_500,
+         "low": 101_000, "close": 101_500},
+    )
+    assert stopped.fills[0].action == "stop"
+    assert stopped.fills[0].price == pytest.approx(101_920)
+
+
+def test_time_exit_uses_explicit_candle_close_boundary():
+    simulator = LlmPaperSimulator(fee_rate=0)
+    opened = simulator.apply_decision(
+        _account(), _decision(time_exit_minutes=15), _leverage(),
+        price=100_000, candle_ts=int((NOW.timestamp() - 15 * 60) * 1000),
+    )
+    close_ts = int((NOW.timestamp() + 15 * 60) * 1000)
+    result = simulator.monitor_candle(
+        opened.account,
+        {"ts": close_ts - 15 * 60 * 1000, "close_ts": close_ts,
+         "open": 100_000, "high": 101_000, "low": 99_000, "close": 100_500},
+    )
+    assert result.fills[0].action == "time_exit"
+    assert result.fills[0].created_at == datetime.fromtimestamp(close_ts / 1000, tz=UTC)
+
+
+def test_add_after_partial_target_resets_target_sizing_base_to_live_quantity():
+    simulator = LlmPaperSimulator(fee_rate=0)
+    opened = simulator.apply_decision(
+        _account(), _decision(), _leverage(), price=100_000, candle_ts=1_000
+    )
+    partial = simulator.monitor_candle(
+        opened.account,
+        {"ts": 2_000, "open": 100_000, "high": 106_000, "low": 99_000, "close": 105_000},
+    )
+    added = simulator.apply_decision(
+        partial.account,
+        _decision(
+            decision_id="dec-add-after-partial", action="add", equity_fraction=0.05,
+            requested_leverage=10, stop_loss=98_000,
+            take_profits=[{"price": 108_000, "fraction": 0.5}],
+        ),
+        _leverage(requested=10), price=105_000, candle_ts=3_000,
+    )
+    before_qty = added.account.positions["BTC/USDT"].qty
+    hit = simulator.monitor_candle(
+        added.account,
+        {"ts": 4_000, "open": 105_000, "high": 109_000, "low": 104_000, "close": 108_000},
+    )
+    assert hit.fills[0].qty == pytest.approx(before_qty * 0.5)
+
+
+def test_monitor_never_applies_a_candle_that_closed_before_position_opened():
+    simulator = LlmPaperSimulator(fee_rate=0)
+    opened = simulator.apply_decision(
+        _account(), _decision(), _leverage(),
+        price=100_000, candle_ts=int((NOW.timestamp() - 900) * 1000),
+    )
+    result = simulator.monitor_candle(
+        opened.account,
+        {"ts": int((NOW.timestamp() - 1800) * 1000),
+         "close_ts": int((NOW.timestamp() - 900) * 1000),
+         "open": 100_000, "high": 101_000, "low": 90_000, "close": 95_000},
+    )
+    assert result.fills == ()
+    assert "BTC/USDT" in result.account.positions

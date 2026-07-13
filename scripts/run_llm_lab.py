@@ -4,15 +4,18 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import math
 import os
 import sys
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import contextmanager, nullcontext
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from typing import Iterator
 
 import ccxt
 import yaml
@@ -204,11 +207,11 @@ def _snapshot_factory(
     return create_snapshot
 
 
-def _lesson_provider(book: LessonBook):
+def _lesson_provider(book: LessonBook, decision_timeframe: str):
     def retrieve(snapshot, brief, limit: int) -> Sequence[Mapping[str, Any]]:
-        indicators = snapshot.indicators.get("15m", {})
+        indicators = snapshot.indicators.get(decision_timeframe, {})
         atr = indicators.get("atr_14") if isinstance(indicators, Mapping) else None
-        candles = snapshot.candles.get("15m", [])
+        candles = snapshot.candles.get(decision_timeframe, [])
         price = None if not candles else float(candles[-1]["close"])
         volatility = "unknown" if atr is None or price is None else (
             "high" if float(atr) / price >= 0.02 else "normal"
@@ -218,12 +221,18 @@ def _lesson_provider(book: LessonBook):
         funding_sign = "unknown" if funding is None else (
             "positive" if float(funding) >= 0 else "negative"
         )
+        lane_accounts = snapshot.paper_account.get("llm_accounts")
+        lane_accounts = lane_accounts if isinstance(lane_accounts, Mapping) else {}
+        has_position = any(
+            isinstance(account, Mapping) and bool(account.get("positions"))
+            for account in lane_accounts.values()
+        )
         case = MarketCase(
             symbol=snapshot.symbol, regime=brief.regime,
             volatility_bucket=volatility, side="unknown", action="unknown",
             funding_sign=funding_sign, oi_change_bucket="unknown",
             narrative_class=brief.narrative_vs_price,
-            exposure_bucket="low" if not snapshot.paper_account.get("positions") else "open",
+            exposure_bucket="open" if has_position else "low",
         )
         return tuple(item.to_mapping() for item in book.retrieve(case, limit=limit))
 
@@ -263,6 +272,7 @@ def build_runtime(config: LlmTradingConfig, api_key: str | None) -> LlmLabRuntim
         "paper_min_leverage": config.paper_min_leverage,
         "paper_max_leverage": config.paper_max_leverage,
         "jurisdiction_profile": config.jurisdiction_profile,
+        "decision_timeframe": config.decision_timeframe,
     }
     paper_executor = None
     learning_processor = None
@@ -274,6 +284,10 @@ def build_runtime(config: LlmTradingConfig, api_key: str | None) -> LlmLabRuntim
             },
             fills_path=LLM_PAPER_FILLS_PATH,
         )
+        for lane in ("llm_reference", "llm_evolving"):
+            store.ensure_account(
+                lane, starting_balance_usd=config.paper_starting_balance_usd
+            )
         paper_executor = PaperLaneExecutor(
             store=store,
             simulator=LlmPaperSimulator(
@@ -307,9 +321,24 @@ def build_runtime(config: LlmTradingConfig, api_key: str | None) -> LlmLabRuntim
         reference_trader=ShadowTrader(**trader_options),
         evolving_trader=ShadowTrader(**trader_options),
         decision_journal=decision_journal,
-        lesson_provider=_lesson_provider(lesson_book),
+        lesson_provider=_lesson_provider(lesson_book, config.decision_timeframe),
         paper_executor=paper_executor,
         learning_processor=learning_processor,
+        account_refresher=_refresh_paper_accounts,
+    )
+
+
+def _refresh_paper_accounts(snapshot):
+    return MarketSnapshotBuilder(clock=lambda: snapshot.created_at).build(
+        cutoff=snapshot.cutoff,
+        symbol=snapshot.symbol,
+        candles=snapshot.candles,
+        indicators=snapshot.indicators,
+        derivatives=snapshot.derivatives,
+        macro=snapshot.macro,
+        onchain=snapshot.onchain,
+        evidence=snapshot.evidence,
+        paper_account=_read_paper_account(),
     )
 
 
@@ -341,6 +370,18 @@ def _print_result(result: LlmRunResult) -> None:
             print(f"{lane.lane} error={lane.error}", file=sys.stderr)
 
 
+@contextmanager
+def _paper_run_lock() -> Iterator[None]:
+    path = Path(f"{LLM_PAPER_FILLS_PATH}.runtime.lock")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a+b") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
 def main(
     argv: list[str] | None = None,
     *,
@@ -369,8 +410,10 @@ def main(
         print("OPENROUTER_API_KEY is required for a remote LLM call", file=sys.stderr)
         return 2
     try:
-        runtime = runtime_factory(config, api_key)
-        result = runtime.run_once()
+        run_lock = _paper_run_lock() if config.mode is LlmMode.PAPER_AUTONOMOUS else nullcontext()
+        with run_lock:
+            runtime = runtime_factory(config, api_key)
+            result = runtime.run_once()
     except (ConfigError, OpenRouterConfigError, LlmRuntimeError) as exc:
         print(str(exc), file=sys.stderr)
         return 2

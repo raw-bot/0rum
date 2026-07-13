@@ -355,6 +355,8 @@ class ProposedDecision:
             raise ContractError("take_profits fractions must sum to at most 1")
         stop_loss = _optional_number(value.get("stop_loss"), "stop_loss", minimum=0)
         trailing_stop = _optional_number(value.get("trailing_stop_pct"), "trailing_stop_pct", minimum=0)
+        if trailing_stop is not None and not 0 < trailing_stop < 1:
+            raise ContractError("trailing_stop_pct must be a decimal fraction between 0 and 1")
         time_exit = _optional_integer(value.get("time_exit_minutes"), "time_exit_minutes", minimum=1)
 
         if action == "hold":

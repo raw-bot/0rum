@@ -1,9 +1,16 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
+from multiprocessing import get_context
 
 import pytest
 
 from orum.llm.journal import JournalError, JsonlJournal
+
+
+def _append_many(path, start, count):
+    journal = JsonlJournal(path)
+    for number in range(start, start + count):
+        journal.append({"sequence": number, "payload": "x" * 1000})
 
 
 def test_journal_appends_without_rewriting_prior_records(tmp_path):
@@ -45,6 +52,24 @@ def test_journal_serializes_concurrent_appends_as_complete_lines(tmp_path):
     rows = [json.loads(line) for line in journal.path.read_text().splitlines()]
     assert len(rows) == 40
     assert {row["sequence"] for row in rows} == set(range(40))
+
+
+def test_journal_serializes_appends_across_processes(tmp_path):
+    path = tmp_path / "multiprocess.jsonl"
+    context = get_context("spawn")
+    processes = [
+        context.Process(target=_append_many, args=(path, index * 20, 20))
+        for index in range(3)
+    ]
+    for process in processes:
+        process.start()
+    for process in processes:
+        process.join(timeout=10)
+        assert process.exitcode == 0
+
+    rows = JsonlJournal(path).read()
+    assert len(rows) == 60
+    assert {row["sequence"] for row in rows} == set(range(60))
 
 
 def test_missing_journal_is_empty_and_limit_must_be_positive(tmp_path):

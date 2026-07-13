@@ -89,8 +89,10 @@ def _read_jsonl_tail(path: Path, *, limit: int, max_bytes: int = 1_048_576) -> l
     return records
 
 
-def _safe_llm_json(path: Path) -> dict:
+def _safe_llm_json(path: Path, *, max_bytes: int = 1_048_576) -> dict:
     try:
+        if path.exists() and path.stat().st_size > max_bytes:
+            return {}
         value = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return {}
@@ -125,6 +127,9 @@ def _llm_account_state(path: Path, lane: str) -> dict:
         except (TypeError, ValueError, OverflowError):
             return empty("invalid")
         unrealized += (1 if side == "long" else -1) * qty * (mark - entry)
+        targets = item.get("take_profits")
+        if not isinstance(targets, list):
+            targets = []
         visible_positions.append({
             "position_id": item.get("position_id"),
             "decision_id": item.get("decision_id"),
@@ -137,7 +142,7 @@ def _llm_account_state(path: Path, lane: str) -> dict:
             "effective_leverage": item.get("effective_leverage"),
             "liquidation_px": item.get("liquidation_px"),
             "stop_loss": item.get("stop_loss"),
-            "take_profits": list(item.get("take_profits") or [])[:5],
+            "take_profits": targets[:5],
             "time_exit_at": item.get("time_exit_at"),
             "thesis": item.get("thesis"),
             "invalidation": item.get("invalidation"),
@@ -146,6 +151,9 @@ def _llm_account_state(path: Path, lane: str) -> dict:
         balance = float(raw.get("balance_usd") or 0)
     except (TypeError, ValueError, OverflowError):
         return empty("invalid")
+    processed = raw.get("processed_decision_ids")
+    if not isinstance(processed, list):
+        return empty("invalid")
     return {
         "lane": lane,
         "status": "active",
@@ -153,8 +161,12 @@ def _llm_account_state(path: Path, lane: str) -> dict:
         "balance_usd": balance,
         "equity_usd": balance + unrealized,
         "positions": visible_positions,
-        "processed_decision_count": len(raw.get("processed_decision_ids") or []),
+        "processed_decision_count": len(processed),
     }
+
+
+def _bounded_list(value: object, *, limit: int) -> list:
+    return list(value[:limit]) if isinstance(value, (list, tuple)) else []
 
 
 def _llm_timeline_item(record: Mapping[str, object]) -> dict:
@@ -175,7 +187,7 @@ def _llm_timeline_item(record: Mapping[str, object]) -> dict:
         "brief_id": record.get("brief_id"),
         "decision_id": record.get("decision_id") or decision.get("decision_id"),
         "fill_id": record.get("fill_id"),
-        "fill_ids": list(record.get("fill_ids") or []),
+        "fill_ids": _bounded_list(record.get("fill_ids"), limit=20),
         "action": decision.get("action") or record.get("action"),
         "side": decision.get("side") or record.get("side"),
         "order_type": decision.get("order_type"),
@@ -191,8 +203,11 @@ def _llm_timeline_item(record: Mapping[str, object]) -> dict:
         "risk_rationale": decision.get("risk_rationale"),
         "invalidation": decision.get("invalidation"),
         "stop_loss": decision.get("stop_loss"),
-        "take_profits": list(decision.get("take_profits") or [])[:5],
-        "reasons": list(validation.get("reasons") or record.get("reasons") or []),
+        "take_profits": _bounded_list(decision.get("take_profits"), limit=5),
+        "reasons": _bounded_list(
+            validation.get("reasons") if validation.get("reasons") is not None else record.get("reasons"),
+            limit=20,
+        ),
         "error": record.get("error"),
     }
 
@@ -239,12 +254,25 @@ def _llm_lab_state(state_dir: Path, *, now: datetime | None = None) -> dict:
         "lane", "decision_id", "exit_candle_ts", "net_return_on_margin",
         "exit_reason", "calibration_squared_error",
     }
-    outcomes = [
-        dict(item["outcome"])
-        for item in outcome_records
-        if isinstance(item.get("outcome"), Mapping)
-        and outcome_keys.issubset(item["outcome"])
-    ][-20:][::-1]
+    outcomes = []
+    for item in outcome_records:
+        outcome = item.get("outcome")
+        if not isinstance(outcome, Mapping) or not outcome_keys.issubset(outcome):
+            continue
+        try:
+            exit_ts = int(outcome["exit_candle_ts"])
+            net_return = float(outcome["net_return_on_margin"])
+            account_return = float(outcome.get("account_return", net_return))
+        except (TypeError, ValueError, OverflowError):
+            continue
+        if not all(math.isfinite(value) for value in (net_return, account_return)):
+            continue
+        normalized = dict(outcome)
+        normalized["exit_candle_ts"] = exit_ts
+        normalized["net_return_on_margin"] = net_return
+        normalized["account_return"] = account_return
+        outcomes.append(normalized)
+    outcomes = outcomes[-20:][::-1]
     postmortems = [
         dict(item["postmortem"])
         for item in postmortem_records
@@ -271,6 +299,12 @@ def _llm_lab_state(state_dir: Path, *, now: datetime | None = None) -> dict:
     }
 
     alerts: list[dict] = []
+    for lane, account in accounts.items():
+        if account["status"] == "invalid":
+            alerts.append({
+                "kind": "corrupt_state", "level": "error",
+                "message": f"État paper illisible ou trop volumineux pour {lane}.",
+            })
     if len(valid_briefs) >= 2:
         previous = valid_briefs[-2]
         previous_brief = previous.get("brief") if isinstance(previous.get("brief"), Mapping) else {}
@@ -294,12 +328,16 @@ def _llm_lab_state(state_dir: Path, *, now: datetime | None = None) -> dict:
         alerts.append({"kind": "rejection", "level": "warning", "message": "Décision paper rejetée : " + ", ".join(map(str, rejected.get("reasons") or []))})
         if any("contradiction" in str(reason) for reason in rejected.get("reasons") or []):
             alerts.append({"kind": "contradiction", "level": "warning", "message": "Contradiction entre texte et action structurée."})
-    leverage_spike = next((
-        item for item in timeline
-        if item.get("paper_effective_leverage") is not None
-        and item.get("fr_retail_eligible_leverage") is not None
-        and float(item["paper_effective_leverage"]) > float(item["fr_retail_eligible_leverage"])
-    ), None)
+    leverage_spike = None
+    for item in timeline:
+        try:
+            paper_leverage = float(item["paper_effective_leverage"])
+            fr_leverage = float(item["fr_retail_eligible_leverage"])
+        except (KeyError, TypeError, ValueError, OverflowError):
+            continue
+        if math.isfinite(paper_leverage) and math.isfinite(fr_leverage) and paper_leverage > fr_leverage:
+            leverage_spike = item
+            break
     if leverage_spike:
         alerts.append({"kind": "leverage_spike", "level": "info", "message": "Levier paper supérieur au repère FR retail ; expérimental uniquement."})
     ref_return = comparison["llm_reference"]["compounded_return"]

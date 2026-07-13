@@ -112,6 +112,21 @@ class PaperLaneExecutor:
             decision.decision_id, decision.lane, "executed", (), fill_ids
         )
 
+    def decision_status(self, *, lane: str, decision_id: str) -> str | None:
+        account = self.store.load(lane, starting_balance_usd=self.starting_balance_usd)
+        if decision_id in account.processed_decision_ids:
+            return "executed"
+        for record in reversed(self.audit_journal.read()):
+            if record.get("lane") != lane or record.get("decision_id") != decision_id:
+                continue
+            if record.get("kind") == "paper_execution":
+                return "executed"
+            validation = record.get("validation")
+            if record.get("kind") == "paper_validation" and isinstance(validation, dict):
+                if validation.get("accepted") is False:
+                    return "rejected"
+        return None
+
     def monitor(self, *, lane: str, candle: dict) -> tuple:
         account = self.store.load(lane, starting_balance_usd=self.starting_balance_usd)
         if not account.positions:

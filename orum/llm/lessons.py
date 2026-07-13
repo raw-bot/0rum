@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 
 from orum.llm.journal import JsonlJournal
@@ -111,9 +111,17 @@ class LessonBook:
         supports = tuple(dict.fromkeys(
             (() if prior is None else prior.supporting_decision_ids) + (candidate.decision_id,)
         ))
+        conflicts = [
+            item for item in self._latest().values()
+            if item.lesson_id != lesson_id
+            and item.error_category == candidate.error_category
+            and item.conditions == candidate.conditions
+            and item.adjustment != candidate.adjustment
+            and item.state in {"candidate", "active"}
+        ]
         lesson = Lesson(
             lesson_id=lesson_id,
-            state="active" if len(supports) >= 2 else "candidate",
+            state="active" if len(supports) >= 2 and not conflicts else "candidate",
             error_category=candidate.error_category, conditions=candidate.conditions,
             adjustment=candidate.adjustment, supporting_decision_ids=supports,
             counterexample_decision_ids=() if prior is None else prior.counterexample_decision_ids,
@@ -128,21 +136,58 @@ class LessonBook:
         })
         return lesson
 
+    def record_counterexample(self, lesson_id: str, decision_id: str) -> Lesson:
+        now = self._clock().astimezone(UTC)
+        prior = self._latest().get(lesson_id)
+        if prior is None:
+            raise ValueError("unknown lesson_id")
+        counterexamples = tuple(dict.fromkeys(
+            prior.counterexample_decision_ids + (decision_id,)
+        ))
+        state = (
+            "rejected"
+            if len(counterexamples) >= len(prior.supporting_decision_ids)
+            else prior.state
+        )
+        lesson = replace(
+            prior,
+            state=state,
+            counterexample_decision_ids=counterexamples,
+            updated_at=now,
+            version=prior.version + 1,
+        )
+        self.journal.append({
+            "schema_version": 1, "kind": "lesson_counterexample",
+            "recorded_at": now.isoformat(), "lesson": lesson.to_mapping(),
+        })
+        return lesson
+
     def retrieve(self, case: MarketCase, *, limit: int) -> tuple[Lesson, ...]:
         if limit <= 0:
             return ()
         now = self._clock().astimezone(UTC)
+        fields = tuple(case.to_mapping())
         candidates = [
             lesson for lesson in self._latest().values()
-            if lesson.state == "active" and lesson.expires_at > now
+            if lesson.state == "active"
+            and lesson.expires_at > now
+            and sum(
+                getattr(lesson.conditions, name) == getattr(case, name)
+                for name in fields
+            ) >= 3
         ]
-        fields = tuple(case.to_mapping())
         candidates.sort(key=lambda lesson: (
             -sum(getattr(lesson.conditions, name) == getattr(case, name) for name in fields),
             -lesson.evidence_strength, -len(lesson.supporting_decision_ids),
             -lesson.updated_at.timestamp(), lesson.lesson_id,
         ))
         return tuple(candidates[:limit])
+
+    def for_decision(self, decision_id: str) -> Lesson | None:
+        for lesson in self._latest().values():
+            if decision_id in lesson.supporting_decision_ids:
+                return lesson
+        return None
 
     def _latest(self) -> dict[str, Lesson]:
         latest: dict[str, Lesson] = {}

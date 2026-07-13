@@ -162,6 +162,15 @@ def run_replay(payload: Mapping[str, object]) -> dict:
     normalized_candles = [dict(item) for item in candles if isinstance(item, Mapping)]
     if len(normalized_candles) != len(candles):
         raise ValueError("every replay candle must be an object")
+    candle_timestamps = [int(item["ts"]) for item in normalized_candles]
+    if candle_timestamps != sorted(candle_timestamps) or len(set(candle_timestamps)) != len(candle_timestamps):
+        raise ValueError("replay candles must be strictly chronological and unique")
+    for candle in normalized_candles:
+        open_price, high, low, close = (
+            float(candle[name]) for name in ("open", "high", "low", "close")
+        )
+        if low > min(open_price, close) or high < max(open_price, close) or low > high:
+            raise ValueError("replay candle has invalid OHLC geometry")
     now = _timestamp(payload["evaluated_at"])
     starting_balance = float(payload.get("starting_balance_usd", 10_000))
     fee_rate = float(payload.get("fee_rate", 0.0005))
@@ -186,81 +195,95 @@ def run_replay(payload: Mapping[str, object]) -> dict:
     decision_rows: list[dict] = []
     fill_rows: list[dict] = []
     outcome_rows: list[dict] = []
-    entry_price = float(normalized_candles[0]["close"])
-    entry_ts = int(normalized_candles[0]["ts"])
-
-    for raw in raw_decisions:
+    parsed_decisions = []
+    for index, raw in enumerate(raw_decisions):
         if not isinstance(raw, Mapping):
             raise ValueError("every replay decision must be an object")
         decision = ProposedDecision.from_mapping(raw)
         if decision.lane not in accounts:
             raise ValueError(f"unsupported replay lane: {decision.lane}")
-        leverage = None
-        if decision.action in {"open_long", "open_short", "add"}:
-            leverage = apply_leverage_policy(
-                requested=decision.requested_leverage,
-                paper_min=float(payload.get("paper_min_leverage", 1)),
-                paper_max=float(payload.get("paper_max_leverage", 40)),
-                jurisdiction_profile=str(payload.get("jurisdiction_profile", "fr_retail")),
-                asset_class="crypto",
-                product_kind="perpetual",
-            )
-        account = accounts[decision.lane]
-        report = validator.validate(
-            decision=decision,
-            account=account,
-            leverage=leverage,
-            market_price=entry_price,
-            snapshot_cutoff=decision.created_at,
-            now=decision.created_at,
-        )
-        row = {
-            "decision_id": decision.decision_id,
-            "lane": decision.lane,
-            "action": decision.action,
-            "status": "executed" if report.accepted else "rejected",
-            "reasons": list(report.reasons),
-            "requested_leverage": decision.requested_leverage,
-            "paper_effective_leverage": None if leverage is None else leverage.paper_effective,
-            "fr_retail_eligible_leverage": None if leverage is None else leverage.fr_retail_eligible,
-            "experimental_only": None if leverage is None else leverage.experimental_only,
-        }
-        decision_rows.append(row)
-        if not report.accepted:
-            continue
-        result = simulator.apply_decision(
-            account,
-            decision,
-            leverage,
-            price=entry_price,
-            candle_ts=entry_ts,
-        )
-        accounts[decision.lane] = result.account
-        fill_rows.extend(fill.to_mapping() for fill in result.fills)
-        if decision.action in {"open_long", "open_short"}:
-            position = result.account.positions[decision.symbol]
-            outcome = evaluator.evaluate(
-                decision_id=decision.decision_id,
-                lane=decision.lane,
-                symbol=decision.symbol,
-                side=position.side,
-                entry_price=entry_price,
-                leverage=position.effective_leverage,
-                equity_fraction=decision.equity_fraction,
-                confidence=decision.confidence,
-                stop_loss=decision.stop_loss,
-                take_profit=decision.take_profits[0].price,
-                liquidation_price=position.liquidation_px,
-                candles=normalized_candles[1:],
-                evaluated_at=now,
-            )
-            outcome_rows.append(outcome.to_mapping())
+        parsed_decisions.append((decision.created_at, index, decision))
+    parsed_decisions.sort(key=lambda item: (item[0], item[1]))
+    pending_index = 0
+    interval_ms = candle_timestamps[1] - candle_timestamps[0]
+    decision_by_id = {item[2].decision_id: item[2] for item in parsed_decisions}
 
-    for candle in normalized_candles[1:]:
+    for candle_index, candle in enumerate(normalized_candles):
         for lane in LANES:
             result = simulator.monitor_candle(accounts[lane], candle)
             accounts[lane] = result.account
             fill_rows.extend(fill.to_mapping() for fill in result.fills)
+        close_ts = (
+            candle_timestamps[candle_index + 1]
+            if candle_index + 1 < len(candle_timestamps)
+            else candle_timestamps[candle_index] + interval_ms
+        )
+        while pending_index < len(parsed_decisions):
+            _, _, decision = parsed_decisions[pending_index]
+            if int(decision.created_at.timestamp() * 1000) > close_ts:
+                break
+            pending_index += 1
+            leverage = None
+            if decision.action in {"open_long", "open_short", "add"}:
+                leverage = apply_leverage_policy(
+                    requested=decision.requested_leverage,
+                    paper_min=float(payload.get("paper_min_leverage", 1)),
+                    paper_max=float(payload.get("paper_max_leverage", 40)),
+                    jurisdiction_profile=str(payload.get("jurisdiction_profile", "fr_retail")),
+                    asset_class="crypto", product_kind="perpetual",
+                )
+            account = accounts[decision.lane]
+            market_price = float(candle["close"])
+            report = validator.validate(
+                decision=decision, account=account, leverage=leverage,
+                market_price=market_price, snapshot_cutoff=decision.created_at,
+                now=decision.created_at,
+            )
+            decision_rows.append({
+                "decision_id": decision.decision_id, "lane": decision.lane,
+                "action": decision.action,
+                "status": "executed" if report.accepted else "rejected",
+                "reasons": list(report.reasons),
+                "requested_leverage": decision.requested_leverage,
+                "paper_effective_leverage": None if leverage is None else leverage.paper_effective,
+                "fr_retail_eligible_leverage": None if leverage is None else leverage.fr_retail_eligible,
+                "experimental_only": None if leverage is None else leverage.experimental_only,
+            })
+            if report.accepted:
+                result = simulator.apply_decision(
+                    account, decision, leverage, price=market_price,
+                    candle_ts=int(candle["ts"]),
+                )
+                accounts[decision.lane] = result.account
+                fill_rows.extend(fill.to_mapping() for fill in result.fills)
+
+    for _, _, decision in parsed_decisions[pending_index:]:
+        decision_rows.append({
+            "decision_id": decision.decision_id, "lane": decision.lane,
+            "action": decision.action, "status": "rejected",
+            "reasons": ["no_closed_candle_after_decision"],
+            "requested_leverage": decision.requested_leverage,
+            "paper_effective_leverage": None,
+            "fr_retail_eligible_leverage": None, "experimental_only": None,
+        })
+
+    for decision_id, decision in decision_by_id.items():
+        related = [row for row in fill_rows if row.get("position_id") == f"pos-{hashlib.sha256(f'{decision.lane}|{decision_id}'.encode()).hexdigest()[:24]}"]
+        entries = [row for row in related if row.get("action") in {"open", "add"}]
+        exits = [row for row in related if row.get("action") not in {"open", "add"}]
+        if not entries or sum(float(row["qty"]) for row in exits) + 1e-12 < sum(float(row["qty"]) for row in entries):
+            continue
+        open_ts = int(entries[0]["candle_ts"])
+        exit_ts = int(exits[-1]["candle_ts"])
+        outcome = evaluator.evaluate_fills(
+            decision_id=decision_id, lane=decision.lane, symbol=decision.symbol,
+            side="long" if decision.action == "open_long" else "short",
+            confidence=decision.confidence, equity_fraction=decision.equity_fraction,
+            fills=related,
+            candles=[row for row in normalized_candles if open_ts < int(row["ts"]) <= exit_ts],
+            evaluated_at=now,
+        )
+        outcome_rows.append(outcome.to_mapping())
 
     raw_candidates = payload.get("lesson_candidates", [])
     if isinstance(raw_candidates, (str, bytes)) or not isinstance(raw_candidates, Sequence):

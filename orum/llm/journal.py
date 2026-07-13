@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import threading
+import fcntl
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -49,9 +50,11 @@ class JsonlJournal:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             try:
                 with self.path.open("a", encoding="utf-8") as handle:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
                     handle.write(line + "\n")
                     handle.flush()
                     os.fsync(handle.fileno())
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
             except OSError as exc:
                 raise JournalError(f"cannot append journal {self.path}: {exc}") from exc
 
@@ -62,7 +65,10 @@ class JsonlJournal:
             if not self.path.exists():
                 return []
             try:
-                lines = self.path.read_text(encoding="utf-8").splitlines()
+                with self.path.open("r", encoding="utf-8") as handle:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_SH)
+                    lines = handle.read().splitlines()
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
             except OSError as exc:
                 raise JournalError(f"cannot read journal {self.path}: {exc}") from exc
 

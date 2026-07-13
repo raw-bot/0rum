@@ -40,13 +40,15 @@ rejected until pending-order state exists.
 Persist canonical point-in-time snapshots, briefs, proposals, validations,
 fills, deterministic outcomes, LLM post-mortems and lesson events. Store
 observable rationale rather than private chain-of-thought. Resume valid
-journaled proposals after a crash and make fill/account publication
-idempotent.
+journaled proposals after a crash from server-recorded execution context and
+make fill/account publication idempotent across processes. Decision IDs and
+timestamps are server-derived; model-provided values are not authoritative.
 
 Give `llm_reference` and `llm_evolving` separate isolated-margin accounts. The
 reference lane receives no lessons. The evolving lane receives at most five
-deterministically matching active lessons. Compare performance only on a
-shared cutoff intersection and label missing coverage.
+deterministically matching active lessons and is the only lane allowed to train
+the lesson book. Compare actual account return only on a shared calendar window
+with observations in both lanes and label missing coverage.
 
 Use a pure long/short leveraged simulator with explicit fees and liquidation
 approximation. For ambiguous closed candles, order events pessimistically as

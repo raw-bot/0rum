@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
+import re
 from typing import Any
 
 from orum.llm.config import LlmMode, LlmTradingConfig
@@ -54,6 +56,7 @@ class LlmLabRuntime:
         lesson_provider: Callable[[MarketSnapshot, MarketBrief, int], Sequence[Mapping[str, Any]]],
         paper_executor: Any | None = None,
         learning_processor: Any | None = None,
+        account_refresher: Callable[[MarketSnapshot], MarketSnapshot] | None = None,
     ) -> None:
         self.config = config
         self.snapshot_factory = snapshot_factory
@@ -64,6 +67,7 @@ class LlmLabRuntime:
         self.lesson_provider = lesson_provider
         self.paper_executor = paper_executor
         self.learning_processor = learning_processor
+        self.account_refresher = account_refresher or (lambda snapshot: snapshot)
 
     def run_once(self) -> LlmRunResult:
         mode = self.config.mode
@@ -79,12 +83,16 @@ class LlmLabRuntime:
             candles = snapshot.candles.get(self.config.decision_timeframe)
             if not isinstance(candles, list) or not candles:
                 raise LlmRuntimeError("decision timeframe has no closed candle")
-            latest_candle = candles[-1]
-            for lane in ("llm_reference", "llm_evolving"):
-                closed_fills = self.paper_executor.monitor(lane=lane, candle=latest_candle)
-                if self.learning_processor is not None:
+            for candle in candles:
+                monitored_candle = self._with_close_timestamp(candle)
+                for lane in ("llm_reference", "llm_evolving"):
+                    closed_fills = self.paper_executor.monitor(lane=lane, candle=monitored_candle)
                     for fill in closed_fills:
+                        if self.learning_processor is None:
+                            continue
                         self.learning_processor.process(fill=fill, snapshot=snapshot)
+            # Refresh account state without moving the market-data cutoff.
+            snapshot = self.account_refresher(snapshot)
         brief: MarketBrief = self.analyst.analyze(snapshot)
         if mode is LlmMode.OBSERVER:
             return LlmRunResult(
@@ -133,6 +141,11 @@ class LlmLabRuntime:
         lessons: Sequence[Mapping[str, Any]],
     ) -> LaneRunResult:
         existing = self._existing_decision_record(snapshot.snapshot_id, lane)
+        pending = None
+        if self.config.mode is LlmMode.PAPER_AUTONOMOUS:
+            pending = self._pending_decision_record(lane)
+        if existing is None and pending is not None:
+            existing = pending
         if existing is not None and self.config.mode is LlmMode.SHADOW:
             return LaneRunResult(
                 lane=lane,
@@ -140,6 +153,7 @@ class LlmLabRuntime:
                 decision_id=self._decision_id(existing),
             )
         resumed = existing is not None
+        resumed_pending = resumed and existing.get("snapshot_id") != snapshot.snapshot_id
         if resumed:
             raw_decision = existing.get("decision")
             if not isinstance(raw_decision, Mapping):
@@ -180,18 +194,28 @@ class LlmLabRuntime:
             if not isinstance(candles, list) or not candles:
                 raise LlmRuntimeError("decision timeframe has no closed candle")
             latest = candles[-1]
+            record_cutoff = existing.get("snapshot_cutoff") if resumed else None
+            try:
+                execution_cutoff = (
+                    snapshot.cutoff if not isinstance(record_cutoff, str)
+                    else datetime.fromisoformat(record_cutoff)
+                )
+            except ValueError as exc:
+                raise LlmRuntimeError("pending decision has invalid snapshot_cutoff") from exc
             paper = self.paper_executor.execute(
                 decision=result.decision,
                 leverage=result.leverage,
-                market_price=float(latest["close"]),
-                snapshot_id=snapshot.snapshot_id,
-                snapshot_hash=snapshot.content_hash,
-                snapshot_cutoff=snapshot.cutoff,
-                candle_ts=int(latest["ts"]),
+                market_price=float(
+                    existing.get("market_price", latest["close"]) if resumed else latest["close"]
+                ),
+                snapshot_id=str(existing.get("snapshot_id")) if resumed else snapshot.snapshot_id,
+                snapshot_hash=str(existing.get("snapshot_hash")) if resumed else snapshot.content_hash,
+                snapshot_cutoff=execution_cutoff,
+                candle_ts=int(existing.get("candle_ts", latest["ts"]) if resumed else latest["ts"]),
             )
         return LaneRunResult(
             lane=lane,
-            status="resumed_existing" if resumed else "created",
+            status="resumed_pending" if resumed_pending else "resumed_existing" if resumed else "created",
             decision_id=result.decision.decision_id,
             paper_status=None if paper is None else paper.status,
             fill_ids=() if paper is None else paper.fill_ids,
@@ -222,3 +246,28 @@ class LlmLabRuntime:
             if self._decision_id(record) is not None:
                 return record
         return None
+
+    def _pending_decision_record(self, lane: str) -> Mapping[str, Any] | None:
+        status_lookup = getattr(self.paper_executor, "decision_status", None)
+        if not callable(status_lookup):
+            return None
+        for record in reversed(self.decision_journal.read()):
+            if (
+                record.get("kind") != "proposed_decision"
+                or record.get("status") != "valid"
+                or record.get("lane") != lane
+            ):
+                continue
+            decision_id = self._decision_id(record)
+            if decision_id is not None and status_lookup(lane=lane, decision_id=decision_id) is None:
+                return record
+        return None
+
+    def _with_close_timestamp(self, candle: Mapping[str, Any]) -> dict[str, Any]:
+        match = re.fullmatch(r"(\d+)([mhd])", self.config.decision_timeframe.lower())
+        if match is None:
+            raise LlmRuntimeError("decision_timeframe must look like 15m, 1h or 1d")
+        multiplier = {"m": 60_000, "h": 3_600_000, "d": 86_400_000}[match.group(2)]
+        result = dict(candle)
+        result["close_ts"] = int(result["ts"]) + int(match.group(1)) * multiplier
+        return result

@@ -61,3 +61,21 @@ def test_expired_lesson_is_not_retrieved(tmp_path):
     clock[0] = NOW + timedelta(days=91)
 
     assert book.retrieve(CASE, limit=5) == ()
+
+
+def test_unrelated_active_lesson_is_not_retrieved(tmp_path):
+    book = LessonBook(JsonlJournal(tmp_path / "lessons.jsonl"), clock=lambda: NOW)
+    book.record(_candidate("dec-1"))
+    book.record(_candidate("dec-2"))
+    unrelated = MarketCase(**{name: f"other-{name}" for name in CASE.to_mapping()})
+    assert book.retrieve(unrelated, limit=5) == ()
+
+
+def test_counterexamples_reject_active_lesson(tmp_path):
+    book = LessonBook(JsonlJournal(tmp_path / "lessons.jsonl"), clock=lambda: NOW)
+    book.record(_candidate("dec-1"))
+    active = book.record(_candidate("dec-2"))
+    book.record_counterexample(active.lesson_id, "bad-1")
+    rejected = book.record_counterexample(active.lesson_id, "bad-2")
+    assert rejected.state == "rejected"
+    assert book.retrieve(CASE, limit=5) == ()

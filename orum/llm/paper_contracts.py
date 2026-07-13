@@ -163,6 +163,8 @@ class LlmPaperPosition:
         object.__setattr__(self, "entry_fee_usd", _number(self.entry_fee_usd, "entry_fee_usd", minimum=0))
         object.__setattr__(self, "stop_loss", _optional_number(self.stop_loss, "stop_loss", minimum=0.0000001))
         object.__setattr__(self, "trailing_stop_pct", _optional_number(self.trailing_stop_pct, "trailing_stop_pct", minimum=0))
+        if self.trailing_stop_pct is not None and not 0 < self.trailing_stop_pct < 1:
+            raise PaperContractError("trailing_stop_pct must be between 0 and 1")
         targets = tuple(self.take_profits)
         if any(not isinstance(item, LlmPaperTarget) for item in targets):
             raise PaperContractError("take_profits must contain paper targets")

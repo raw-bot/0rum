@@ -6,8 +6,11 @@ import json
 import os
 import tempfile
 import threading
+import fcntl
 from collections.abc import Mapping
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Iterator
 
 from orum.llm.journal import JsonlJournal
 from orum.llm.paper_contracts import LlmPaperAccount
@@ -27,7 +30,8 @@ class LlmPaperStore:
     ) -> None:
         self.account_paths = {lane: Path(path) for lane, path in account_paths.items()}
         self.fills = JsonlJournal(fills_path)
-        self._locks = {lane: threading.Lock() for lane in self.account_paths}
+        self._lock = threading.RLock()
+        self._lock_path = Path(f"{fills_path}.lock")
 
     def load(self, lane: str, *, starting_balance_usd: float) -> LlmPaperAccount:
         path = self._path(lane)
@@ -41,6 +45,17 @@ class LlmPaperStore:
         except Exception as exc:  # noqa: BLE001 - corrupt financial state fails closed
             raise PaperStoreError(f"cannot load {lane} paper account: {type(exc).__name__}") from exc
 
+    def ensure_account(self, lane: str, *, starting_balance_usd: float) -> LlmPaperAccount:
+        with self._lock, self._process_lock():
+            path = self._path(lane)
+            if path.exists():
+                return self.load(lane, starting_balance_usd=starting_balance_usd)
+            account = LlmPaperAccount.from_mapping(
+                None, lane=lane, starting_balance_usd=starting_balance_usd
+            )
+            self._atomic_account_write(path, account)
+            return account
+
     def commit(
         self,
         before: LlmPaperAccount,
@@ -49,18 +64,16 @@ class LlmPaperStore:
         lane = before.lane
         if result.account.lane != lane:
             raise PaperStoreError("result lane does not match prior account")
-        lock = self._locks.get(lane)
-        if lock is None:
+        if lane not in self.account_paths:
             raise PaperStoreError(f"unknown paper lane {lane!r}")
-        with lock:
+        with self._lock, self._process_lock():
             current = self.load(lane, starting_balance_usd=before.starting_balance_usd)
             existing_records = self.fills.read()
             existing_operations = {
                 record.get("operation_id") for record in existing_records
                 if isinstance(record.get("operation_id"), str)
             }
-            desired_decisions = set(result.account.processed_decision_ids)
-            if desired_decisions.issubset(current.processed_decision_ids) and all(
+            if current.to_mapping() == result.account.to_mapping() and all(
                 fill.operation_id in existing_operations for fill in result.fills
             ):
                 return current
@@ -74,6 +87,16 @@ class LlmPaperStore:
                     existing_operations.add(fill.operation_id)
             self._atomic_account_write(self._path(lane), result.account)
             return result.account
+
+    @contextmanager
+    def _process_lock(self) -> Iterator[None]:
+        self._lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with self._lock_path.open("a+b") as handle:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
     def _path(self, lane: str) -> Path:
         try:
@@ -97,6 +120,11 @@ class LlmPaperStore:
                 os.fsync(handle.fileno())
             os.replace(temporary, path)
             temporary = None
+            directory = os.open(path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
         except OSError as exc:
             raise PaperStoreError(f"cannot persist paper account {path}: {exc}") from exc
         finally:

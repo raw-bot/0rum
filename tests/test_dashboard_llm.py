@@ -199,3 +199,25 @@ def test_llm_lab_ignores_structurally_corrupt_optional_records(tmp_path):
     assert state["accounts"]["llm_reference"]["status"] == "invalid"
     assert state["outcomes"] == []
     json.dumps(state, allow_nan=False)
+
+
+def test_llm_lab_discards_valid_json_with_wrong_optional_types(tmp_path):
+    _write_jsonl(
+        tmp_path / "llm_decisions.jsonl",
+        [{"kind": "paper_execution", "fill_ids": 7, "reasons": {"bad": True}}],
+    )
+    _write_jsonl(
+        tmp_path / "llm_outcomes.jsonl",
+        [{"outcome": {
+            "lane": "llm_reference", "decision_id": "d", "exit_candle_ts": "bad",
+            "net_return_on_margin": "nan", "exit_reason": "close",
+            "calibration_squared_error": 0.1,
+        }}],
+    )
+
+    state = dashboard._llm_lab_state(tmp_path, now=NOW)
+
+    assert state["timeline"][0]["fill_ids"] == []
+    assert state["timeline"][0]["reasons"] == []
+    assert state["outcomes"] == []
+    json.dumps(state, allow_nan=False)

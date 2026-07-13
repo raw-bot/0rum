@@ -14,10 +14,10 @@ OPEN_TS = int((NOW - timedelta(minutes=30)).timestamp() * 1000)
 CLOSE_TS = int((NOW - timedelta(minutes=15)).timestamp() * 1000)
 
 
-def _fill(action, ts, price, qty=0.2):
+def _fill(action, ts, price, qty=0.2, lane="llm_evolving"):
     return LlmPaperFill(
         fill_id=f"fill-{action}", operation_id=f"op-{action}", decision_id="dec-1",
-        position_id="pos-1", lane="llm_reference", symbol="BTC/USDT",
+        position_id="pos-1", lane=lane, symbol="BTC/USDT",
         action=action, reason=action, side="long", qty=qty, price=price,
         fee_usd=0, realized_pnl_usd=-600 if action == "stop" else 0,
         balance_after_usd=9_400 if action == "stop" else 10_000,
@@ -57,6 +57,7 @@ def test_closed_position_creates_outcome_postmortem_and_candidate_lesson(tmp_pat
         "brief_id": "brief-1", "paper_effective_leverage": 20,
         "decision": {
             "decision_id": "dec-1", "action": "open_long", "confidence": 0.7,
+            "symbol": "BTC/USDT", "equity_fraction": 0.25,
             "stop_loss": 97_000, "take_profits": [{"price": 105_000, "fraction": 1}],
         },
     })
@@ -81,11 +82,43 @@ def test_closed_position_creates_outcome_postmortem_and_candidate_lesson(tmp_pat
 
     assert result.status == "learned"
     assert outcomes.read()[0]["outcome"]["exit_reason"] == "stop"
+    assert outcomes.read()[0]["outcome"]["account_return"] == -0.06
     assert lessons.journal.read()[0]["lesson"]["state"] == "candidate"
+    assert processor.process(fill=close, snapshot=_snapshot()).status == "already_learned"
 
 
-def test_learning_replay_is_idempotent(tmp_path):
-    # The full behavior is covered above; an existing decision outcome is a stable no-op.
+def test_reference_lane_is_evaluated_but_never_trains_evolving_lessons(tmp_path):
+    fills = JsonlJournal(tmp_path / "fills.jsonl")
+    opening = _fill("open", OPEN_TS, 100_000, lane="llm_reference")
+    close = _fill("stop", CLOSE_TS, 97_000, lane="llm_reference")
+    fills.append(opening.to_mapping())
+    fills.append(close.to_mapping())
+    decisions = JsonlJournal(tmp_path / "decisions.jsonl")
+    decisions.append({
+        "kind": "proposed_decision", "brief_id": "brief-1",
+        "decision": {"decision_id": "dec-1", "action": "open_long",
+                     "symbol": "BTC/USDT", "equity_fraction": 0.25,
+                     "confidence": 0.7},
+    })
+    briefs = JsonlJournal(tmp_path / "briefs.jsonl")
+    briefs.append({"brief": {"brief_id": "brief-1", "regime": "range",
+                              "narrative_vs_price": "neutral"}})
+    outcomes = JsonlJournal(tmp_path / "outcomes.jsonl")
+    lessons = LessonBook(JsonlJournal(tmp_path / "lessons.jsonl"), clock=lambda: NOW)
+    processor = LearningProcessor(
+        fills=fills, decisions=decisions, briefs=briefs, outcomes=outcomes,
+        evaluator=OutcomeEvaluator(fee_rate=0), postmortem=PostMortem(),
+        lessons=lessons, decision_timeframe="15m", clock=lambda: NOW,
+    )
+
+    result = processor.process(fill=close, snapshot=_snapshot())
+
+    assert result.status == "evaluated_reference"
+    assert len(outcomes.read()) == 1
+    assert lessons.journal.read() == []
+
+
+def test_partial_legacy_outcome_without_fill_ledger_fails_closed(tmp_path):
     outcomes = JsonlJournal(tmp_path / "outcomes.jsonl")
     outcomes.append({"kind": "decision_outcome", "outcome": {"decision_id": "dec-1"}})
     processor = LearningProcessor(
@@ -97,4 +130,4 @@ def test_learning_replay_is_idempotent(tmp_path):
         decision_timeframe="15m", clock=lambda: NOW,
     )
 
-    assert processor.process(fill=_fill("stop", CLOSE_TS, 97_000), snapshot=_snapshot()).status == "already_learned"
+    assert processor.process(fill=_fill("stop", CLOSE_TS, 97_000), snapshot=_snapshot()).status == "missing_entry"

@@ -165,7 +165,9 @@ class LlmPaperSimulator:
         if fee > account.balance_usd:
             raise SimulatorError("add fee exceeds realized paper balance")
         total_qty = current.qty + added_qty
-        total_initial_qty = current.initial_qty + added_qty
+        # A new target ladder applies to the live post-add quantity, not to
+        # quantity already closed by an earlier ladder.
+        total_initial_qty = total_qty
         combined_entry = (current.qty * current.entry_px + added_qty * price) / total_qty
         total_margin = current.initial_margin_usd + allocated
         total_notional = current.qty * current.entry_px + added_notional
@@ -317,6 +319,10 @@ class LlmPaperSimulator:
                 balance_usd=balance,
                 positions={**account.positions, decision.symbol: position},
                 processed_decision_ids=processed,
+                last_processed_candles={
+                    **account.last_processed_candles,
+                    position_id: candle_ts,
+                },
             ),
             (fill,),
         )
@@ -324,10 +330,13 @@ class LlmPaperSimulator:
     def monitor_candle(self, account: LlmPaperAccount, candle: dict[str, Any]) -> SimulationResult:
         try:
             candle_ts = int(candle["ts"])
+            close_ts = int(candle.get("close_ts", candle_ts))
             open_price = _finite_positive(candle["open"], "candle open")
             high = _finite_positive(candle["high"], "candle high")
             low = _finite_positive(candle["low"], "candle low")
             close = _finite_positive(candle["close"], "candle close")
+            if close_ts < candle_ts:
+                raise SimulatorError("candle close_ts must not precede ts")
         except (KeyError, TypeError, ValueError) as exc:
             raise SimulatorError("candle must contain valid ts/OHLC") from exc
         if low > min(open_price, close) or high < max(open_price, close) or low > high:
@@ -338,9 +347,12 @@ class LlmPaperSimulator:
         for symbol, original in tuple(account.positions.items()):
             if processed_candles.get(original.position_id, -1) >= candle_ts:
                 continue
+            if "close_ts" in candle and close_ts <= int(original.opened_at.timestamp() * 1000):
+                processed_candles[original.position_id] = candle_ts
+                continue
             position = replace(original, mark_px=close)
             adverse_action, adverse_price = self._adverse_event(position, high=high, low=low)
-            created_at = datetime.fromtimestamp(candle_ts / 1000, tz=UTC)
+            created_at = datetime.fromtimestamp(close_ts / 1000, tz=UTC)
             if adverse_action is not None:
                 current, fill = self._close_quantity(
                     current,
@@ -398,6 +410,21 @@ class LlmPaperSimulator:
                         remaining_targets=(),
                     )
                     fills.append(fill)
+                active = current.positions.get(symbol)
+                if active is not None and active.trailing_stop_pct is not None:
+                    if active.side == "long":
+                        candidate = min(close, high * (1 - active.trailing_stop_pct))
+                        trailing_stop = max(active.stop_loss or 0.0, candidate)
+                    else:
+                        candidate = max(close, low * (1 + active.trailing_stop_pct))
+                        trailing_stop = min(active.stop_loss or math.inf, candidate)
+                    current = replace(
+                        current,
+                        positions={
+                            **current.positions,
+                            symbol: replace(active, stop_loss=trailing_stop),
+                        },
+                    )
             processed_candles[original.position_id] = candle_ts
         current = replace(current, last_processed_candles=processed_candles)
         return SimulationResult(current, tuple(fills))

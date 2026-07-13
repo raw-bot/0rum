@@ -16,7 +16,7 @@ def _metrics(rows: list[Mapping[str, object]]) -> dict[str, object]:
     liquidations = 0
     squared_errors: list[float] = []
     for row in sorted(rows, key=lambda item: int(item["exit_candle_ts"])):
-        value = float(row["net_return_on_margin"])
+        value = float(row.get("account_return", row["net_return_on_margin"]))
         equity *= max(0.0, 1 + value)
         peak = max(peak, equity)
         if peak:
@@ -59,6 +59,10 @@ def compare_lanes(rows: Sequence[Mapping[str, object]]) -> dict[str, object]:
         )
         for lane in LANES
     }
+    if common and not all(selected.values()):
+        common = False
+        start = end = None
+        selected = by_lane
     return {
         "coverage_status": "common_window" if common else "no_common_window",
         "common_cutoff_start": start if common else None,
