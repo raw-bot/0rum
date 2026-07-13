@@ -121,6 +121,9 @@ the independent +12 h and +24 h model horizons; it is not represented as a
 separately trained forecast. No curve is fabricated before the archive's first
 recorded prediction.
 
+This is a passive historical overlay, not a replay mode: there is no history
+picker, navigation control or operator action required to reveal older curves.
+
 ## Dashboard truth contract
 
 - Real fills use `IN L` or `IN S`; closes use `TP`, `SL`, or `OUT` according to
