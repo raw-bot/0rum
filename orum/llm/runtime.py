@@ -1,0 +1,155 @@
+"""Mode-gated orchestration for the non-executing LLM trading laboratory."""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
+from typing import Any
+
+from orum.llm.config import LlmMode, LlmTradingConfig
+from orum.llm.contracts import MarketBrief, MarketSnapshot
+from orum.llm.journal import JsonlJournal
+from orum.llm.services import DecisionResult, LlmServiceError
+
+
+PAPER_MODE_ERROR = "paper LLM execution is not installed in foundation phase"
+
+
+class LlmRuntimeError(RuntimeError):
+    """Raised when a requested laboratory mode cannot safely run."""
+
+
+@dataclass(frozen=True, slots=True)
+class LaneRunResult:
+    lane: str
+    status: str
+    decision_id: str | None
+    error: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class LlmRunResult:
+    mode: LlmMode
+    snapshot_id: str | None
+    brief_id: str | None
+    lanes: tuple[LaneRunResult, ...]
+
+
+class LlmLabRuntime:
+    """Create observable briefs and shadow decisions, without an execution path."""
+
+    def __init__(
+        self,
+        *,
+        config: LlmTradingConfig,
+        snapshot_factory: Callable[[], MarketSnapshot],
+        analyst: Any,
+        reference_trader: Any,
+        evolving_trader: Any,
+        decision_journal: JsonlJournal,
+        lesson_provider: Callable[[int], Sequence[Mapping[str, Any]]],
+    ) -> None:
+        self.config = config
+        self.snapshot_factory = snapshot_factory
+        self.analyst = analyst
+        self.reference_trader = reference_trader
+        self.evolving_trader = evolving_trader
+        self.decision_journal = decision_journal
+        self.lesson_provider = lesson_provider
+
+    def run_once(self) -> LlmRunResult:
+        mode = self.config.mode
+        if mode is LlmMode.OFF:
+            return LlmRunResult(mode=mode, snapshot_id=None, brief_id=None, lanes=())
+        if mode in {LlmMode.PAPER_ASSISTED, LlmMode.PAPER_AUTONOMOUS}:
+            raise LlmRuntimeError(PAPER_MODE_ERROR)
+
+        snapshot = self.snapshot_factory()
+        brief: MarketBrief = self.analyst.analyze(snapshot)
+        if mode is LlmMode.OBSERVER:
+            return LlmRunResult(
+                mode=mode,
+                snapshot_id=snapshot.snapshot_id,
+                brief_id=brief.brief_id,
+                lanes=(),
+            )
+
+        if mode is not LlmMode.SHADOW:
+            raise LlmRuntimeError(f"unsupported LLM laboratory mode: {mode.value}")
+
+        lessons = tuple(self.lesson_provider(self.config.max_retrieved_lessons))
+        lane_results = (
+            self._run_lane(
+                lane="llm_reference",
+                trader=self.reference_trader,
+                snapshot=snapshot,
+                brief=brief,
+                lessons=(),
+            ),
+            self._run_lane(
+                lane="llm_evolving",
+                trader=self.evolving_trader,
+                snapshot=snapshot,
+                brief=brief,
+                lessons=lessons,
+            ),
+        )
+        return LlmRunResult(
+            mode=mode,
+            snapshot_id=snapshot.snapshot_id,
+            brief_id=brief.brief_id,
+            lanes=lane_results,
+        )
+
+    def _run_lane(
+        self,
+        *,
+        lane: str,
+        trader: Any,
+        snapshot: MarketSnapshot,
+        brief: MarketBrief,
+        lessons: Sequence[Mapping[str, Any]],
+    ) -> LaneRunResult:
+        existing = self._existing_decision_id(snapshot.snapshot_id, lane)
+        if existing is not None:
+            return LaneRunResult(
+                lane=lane,
+                status="skipped_duplicate",
+                decision_id=existing,
+            )
+        try:
+            result: DecisionResult = trader.decide(
+                snapshot,
+                brief,
+                lane=lane,
+                lessons=lessons,
+            )
+        except LlmServiceError as exc:
+            return LaneRunResult(
+                lane=lane,
+                status="model_error",
+                decision_id=None,
+                error=str(exc),
+            )
+        return LaneRunResult(
+            lane=lane,
+            status="created",
+            decision_id=result.decision.decision_id,
+        )
+
+    def _existing_decision_id(self, snapshot_id: str, lane: str) -> str | None:
+        for record in reversed(self.decision_journal.read()):
+            if (
+                record.get("kind") != "proposed_decision"
+                or record.get("status") != "valid"
+                or record.get("snapshot_id") != snapshot_id
+                or record.get("lane") != lane
+            ):
+                continue
+            decision = record.get("decision")
+            if not isinstance(decision, Mapping):
+                continue
+            decision_id = decision.get("decision_id")
+            if isinstance(decision_id, str) and decision_id.strip():
+                return decision_id.strip()
+        return None
