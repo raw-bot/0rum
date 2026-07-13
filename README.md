@@ -66,11 +66,11 @@ uv run python -m unittest discover -s tests
 
 ## LLM trading laboratory (opt-in)
 
-An isolated, non-executing laboratory can ask DeepSeek V4 Pro through
-OpenRouter for a French market brief and, in `shadow` mode, two complete trade
-proposals. The model is allowed to choose direction, size, leverage, stop,
-targets and time exit; every response is schema-validated and journaled with
-its evidence and snapshot hash.
+An isolated laboratory can ask DeepSeek V4 Pro through OpenRouter for a French
+market brief and two complete trade proposals. The model chooses direction,
+size, leverage, stop, targets and time exit; every response is validated and
+journaled with its evidence and snapshot hash. Confirmed `paper_autonomous`
+runs execute accepted market actions only inside separate LLM paper accounts.
 
 The default mode is `off`. One-shot observer and shadow runs are explicit:
 
@@ -78,13 +78,15 @@ The default mode is `off`. One-shot observer and shadow runs are explicit:
 export OPENROUTER_API_KEY="..."
 uv run python scripts/run_llm_lab.py --mode observer --once
 uv run python scripts/run_llm_lab.py --mode shadow --once
+uv run python scripts/run_llm_lab.py --mode paper_autonomous --once --confirm-paper
 ```
 
-This foundation cannot open even a paper position. `paper_assisted` and
-`paper_autonomous` are deliberately refused until the outcome/learning and
-execution phase is installed. See [docs/llm-trading-lab.md](docs/llm-trading-lab.md)
-for configuration, evidence, decision fields, leverage semantics and journal
-inspection.
+Autonomous paper supports isolated long/short exposure, configurable 1x–40x
+leverage, liquidation/SL/TP/time exits, deterministic outcomes, post-mortems
+and bounded lessons. It never touches the native paper ledger or a real order
+method. `paper_assisted` remains refused until a native/LLM merge contract is
+specified. See [docs/llm-trading-lab.md](docs/llm-trading-lab.md) for the full
+operator guide and offline replay.
 
 ## State files (`state/`)
 
@@ -100,9 +102,12 @@ inspection.
 | `orum_watcher.json` | watcher status |
 | `events.jsonl` | persistent incident log: boots, failures, price-source flips, guardrail transitions, opens/closes, quarantines |
 | `llm_market_briefs.jsonl` | append-only LLM market opinions, facts, scenarios and invalidations |
-| `llm_decisions.jsonl` | append-only reference/evolving shadow decisions and leverage eligibility |
-| `llm_outcomes.jsonl` | reserved for point-in-time paper outcomes in the next phase |
-| `llm_lessons.jsonl` | reserved for validated, versioned lessons in the next phase |
+| `llm_decisions.jsonl` | proposals, validations, rejections and paper execution audit |
+| `llm_paper_fills.jsonl` | isolated reference/evolving LLM paper fills |
+| `llm_reference_account.json` / `llm_evolving_account.json` | separate experimental account snapshots |
+| `llm_outcomes.jsonl` | deterministic closed-decision outcomes and counterfactuals |
+| `llm_postmortems.jsonl` | bounded LLM process reviews tied to immutable outcomes |
+| `llm_lessons.jsonl` | append-only candidate/active lesson events |
 | `position_quarantine.jsonl` | positions discarded instead of traded (stale after outage, duplicate close after crash) |
 | `candle_history.json` | local cache of 1m candles for the non-regression backtest |
 | `.reflect.lock` | single-instance reflection lock (auto-expires after 300s) |
@@ -146,7 +151,7 @@ the dashboard button is rate-limited to one trigger per minute.
 | `ORUM_DASHBOARD_HOST` / `_PORT` | `127.0.0.1` / `8787` | dashboard bind |
 | `0RUM_REFLECT_HOME` | `.sandbox/0rum-local-llm-home` | 0rum CLI home for reflections |
 | `GEMINI_API_KEY` | — | read from `<0rum home>/.gemini_api_key` if unset |
-| `OPENROUTER_API_KEY` | — | required only for explicit LLM `observer` or `shadow` calls; never logged |
+| `OPENROUTER_API_KEY` | — | required for explicit LLM observer/shadow/autonomous calls; never logged |
 
 ## Known limitations
 
@@ -162,3 +167,7 @@ the dashboard button is rate-limited to one trigger per minute.
 - onchain/macro adapter data is recorded in the heartbeat but feeds no
   trading decision; news is `not_configured` without an API key.
 - The Dockerfile only runs the worker; use `scripts/run_local.sh` locally.
+- LLM limit proposals are visibly rejected until pending-order simulation is
+  implemented; only market actions execute in the isolated LLM paper books.
+- `paper_assisted` is intentionally unavailable, and passing an offline replay
+  is not evidence of profitability or legal eligibility.

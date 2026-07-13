@@ -2,47 +2,55 @@
 
 ## Current status
 
-The LLM laboratory is opt-in and non-executing. Its default mode is `off`; it
-does not join the worker, scheduler or dashboard process and does not place or
-simulate orders. It currently provides a one-shot observer/shadow research
-loop around `BTC/USDT`:
+The LLM laboratory is opt-in, one-shot and isolated from the native portfolio.
+Its default mode is `off`. It can now observe the market, produce two fully
+specified decisions, execute accepted **market** actions in two experimental
+paper accounts, evaluate closed outcomes and promote bounded lessons.
 
-1. fetch closed Binance spot candles and public Binance USD-M evidence;
-2. fetch point-in-time GDELT headlines without downloading article bodies;
-3. build and hash a canonical market snapshot;
-4. ask `deepseek/deepseek-v4-pro` through OpenRouter for a French market brief;
-5. optionally ask for two complete shadow decisions;
-6. append valid responses and failures to durable JSONL journals.
+It never places a real exchange order. `paper_autonomous` mutates only:
 
-The foundation intentionally refuses `paper_assisted` and
-`paper_autonomous`. Those modes require a separate paper execution and outcome
-learning phase with idempotency and accounting tests.
+- `state/llm_reference_account.json`;
+- `state/llm_evolving_account.json`;
+- the append-only `state/llm_*.jsonl` laboratory journals.
 
-## Modes
+It does not mutate the native `paper_positions.json`, `paper_fills.jsonl` or
+strategy state. No daemon is installed or activated by the implementation.
 
-| Mode | Snapshot | Market brief | Decisions | Position mutation |
-|---|---:|---:|---:|---:|
-| `off` | no | no | no | impossible |
-| `observer` | yes | yes | no | impossible |
-| `shadow` | yes | yes | reference + evolving | impossible |
-| `paper_assisted` | refused | — | — | not installed |
-| `paper_autonomous` | refused | — | — | not installed |
+## Modes and activation
 
-`off` returns before constructing a snapshot or touching any provider. The CLI
-requires `--once`; no background loop is silently installed.
+| Mode | Brief | Decisions | LLM paper mutation |
+|---|---:|---:|---:|
+| `off` | no | no | no |
+| `observer` | yes | no | no |
+| `shadow` | yes | reference + evolving | no |
+| `paper_assisted` | refused | — | no merge contract exists |
+| `paper_autonomous` | yes | reference + evolving | yes, isolated accounts only |
 
-## Run a cycle
-
-Use a shell environment variable for the secret. Do not put a key in YAML,
-source code, documentation or a journal.
+Every invocation requires `--once`. Autonomous paper additionally requires
+`--confirm-paper` on that invocation; confirmation is not persisted:
 
 ```bash
 export OPENROUTER_API_KEY="..."
+
 uv run python scripts/run_llm_lab.py --mode observer --once
 uv run python scripts/run_llm_lab.py --mode shadow --once
+uv run python scripts/run_llm_lab.py \
+  --mode paper_autonomous \
+  --once \
+  --confirm-paper
 ```
 
-An optional dedicated YAML file can tune the laboratory:
+The runner refuses `paper_autonomous` without the confirmation flag. It also
+refuses `paper_assisted`: the native strategy does not yet define which fields
+an LLM may override, so inventing a merge rule would make the control portfolio
+unreliable.
+
+## Model and configuration
+
+The installed model is `deepseek/deepseek-v4-pro` through OpenRouter strict
+structured output. Provider fallback and silent model substitution are
+disabled. Put the key only in `OPENROUTER_API_KEY`; never put it in YAML,
+source, documentation or state.
 
 ```yaml
 llm_trading:
@@ -55,6 +63,10 @@ llm_trading:
   max_parse_retries: 1
   paper_min_leverage: 1
   paper_max_leverage: 40
+  paper_starting_balance_usd: 10000
+  paper_fee_rate: 0.0005
+  paper_maintenance_margin_rate: 0.005
+  allow_stop_beyond_liquidation: false
   jurisdiction_profile: fr_retail
   max_retrieved_lessons: 5
 ```
@@ -66,128 +78,179 @@ uv run python scripts/run_llm_lab.py \
   --once
 ```
 
-The explicit CLI mode overrides the YAML mode. A missing
-`OPENROUTER_API_KEY` is an error only for a mode that makes a remote call.
-OpenRouter provider fallback is disabled and the returned model ID must match
-the configured model.
+The CLI mode overrides the YAML mode. A remote mode requires
+`OPENROUTER_API_KEY`; `off` returns before provider construction or state I/O.
 
-## What the model is allowed to decide
+## What the model decides
 
-The trader is deliberately not reduced to a direction classifier. For an
-entry or add proposal it chooses:
+The model is deliberately allowed to take risk in this research environment.
+For every proposal it can choose:
 
-- long, short, hold, add, reduce or close;
-- fraction of paper equity;
-- requested leverage;
-- market or limit order and limit price;
-- stop loss;
-- one or more take-profit levels and fractions;
+- `hold`, `open_long`, `open_short`, `add`, `reduce` or `close`;
+- fraction of experimental paper equity;
+- requested leverage, clamped only by the configured paper range;
+- market or limit intent and a limit price;
+- stop loss, one or more take-profit prices and fractions;
 - optional trailing stop and time exit;
 - confidence, thesis, counter-thesis, risk rationale and invalidation;
-- a plain-French memo explaining what it proposes and why.
+- a concise French memo explaining the action.
 
-Loss and liquidation are valid experimental outcomes. There is no hidden
-formula that reduces leverage because confidence is low. Mechanical contract
-validation still rejects incomplete or contradictory geometry.
+The executable v1 supports market actions. Limit intents remain visible in the
+decision journal but are rejected with
+`limit_order_execution_not_installed`; they are never silently filled at the
+current market price. A pending-order book is required before limits can be
+honestly simulated.
 
-The analyst separately reports facts, interpretation, market regime, multiple
-horizons, narrative versus price, pain trade, main and alternate scenarios,
-catalysts, confidence and invalidation. Evidence text is treated as untrusted
-data, never as instructions to the model.
+The system stores observable rationale, not hidden chain-of-thought. `HOLD`,
+model errors, validation rejections and executions are all first-class events.
 
-## Reference and evolving lanes
+## Evidence and market opinion
 
-`shadow` evaluates the same point-in-time snapshot in two lanes:
+One cycle builds a canonical point-in-time snapshot from:
 
-- `llm_reference` receives no learned lessons. It is the stable comparison.
-- `llm_evolving` may receive a bounded set of validated lessons when the next
-  phase starts producing them.
+- closed Binance spot candles for `BTC/USDT`;
+- public Binance USD-M funding, open interest, ticker and order-book evidence;
+- bounded, dated GDELT headlines without article-body downloads;
+- the separate native/reference/evolving portfolio state.
 
-A valid decision already recorded for the same snapshot ID and lane is reused
-instead of calling the model again. This makes one-shot retries idempotent at
-the decision layer. The current foundation does not yet calculate outcomes or
-write lessons, so the evolving lane normally starts without memory.
+Forming candles and evidence after the cutoff are rejected. Secondary-source
+failures remain visible. Macro and on-chain evidence are explicitly
+`not_configured`; the analyst must not imply that those sources were checked.
 
-## Evidence and point-in-time rules
+The French market brief separates facts and interpretation and records bias,
+regime, horizons, narrative versus price, pain trade, scenarios, catalysts,
+confidence and invalidation. Every record links model, prompt version,
+snapshot ID/hash, evidence IDs, request ID, latency and usage.
 
-- Candles are active Binance spot-market candles, normalized oldest to newest.
-- Forming candles are removed locally and rejected again by the snapshot
-  builder if their close lies after the cutoff.
-- Binance USD-M funding, open interest, ticker and order-book evidence use
-  public CCXT endpoints without exchange credentials.
-- GDELT DOC 2.0 supplies bounded, dated headlines. URLs and normalized titles
-  are deduplicated, tracking parameters are removed and article bodies are
-  never fetched.
-- Evidence published after the snapshot cutoff is rejected.
-- Secondary source failures remain visible in the snapshot instead of being
-  silently converted into invented facts.
-- Macro and on-chain adapters are explicitly `not_configured` in this phase.
+## Isolated paper simulator
 
-Every model-facing snapshot has a stable SHA-256 content hash. A journal entry
-also records model, prompt version, request ID, latency, token usage and status.
+Each LLM lane owns an isolated-margin derivatives book. Opening size is:
 
-## Paper leverage versus French retail eligibility
+```text
+allocated_equity = account_equity × equity_fraction
+notional = allocated_equity × paper_effective_leverage
+quantity = notional / entry_price
+```
 
-These are two independent numbers:
+The simulator supports long/short, 1x–40x by default, fees, add/reduce/close,
+partial take profits, stop, time exit and an explicit isolated-liquidation
+estimate. It consumes closed OHLC candles only. Same-bar ambiguity is
+pessimistic and deterministic:
 
-- `paper_effective_leverage` is the requested leverage clamped only to the
-  configured experimental paper range, currently 1x–40x by default.
-- `fr_retail_eligible_leverage` is an informational eligibility ceiling for
-  the configured jurisdiction/product profile.
+```text
+liquidation → stop → take profit
+```
 
-For the current conservative `fr_retail` + crypto perpetual/CFD-like profile,
-the displayed eligibility is 2x. A 20x paper proposal therefore remains 20x in
-the experiment and is labelled with 18x excess plus `experimental_only=true`.
-The legal display never silently changes the paper experiment.
+One decision/candle/position event is idempotent. Fills are appended before an
+atomic account publication, so a retry completes or reuses the operation
+without charging fees twice. A valid proposal journaled before a crash is
+resumed on the next autonomous run without asking the model again.
 
-This 2x value comes from the French/European retail CFD product-intervention
-framework, not from a database of French court judgments. ESMA also reminded
-firms in February 2026 that leveraged perpetual futures may fall within those
-CFD measures when their characteristics qualify. Product classification,
-client status and provider authorization still require case-specific legal
-review; the display is not legal advice and does not authorize a real trade.
+This is an experimental approximation, not an exchange liquidation engine.
 
-Primary references:
+## Outcomes, post-mortems and lessons
 
-- [AMF — contracts for difference and retail leverage](https://www.amf-france.org/fr/espace-epargnants/comprendre-les-produits-financiers/produits-complexes/cfd)
-- [ESMA — reminder on perpetual futures and CFD measures, 24 February 2026](https://www.esma.europa.eu/press-news/esma-news/esma-reminds-firms-their-obligations-under-cfd-product-intervention-measures)
-- [ESMA — CFD leverage limits by asset class](https://www.esma.europa.eu/press-news/esma-news/esma-adopts-final-product-intervention-measures-cfds-and-binary-options)
+Final paper fills trigger deterministic metrics: cost-adjusted return, account
+return, MFE, MAE, exit reason/time, HOLD and opposite-direction
+counterfactuals, pessimistic collision result and confidence calibration.
+The LLM post-mortem receives those immutable metrics and a fixed error
+taxonomy; it cannot rewrite performance.
 
-## Inspect decisions and errors
+Lessons are append-only state transitions. One matching case creates a
+`candidate`; two corroborating completed cases can create `active`. Retrieval
+is deterministic and capped at five by default. The reference lane receives no
+lessons; only the evolving lane receives matching active lessons. This keeps a
+stable control lane for common-window comparison.
 
-The CLI prints snapshot, brief and decision IDs plus each lane status. Full
-verbal decisions live under the redirectable `state/` root:
+## Dashboard and audit trail
+
+`GET /api/state` includes a bounded `llm_lab` object. The existing dashboard
+renders a read-only LLM card with:
+
+- current French market opinion and freshness;
+- decision/fill/rejection/error timeline, including `HOLD`;
+- requested, effective paper and French-retail reference leverage;
+- separate lane accounts, positions, stops and liquidation estimates;
+- outcomes, post-mortems and candidate/active lessons;
+- reference/evolving metrics on the shared cutoff intersection;
+- alerts for stale evidence, bias/model changes, rejection, contradiction,
+  leverage excess and lane divergence.
+
+Reads are bounded and tolerate malformed JSONL tails. Model text is HTML
+escaped. The dashboard has no LLM activation button.
+
+Trace the journals directly when needed:
 
 ```bash
 tail -n 1 state/llm_market_briefs.jsonl | jq
-tail -n 2 state/llm_decisions.jsonl | jq
+tail -n 20 state/llm_decisions.jsonl | jq
+tail -n 20 state/llm_paper_fills.jsonl | jq
+tail -n 20 state/llm_outcomes.jsonl | jq
+tail -n 20 state/llm_postmortems.jsonl | jq
+tail -n 20 state/llm_lessons.jsonl | jq
 ```
 
-Files are append-only, locked, flushed and `fsync`'d. Model/schema/provenance
-errors are journaled as `model_error`, including the bounded error and raw JSON
-payload when available. API keys are absent from representations and errors.
-
-Tests or ad-hoc experiments can redirect all state before importing `orum`:
+Tests and ad-hoc runs can redirect every laboratory state file before import:
 
 ```bash
 export 0RUM_STATE_DIR="$(mktemp -d)"
 ```
 
-## Safety boundary and next phase
+## Offline replay
 
-No LLM module imports the existing paper engine or paper broker, and the CLI
-constructs public market clients without exchange keys. This phase can form an
-opinion and propose an aggressive paper trade, but it cannot mutate balances,
-positions or fills.
+Replay uses recorded decisions and historical closed candles. It never calls
+OpenRouter, GDELT, Binance or current news:
 
-The next implementation phase adds a separate, idempotent paper adapter,
-outcome snapshots, post-mortems, validated lesson promotion, reference versus
-evolving evaluation, dashboard visibility and operator approval for assisted
-mode. Real-money execution remains out of scope.
+```bash
+uv run python scripts/replay_llm_lab.py --pretty
+uv run python scripts/replay_llm_lab.py --input /absolute/path/to/fixture.json --pretty
+```
+
+The built-in acceptance fixture proves a 20x long and 40x short while keeping
+the French-retail reference at 2x, duplicate rejection, pessimistic
+liquidation ordering, reproducible outcomes, common-window comparison and
+lesson activation after two corroborating cases. The report carries a stable
+SHA-256 replay digest.
+
+## Paper leverage versus French retail eligibility
+
+Two independent values are always retained:
+
+- `paper_effective_leverage`: requested leverage clamped only to the configured
+  paper experiment range;
+- `fr_retail_eligible_leverage`: informational product/jurisdiction reference.
+
+For the conservative `fr_retail` + crypto perpetual/CFD-like profile, the
+displayed reference is 2x. Thus a requested 20x remains 20x in paper and is
+labelled `experimental_only=true`; the legal annotation never edits the
+experiment.
+
+This is based on product-intervention rules, not a database of French case law.
+The AMF states a 2x limit for crypto CFDs offered to retail clients. ESMA's
+24 February 2026 statement says derivatives marketed as perpetual futures are
+likely to fall within national CFD measures when their characteristics meet
+the CFD definition. Product classification, provider authorization and client
+status remain case-specific. This software label is not legal advice and never
+authorizes a real trade.
+
+Primary references:
+
+- [AMF — CFDs and retail leverage](https://www.amf-france.org/fr/espace-epargnants/comprendre-les-produits-financiers/produits-complexes/cfd)
+- [AMF — choosing an authorized crypto provider](https://www.amf-france.org/fr/espace-epargnants/proteger-son-epargne/crypto-actifs-bitcoin-etc/investir-en-crypto-monnaies-quel-professionnel-choisir)
+- [ESMA — perpetual futures and CFD measures, 24 February 2026](https://www.esma.europa.eu/press-news/esma-news/esma-reminds-firms-their-obligations-under-cfd-product-intervention-measures)
+
+## Remaining boundaries
+
+- Real-money execution and private exchange methods are structurally absent.
+- `paper_assisted` remains refused until an ownership/merge contract with the
+  native strategy exists.
+- Limit-order pending state is not installed; limit proposals are rejected.
+- Macro/on-chain adapters are not configured.
+- No profitability claim follows from passing simulations or replay tests.
 
 Provider references:
 
 - [OpenRouter structured outputs](https://openrouter.ai/docs/guides/features/structured-outputs)
 - [OpenRouter provider routing](https://openrouter.ai/docs/guides/routing/provider-selection)
-- [CCXT unified public market-data API](https://github.com/ccxt/ccxt/wiki/manual)
+- [CCXT public market-data API](https://github.com/ccxt/ccxt/wiki/manual)
 - [GDELT DOC 2.0 API](https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/)
