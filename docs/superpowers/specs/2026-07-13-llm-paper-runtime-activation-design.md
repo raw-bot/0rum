@@ -2,7 +2,7 @@
 
 Date: 2026-07-13
 
-Status: approved direction; written specification awaiting user review
+Status: approved in conversation; amended after explicit legacy-engine retirement
 
 Target repository: `/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading`
 
@@ -20,14 +20,15 @@ the laboratory.
 
 ## Considered approaches
 
-### 1. Worker supervised by the existing engine (selected)
+### 1. Worker supervised by the legacy engine
 
 Add a small loop runner to the existing engine process group. It executes the
 already validated one-shot autonomous command, waits until the next scheduled
 cycle, and is restarted by the existing supervisor if it crashes.
 
-This keeps start and stop semantics aligned with the rest of the bot while
-preserving the LLM laboratory's separate files and failure boundary.
+This was initially selected, then rejected operationally when the user
+explicitly retired the legacy engine. Coupling the LLM to that process would
+either revive a non-authoritative trading path or prevent the LLM from running.
 
 ### 2. Inline scheduling inside the native trading worker
 
@@ -36,29 +37,33 @@ retries, and paper-laboratory state. It creates unnecessary failure coupling
 and makes it harder to prove that LLM paper decisions cannot alter the native
 portfolio. This approach is rejected.
 
-### 3. Independent launchd agent
+### 3. Independent launchd agent (selected)
 
-This provides maximum process isolation but adds a second operational lifecycle
-and can leave the LLM running when the trading engine is intentionally stopped.
-It is deferred unless future runtime or resource requirements justify it.
+This provides maximum process isolation and matches the post-retirement runtime:
+the unified paper portfolio is already a scheduled LaunchAgent rather than a
+long-lived engine session. The LLM receives its own hourly paper-only agent so
+OpenRouter latency or failure cannot delay the authoritative portfolio cycle.
 
 ## Activation contract
 
-The engine starts the LLM worker only when `LLM_PAPER_ENABLED=1`. Absence of the
-variable, an empty value, or `0` keeps the feature off. The worker always invokes
-the laboratory with all three explicit gates:
+The `com.0rum.llm-paper` LaunchAgent starts the worker only when installed and
+enabled. Its non-secret environment also requires `LLM_PAPER_ENABLED=1`;
+absence of the variable, an empty value, or `0` makes an accidental manual
+invocation a no-op. The worker always invokes the laboratory with all three
+explicit gates:
 
 - mode `paper_autonomous`;
 - one-shot execution;
 - paper confirmation.
 
-The worker cadence comes from the validated `analyst_interval_minutes`
-configuration, initially 60 minutes. It runs once after startup and then aligns
-subsequent attempts to the interval. The one-shot runtime's existing locks and
-idempotency remain authoritative if a restart overlaps an earlier candle.
+The LaunchAgent cadence comes from the validated `analyst_interval_minutes`
+configuration, initially 60 minutes, and is installed with `StartInterval=3600`.
+The one-shot runtime's existing locks and idempotency remain authoritative if a
+manual kickstart overlaps an earlier candle.
 
-The LLM worker and native strategy worker share no account state. Stopping or
-crashing the LLM worker must not stop native paper monitoring.
+The LLM agent and unified portfolio agent share no account state or process
+group. Stopping, disabling, or crashing the LLM agent must not stop native paper
+monitoring.
 
 ## Secret handling
 
@@ -103,12 +108,12 @@ Each cycle performs these steps:
 3. Run one `paper_autonomous` laboratory cycle.
 4. Append the existing decision, execution, outcome, and error records.
 5. Publish a redacted heartbeat containing timestamps and cycle status.
-6. Wait until the next interval unless terminated.
+6. Exit and let launchd schedule the next interval.
 
-Termination signals interrupt the wait promptly. Transient OpenRouter or
-market-data failure affects only the current cycle. The existing bounded retry
-inside the OpenRouter client remains the only immediate API retry; the worker
-does not spin or create an unbounded retry storm.
+Transient OpenRouter or market-data failure affects only the current cycle. The
+existing bounded retry inside the OpenRouter client remains the only immediate
+API retry; launchd supplies the next hourly attempt and cannot create an
+unbounded retry storm.
 
 ## Dashboard visibility
 
@@ -140,9 +145,10 @@ could contain credentials.
   mutate either paper account.
 - Market-data failure: record incomplete evidence or cycle failure according to
   the existing laboratory contract.
-- Worker crash: the existing engine supervisor restarts only the LLM worker.
-- Engine stop: the worker receives the same process-group termination as the
-  native worker, watcher, and producer.
+- Worker crash: launchd records the exit and waits until the next scheduled run;
+  `KeepAlive` is deliberately absent.
+- Agent bootout or disable: no future LLM call occurs and the unified paper
+  portfolio continues independently.
 
 ## Verification
 
@@ -150,10 +156,10 @@ Implementation is acceptable only after all of the following pass:
 
 1. Unit tests for Keychain retrieval success and redacted failure using an
    injected command runner; tests never access the real secret.
-2. Unit tests for activation parsing, cadence, termination, heartbeat, and
-   non-spinning failure behaviour.
-3. Engine-script tests proving disabled mode starts no LLM worker and enabled
-   mode starts the paper-only worker with explicit confirmation.
+2. Unit tests for activation parsing, heartbeat, and non-spinning one-shot
+   failure behaviour.
+3. LaunchAgent validation proving a 3600-second cadence, no `KeepAlive`, a
+   paper-only command, and no credential in the plist.
 4. Existing OpenRouter tests proving exact model pinning, structured JSON, and
    mismatch rejection.
 5. Existing simulator tests proving isolation from native paper files.
@@ -167,10 +173,11 @@ environment.
 
 ## Rollback
 
-Set `LLM_PAPER_ENABLED=0` and restart the engine. This stops future LLM calls
-without deleting journals or paper accounts. If the worker integration itself
-must be removed, revert only the LLM runner and engine-supervision changes; the
-one-shot laboratory and its immutable history remain usable.
+Boot out or disable `com.0rum.llm-paper`. This stops future LLM calls without
+restarting the dashboard, touching the unified portfolio, or deleting journals
+and paper accounts. If the integration itself must be removed, delete only the
+LLM LaunchAgent and runner; the one-shot laboratory and its immutable history
+remain usable.
 
 The Keychain item is independent of code rollback and is removed only by an
 explicit operator action.
