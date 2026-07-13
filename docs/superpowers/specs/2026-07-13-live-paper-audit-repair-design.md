@@ -103,11 +103,23 @@ As horizons mature, append-only realization records store the actual closed
 price, actual return, median error and direction correctness. No pre-deployment
 history is fabricated. The dashboard states when the archive began.
 
-The market chart renders archived p50 paths in yellow at 50% opacity and the
-corresponding realized path as a distinct solid line. The existing future p50
-line also uses 50% opacity. The +18 h point remains a labelled interpolation
-between the independent +12 h and +24 h model horizons; it is not represented
-as a separately trained forecast.
+The market chart renders the last seven days of archived comparisons (up to 28
+six-hour predictions). The append-only journal itself is never truncated. For
+each prediction, the chart draws:
+
+- the elapsed part of the p50 trajectory in yellow at 50% opacity, interpolated
+  between the frozen 0 h, +6 h, +12 h and +24 h anchors;
+- every observed candle close from the same origin through the current time or
+  +24 h, whichever comes first, as a distinct solid white realized path;
+- median-error labels when the audited +6 h, +12 h and +24 h realization
+  records mature.
+
+The comparison becomes visible after the first candle following an estimate;
+it never waits for +6 h merely to draw a line. The existing future p50 line
+also uses 50% opacity. The +18 h point remains a labelled interpolation between
+the independent +12 h and +24 h model horizons; it is not represented as a
+separately trained forecast. No curve is fabricated before the archive's first
+recorded prediction.
 
 ## Dashboard truth contract
 
