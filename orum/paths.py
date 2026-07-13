@@ -34,3 +34,10 @@ PAPER_EQUITY_PATH = STATE_DIR / "paper_equity.jsonl"
 FORECAST_GATE_PATH = STATE_DIR / "forecast_gate.json"
 FORECAST_AUDIT_PATH = STATE_DIR / "forecast_audit.jsonl"
 FORECAST_HISTORY_PATH = STATE_DIR / "forecast_history.jsonl"
+
+# Append-only LLM laboratory journals. These remain under the same redirectable
+# state root so tests and ad-hoc experiments cannot write into live bot state.
+LLM_MARKET_BRIEFS_PATH = STATE_DIR / "llm_market_briefs.jsonl"
+LLM_DECISIONS_PATH = STATE_DIR / "llm_decisions.jsonl"
+LLM_OUTCOMES_PATH = STATE_DIR / "llm_outcomes.jsonl"
+LLM_LESSONS_PATH = STATE_DIR / "llm_lessons.jsonl"
