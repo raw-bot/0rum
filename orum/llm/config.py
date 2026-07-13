@@ -1,0 +1,90 @@
+"""Typed configuration for the opt-in LLM trading laboratory."""
+
+from __future__ import annotations
+
+import math
+from collections.abc import Mapping
+from dataclasses import dataclass, fields
+from enum import Enum
+
+
+class ConfigError(ValueError):
+    """Raised when LLM laboratory configuration is unsafe or malformed."""
+
+
+class LlmMode(str, Enum):
+    OFF = "off"
+    OBSERVER = "observer"
+    SHADOW = "shadow"
+    PAPER_ASSISTED = "paper_assisted"
+    PAPER_AUTONOMOUS = "paper_autonomous"
+
+
+@dataclass(frozen=True, slots=True)
+class LlmTradingConfig:
+    mode: LlmMode = LlmMode.OFF
+    provider: str = "openrouter"
+    model: str = "deepseek/deepseek-v4-pro"
+    analyst_interval_minutes: int = 60
+    decision_timeframe: str = "15m"
+    request_timeout_seconds: float = 60.0
+    max_parse_retries: int = 1
+    paper_min_leverage: float = 1.0
+    paper_max_leverage: float = 40.0
+    jurisdiction_profile: str = "fr_retail"
+    max_retrieved_lessons: int = 5
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, object]) -> "LlmTradingConfig":
+        if not isinstance(value, Mapping):
+            raise ConfigError("llm_trading config must be a mapping")
+        known = {field.name for field in fields(cls)}
+        unknown = sorted(set(value) - known)
+        if unknown:
+            raise ConfigError(f"unknown_option: {', '.join(unknown)}")
+
+        try:
+            mode = LlmMode(str(value.get("mode", "off")))
+        except ValueError as exc:
+            raise ConfigError(f"mode is invalid: {value.get('mode')!r}") from exc
+
+        try:
+            config = cls(
+                mode=mode,
+                provider=str(value.get("provider", "openrouter")).strip(),
+                model=str(value.get("model", "deepseek/deepseek-v4-pro")).strip(),
+                analyst_interval_minutes=int(value.get("analyst_interval_minutes", 60)),
+                decision_timeframe=str(value.get("decision_timeframe", "15m")).strip(),
+                request_timeout_seconds=float(value.get("request_timeout_seconds", 60)),
+                max_parse_retries=int(value.get("max_parse_retries", 1)),
+                paper_min_leverage=float(value.get("paper_min_leverage", 1)),
+                paper_max_leverage=float(value.get("paper_max_leverage", 40)),
+                jurisdiction_profile=str(value.get("jurisdiction_profile", "fr_retail")).strip(),
+                max_retrieved_lessons=int(value.get("max_retrieved_lessons", 5)),
+            )
+        except (TypeError, ValueError) as exc:
+            raise ConfigError(f"invalid llm_trading config: {exc}") from exc
+        config._validate()
+        return config
+
+    def _validate(self) -> None:
+        if not self.provider:
+            raise ConfigError("provider must not be empty")
+        if not self.model:
+            raise ConfigError("model must not be empty")
+        if self.analyst_interval_minutes <= 0:
+            raise ConfigError("analyst_interval_minutes must be positive")
+        if not self.decision_timeframe:
+            raise ConfigError("decision_timeframe must not be empty")
+        if not math.isfinite(self.request_timeout_seconds) or self.request_timeout_seconds <= 0:
+            raise ConfigError("request_timeout_seconds must be finite and positive")
+        if self.max_parse_retries < 0:
+            raise ConfigError("max_parse_retries must be non-negative")
+        if not math.isfinite(self.paper_min_leverage) or self.paper_min_leverage <= 0:
+            raise ConfigError("paper_min_leverage must be finite and positive")
+        if not math.isfinite(self.paper_max_leverage) or self.paper_max_leverage < self.paper_min_leverage:
+            raise ConfigError("paper_max_leverage must be finite and at least paper_min_leverage")
+        if not self.jurisdiction_profile:
+            raise ConfigError("jurisdiction_profile must not be empty")
+        if self.max_retrieved_lessons < 0:
+            raise ConfigError("max_retrieved_lessons must be non-negative")
