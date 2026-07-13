@@ -110,7 +110,7 @@ Run:
 uv run pytest -q
 ```
 
-Expected: 511 tests and 7 subtests pass, with zero failures.
+Expected: 512 tests and 7 subtests pass, with zero failures.
 
 Run GitNexus `detect_changes` with `scope=all` and this worktree, then commit only the three task files:
 

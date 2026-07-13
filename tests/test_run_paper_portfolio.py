@@ -1,11 +1,24 @@
 import unittest
 from contextlib import nullcontext
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from scripts import run_paper_portfolio
 
 
 class PaperPortfolioRuntimeTests(unittest.TestCase):
+    def test_load_config_falls_back_to_committed_config_when_state_override_is_absent(self):
+        with TemporaryDirectory() as tmp:
+            missing = Path(tmp) / "portfolio.yaml"
+            config = run_paper_portfolio.load_config(path=missing)
+
+        self.assertIn("strategies", config)
+        self.assertIn(
+            "btc_utbot_m15_h1",
+            {row["id"] for row in config["strategies"]},
+        )
+
     def test_binance_provider_drops_forming_candle(self):
         rows = [
             {"time": 0, "open": 1, "high": 2, "low": 0, "close": 1, "volume": 1},

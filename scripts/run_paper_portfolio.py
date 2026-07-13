@@ -19,6 +19,7 @@ import time
 import fcntl
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -29,6 +30,8 @@ from data_layer import fetch_klines  # noqa: E402
 from orum.paths import STATE_DIR  # noqa: E402
 from orum.portfolio.paper_engine import PaperEngine  # noqa: E402
 
+ROOT_DIR = Path(__file__).resolve().parents[1]
+DEFAULT_PORTFOLIO_PATH = ROOT_DIR / "config" / "portfolio.yaml"
 PORTFOLIO_PATH = STATE_DIR / "portfolio.yaml"
 PAPER_LOCK_PATH = STATE_DIR / "paper_engine.lock"
 
@@ -83,8 +86,10 @@ def binance_provider(symbol: str, timeframe: str, limit: int) -> list[dict]:
     return [row for row in normalized if row["ts"] + interval_ms <= now_ms][-limit:]
 
 
-def load_config() -> dict:
-    return yaml.safe_load(PORTFOLIO_PATH.read_text()) or {}
+def load_config(path: Path | None = None) -> dict:
+    candidate = path or PORTFOLIO_PATH
+    source = candidate if candidate.exists() else DEFAULT_PORTFOLIO_PATH
+    return yaml.safe_load(source.read_text()) or {}
 
 
 def build_engine(provider=binance_provider) -> PaperEngine:

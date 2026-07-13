@@ -1,0 +1,62 @@
+# Multi-strategy paper portfolio — ONE shared account, all paper, no live, no
+# TradingView. Runtime state/portfolio.yaml may override this committed fallback.
+starting_balance_usd: 10000.0
+candles_limit: 300
+max_total_stop_risk_pct: 0.05
+max_symbol_stop_risk_pct: 0.03
+
+forecast_gate:
+  enabled: true
+  history_limit: 900
+  min_evaluations: 250
+  neighbour_count: 80
+
+strategies:
+  - id: btc_ak_macd_4h
+    engine: ak_macd
+    symbol: BTC/USDT
+    timeframe: "4h"
+    risk_pct: 0.02
+    entry_enabled: true
+    exit_policy: structural_bracket
+    monitor_timeframe: "15m"
+    reward_risk_ratio: 1.5
+    params:
+      allow_short: false
+
+  - id: btc_utbot_m15_h1
+    engine: utbot_mtf
+    symbol: BTC/USDT
+    timeframe: "15m"
+    risk_pct: 0.005
+    entry_enabled: true
+    exit_policy: signal_or_stop
+    monitor_timeframe: "15m"
+    params:
+      buy_key: 6.0
+      buy_atr_period: 10
+      sell_key: 7.0
+      sell_atr_period: 20
+      trend_ema_period: 200
+
+  - id: eth_donchian
+    engine: donchian
+    symbol: ETH/USDT
+    timeframe: "1d"
+    risk_pct: 0.02
+    entry_enabled: false
+    exit_policy: donchian_signal
+    monitor_timeframe: "1d"
+    params:
+      entry_n: 20
+      exit_n: 10
+
+  - id: gold_cot
+    engine: gold_cot
+    symbol: PAXG/USDT
+    timeframe: "1d"
+    risk_pct: 0.02
+    entry_enabled: false
+    exit_policy: cot_signal
+    monitor_timeframe: "1d"
+    params: {}
