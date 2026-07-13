@@ -2,8 +2,10 @@
 
 ## Current status
 
-The LLM laboratory is opt-in, one-shot and isolated from the native portfolio.
-Its default mode is `off`. It can now observe the market, produce two fully
+The LLM laboratory is opt-in and isolated from the native portfolio. Its core
+runtime remains a one-shot command, while the optional
+`com.0rum.llm-paper` LaunchAgent invokes one autonomous paper cycle per hour.
+It can observe the market, produce two fully
 specified decisions, execute accepted **market** actions in two experimental
 paper accounts, evaluate closed outcomes and promote bounded lessons.
 
@@ -14,7 +16,8 @@ It never places a real exchange order. `paper_autonomous` mutates only:
 - the append-only `state/llm_*.jsonl` laboratory journals.
 
 It does not mutate the native `paper_positions.json`, `paper_fills.jsonl` or
-strategy state. No daemon is installed or activated by the implementation.
+strategy state. The LLM agent is independent from the authoritative
+`com.0rum.paper` portfolio agent and from the retired legacy engine.
 
 ## Modes and activation
 
@@ -26,19 +29,40 @@ strategy state. No daemon is installed or activated by the implementation.
 | `paper_assisted` | refused | — | no merge contract exists |
 | `paper_autonomous` | yes | reference + evolving | yes, isolated accounts only |
 
-Every invocation requires `--once`. Autonomous paper additionally requires
-`--confirm-paper` on that invocation; confirmation is not persisted:
+Every low-level invocation requires `--once`. Autonomous paper additionally
+requires `--confirm-paper` on that invocation; confirmation is not persisted.
+The hourly wrapper always supplies both flags after retrieving its credential
+from macOS Keychain.
+
+Create or update the Keychain entry interactively. `-w` is deliberately the
+last option so `/usr/bin/security` prompts instead of receiving the key on the
+command line:
 
 ```bash
-export OPENROUTER_API_KEY="..."
-
-uv run python scripts/run_llm_lab.py --mode observer --once
-uv run python scripts/run_llm_lab.py --mode shadow --once
-uv run python scripts/run_llm_lab.py \
-  --mode paper_autonomous \
-  --once \
-  --confirm-paper
+security add-generic-password -U -a "$USER" -s "0rum-openrouter" -l "0rum OpenRouter API key" -w
 ```
+
+Install and operate the paper-only hourly agent with:
+
+```bash
+./scripts/install_llm_paper_agent.sh install
+./scripts/install_llm_paper_agent.sh status
+./scripts/install_llm_paper_agent.sh disable
+./scripts/install_llm_paper_agent.sh enable
+./scripts/install_llm_paper_agent.sh uninstall
+```
+
+`disable` and `uninstall` stop future calls without deleting the isolated paper
+accounts, append-only journals or Keychain entry. If the credential itself must
+be removed, do so explicitly with:
+
+```bash
+security delete-generic-password -a "$USER" -s "0rum-openrouter"
+```
+
+Never paste the key into a shell command, YAML file, plist, source file,
+documentation or state. The agent reads it internally and publishes only a
+redacted runtime heartbeat.
 
 The runner refuses `paper_autonomous` without the confirmation flag. It also
 refuses `paper_assisted`: the native strategy does not yet define which fields
@@ -49,8 +73,8 @@ unreliable.
 
 The installed model is `deepseek/deepseek-v4-pro` through OpenRouter strict
 structured output. Provider fallback and silent model substitution are
-disabled. Put the key only in `OPENROUTER_API_KEY`; never put it in YAML,
-source, documentation or state.
+disabled. The low-level provider still receives `OPENROUTER_API_KEY` inside an
+in-memory environment mapping; the LaunchAgent plist never contains it.
 
 ```yaml
 llm_trading:
@@ -78,8 +102,9 @@ uv run python scripts/run_llm_lab.py \
   --once
 ```
 
-The CLI mode overrides the YAML mode. A remote mode requires
-`OPENROUTER_API_KEY`; `off` returns before provider construction or state I/O.
+The CLI mode overrides the YAML mode. A direct remote invocation requires an
+in-memory `OPENROUTER_API_KEY`; `off` returns before provider construction or
+state I/O.
 
 ## What the model decides
 
