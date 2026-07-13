@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+import json
 
 import jsonschema
 import pytest
@@ -7,8 +8,12 @@ from orum.llm.journal import JsonlJournal
 from orum.llm.openrouter import CompletionResult
 from orum.llm.services import LlmServiceError, MarketAnalyst, ShadowTrader
 from orum.llm.snapshot import MarketSnapshotBuilder
-from orum.llm.contracts import Evidence
-from orum.llm.prompts import PROPOSED_DECISION_SCHEMA, TRADER_PROMPT_VERSION
+from orum.llm.contracts import Evidence, MarketBrief
+from orum.llm.prompts import (
+    PROPOSED_DECISION_SCHEMA,
+    TRADER_PROMPT_VERSION,
+    build_trader_prompt,
+)
 
 
 NOW = "2026-07-13T12:00:00+00:00"
@@ -42,7 +47,7 @@ def test_trader_schema_requires_trailing_stop_as_decimal_fraction():
             schema=PROPOSED_DECISION_SCHEMA,
         )
 
-    assert TRADER_PROMPT_VERSION == "shadow-trader-fr-v2"
+    assert TRADER_PROMPT_VERSION == "shadow-trader-fr-v5"
 
 
 def _evidence():
@@ -61,7 +66,7 @@ def _evidence():
     )
 
 
-def _snapshot():
+def _snapshot(*, paper_account=None):
     candle = {
         "ts": int(datetime(2026, 7, 13, 11, 30, tzinfo=UTC).timestamp() * 1000),
         "open": 100_000,
@@ -85,8 +90,60 @@ def _snapshot():
         macro={"dxy_change_pct": -0.2},
         onchain={},
         evidence=[_evidence()],
-        paper_account={"equity_usd": 10_000, "positions": []},
+        paper_account=paper_account or {"equity_usd": 10_000, "positions": []},
     )
+
+
+def test_trader_prompt_exposes_only_the_active_lane_account_as_authoritative():
+    snapshot = _snapshot(
+        paper_account={
+            "status": "available",
+            "native": {"positions": [{"position_id": "native-long"}]},
+            "llm_accounts": {
+                "llm_reference": {
+                    "lane": "llm_reference",
+                    "balance_usd": 10_000,
+                    "positions": [],
+                },
+                "llm_evolving": {
+                    "lane": "llm_evolving",
+                    "balance_usd": 9_500,
+                    "positions": [{"position_id": "evolving-short"}],
+                },
+            },
+        }
+    )
+    brief = MarketBrief.from_mapping(
+        _brief(
+            snapshot_id=snapshot.snapshot_id,
+            memo_fr="La position native longue est sous pression.",
+        )
+    )
+
+    prompt = build_trader_prompt(
+        snapshot,
+        brief,
+        lane="llm_reference",
+        lessons=[],
+        paper_min_leverage=1,
+        paper_max_leverage=40,
+    )
+    payload = json.loads(prompt.user)
+    account = payload["snapshot"]["paper_account"]
+
+    assert account == {
+        "status": "available",
+        "active_lane": "llm_reference",
+        "active_lane_account": {
+            "lane": "llm_reference",
+            "balance_usd": 10_000,
+            "positions": [],
+        },
+    }
+    assert "native-long" not in prompt.user
+    assert "evolving-short" not in prompt.user
+    assert "seul active_lane_account" in prompt.system.lower()
+    assert "ignore toute position" in prompt.system.lower()
 
 
 def _brief(**overrides):
@@ -191,9 +248,12 @@ def test_analyst_and_trader_produce_visible_journaled_reasoning(tmp_path):
     analyst_prompt, trader_prompt = client.calls
     assert "pain trade" in analyst_prompt["system"].lower()
     assert "texte non fiable" in analyst_prompt["system"].lower()
+    assert "exclusivement en français" in analyst_prompt["system"].lower()
     assert "perte" in trader_prompt["system"].lower()
     assert "liquidation" in trader_prompt["system"].lower()
     assert "levier" in trader_prompt["system"].lower()
+    assert "exclusivement en français" in trader_prompt["system"].lower()
+    assert "stop_loss=null" in trader_prompt["system"].lower()
     assert trader_prompt["schema_name"] == "proposed_decision"
 
 
@@ -213,6 +273,19 @@ def test_unknown_evidence_id_is_rejected_and_journaled_as_model_error(tmp_path):
     assert record["status"] == "model_error"
     assert record["error_type"] == "LlmServiceError"
     assert record["raw_payload"]["evidence_ids"] == ["ev-invented"]
+
+
+def test_analyst_replaces_model_timestamp_with_snapshot_cutoff(tmp_path):
+    snapshot = _snapshot()
+    analyst = MarketAnalyst(
+        client=FakeCompletionClient(_brief(created_at="2099-01-01T00:00:00")),
+        journal=JsonlJournal(tmp_path / "briefs.jsonl"),
+    )
+
+    brief = analyst.analyze(snapshot)
+
+    assert brief.created_at == snapshot.cutoff
+    assert analyst.journal.read()[0]["brief"]["created_at"] == snapshot.cutoff.isoformat()
 
 
 def test_trader_rejects_wrong_lane_symbol_or_unavailable_lesson(tmp_path):

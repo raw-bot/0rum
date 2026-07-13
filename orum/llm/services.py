@@ -66,7 +66,9 @@ class MarketAnalyst:
             )
             raw_payload = completion.payload
             try:
-                brief = MarketBrief.from_mapping(raw_payload)
+                canonical_payload = dict(raw_payload)
+                canonical_payload["created_at"] = snapshot.cutoff.isoformat()
+                brief = MarketBrief.from_mapping(canonical_payload)
             except ContractError as exc:
                 raise LlmServiceError(f"invalid market brief: {exc}") from exc
             if brief.snapshot_id != snapshot.snapshot_id:
