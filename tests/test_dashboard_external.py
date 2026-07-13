@@ -57,11 +57,16 @@ class DashboardExternalTests(unittest.TestCase):
             candles = [{"ts": 1_780_000_000_000 + i * 60_000, "open": 100 + i * 0.1, "high": 101 + i * 0.1,
                         "low": 99 + i * 0.1, "close": 100 + i * 0.1, "volume": 1.0 + i} for i in range(3000)]
             (state / "candle_history.json").write_text(json.dumps({"asset": "BTC/USDT", "candles": candles}))
-            _write(state, "trades.jsonl", [{
-                "ts": "2026-06-14T11:00:00+00:00", "opened_at": "2026-06-14T10:00:00+00:00",
-                "candle_ts": 1_780_000_600_000, "entry_price": 100.0, "exit_price": 103.0,
-                "pnl_pct": 0.03, "net_pnl_usd": 70.0, "direction": "long", "exit_reason": "take_profit",
-            }])
+            # trade_markers now come from the unified paper ledger (open+close
+            # fills), not the retired trades.jsonl. The close fill's ts dates the
+            # exit; the matched open fill dates the entry.
+            _write(state, "paper_fills.jsonl", [
+                {"action": "open", "ts": "2026-06-14T10:00:00+00:00", "strategy_id": "btc_ak_macd_4h",
+                 "symbol": "BTC/USDT", "side": "long", "price": 100.0, "qty": 1.0},
+                {"action": "close", "ts": "2026-06-14T11:00:00+00:00", "strategy_id": "btc_ak_macd_4h",
+                 "symbol": "BTC/USDT", "side": "long", "entry_px": 100.0, "price": 103.0, "qty": 1.0,
+                 "realized_pnl_usd": 70.0, "r": 1.0, "reason": "take_profit"},
+            ])
             # Stub the live Binance fetch so this test exercises the _price_series
             # fallback it is about — otherwise the real feed wins and leaks live prices.
             with patch.object(dashboard, "_binance_15m_candles", return_value=[]), \
@@ -76,7 +81,7 @@ class DashboardExternalTests(unittest.TestCase):
         self.assertEqual(m["entry_price"], 100.0)
         self.assertEqual(m["exit_price"], 103.0)
         self.assertTrue(m["win"])
-        self.assertEqual(m["exit_ts"], 1_780_000_600_000)
+        self.assertEqual(m["exit_ts"], 1_781_434_800_000)  # ms of the close fill ts 2026-06-14T11:00Z
 
     def test_signal_markers_join_store_with_event_verdict(self):
         # external_signals.jsonl = the structured proposal (bar_time/price/event);

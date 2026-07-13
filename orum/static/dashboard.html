@@ -4,17 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>0rum · Ops Console</title>
-  <link rel="stylesheet" href="/assets/dashboard.css?v=15" />
-  <!-- Pin to v4: the renderProChart code uses the v4 series API
-       (addCandlestickSeries / addHistogramSeries / addLineSeries / setMarkers),
-       which was removed in v5. Unpinned unpkg served v5 and broke setData. -->
-  <script src="https://unpkg.com/lightweight-charts@4/dist/lightweight-charts.standalone.production.js"></script>
+  <link rel="stylesheet" href="/assets/dashboard.css?v=32" />
   <!-- GridStack v10 : fenêtres déplaçables/redimensionnables (layout persisté en localStorage) -->
   <link rel="stylesheet" href="https://unpkg.com/gridstack@10/dist/gridstack.min.css" />
   <script src="https://unpkg.com/gridstack@10/dist/gridstack-all.js"></script>
   <style>
     /* fallback to ensure the app is never totally unreadable */
-    body { background: #0a0d12; color: #d7dee8; }
+    body { background: #1b222a; color: #e3e9ee; }
   </style>
 </head>
 <body>
@@ -22,6 +18,29 @@
     <div class="brand">0RUM<span class="brand-sub">ops console</span></div>
     <div id="worker-control" class="worker-control"></div>
     <div id="topchips" class="chips"></div>
+    <nav id="layout-presets" class="layout-presets" aria-label="Dispositions du dashboard">
+      <button type="button" class="layout-preset-btn" data-layout-preset="column"
+              title="Une colonne" aria-label="Une colonne" aria-pressed="false">
+        <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor">
+          <rect x="2" y="2" width="12" height="3"/><rect x="2" y="6.5" width="12" height="3"/><rect x="2" y="11" width="12" height="3"/>
+        </svg>
+      </button>
+      <button type="button" class="layout-preset-btn" data-layout-preset="two-column"
+              title="Deux colonnes" aria-label="Deux colonnes" aria-pressed="false">
+        <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor">
+          <rect x="1.5" y="2" width="5.5" height="5"/><rect x="9" y="2" width="5.5" height="5"/><rect x="1.5" y="9" width="5.5" height="5"/><rect x="9" y="9" width="5.5" height="5"/>
+        </svg>
+      </button>
+      <button type="button" class="layout-preset-btn" data-layout-preset="aligned-wall"
+              title="Mur aligné" aria-label="Mur aligné" aria-pressed="false">
+        <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor">
+          <rect x="1" y="2" width="3.5" height="5"/><rect x="6.2" y="2" width="3.5" height="5"/><rect x="11.5" y="2" width="3.5" height="5"/><rect x="1" y="9" width="3.5" height="5"/><rect x="6.2" y="9" width="3.5" height="5"/><rect x="11.5" y="9" width="3.5" height="5"/>
+        </svg>
+      </button>
+      <span id="layout-custom-saved" class="layout-custom-saved"
+            title="Disposition personnelle sauvegardée"
+            aria-label="Disposition personnelle sauvegardée"></span>
+    </nav>
     <div id="clock" class="clock">--:--:--</div>
   </header>
 
@@ -31,27 +50,33 @@
     <!-- Zone 1 · vigilance : "tout va bien ?" en un regard -->
     <div id="kpis" class="kpi-row"></div>
 
-    <!-- Pro Chart : hors grille (apparaît pleine largeur quand actif) -->
-    <section class="card wide" id="pro-chart-card" style="display: none;">
-      <h2>Pro Chart <span class="hint" id="pro-px-hint"></span></h2>
-      <div id="tv-chart" style="width: 100%; height: 450px;"></div>
-    </section>
+    <nav class="market-toolbar" aria-label="Fenêtres marchés">
+      <span>MARCHÉS</span>
+      <button type="button" data-toggle-asset="BTC/USDT">BTC/USDT</button>
+      <button type="button" data-toggle-asset="BTC/USDT::btc_utbot_m15_h1">BTC M15/H1</button>
+      <button type="button" data-toggle-asset="ETH/USDT">ETH/USDT</button>
+      <button type="button" data-toggle-asset="PAXG/USDT">OR · PAXG/USDT</button>
+      <small>ouvrir / fermer les cartes · glisser le titre · redimensionner les bords</small>
+    </nav>
 
     <!-- Fenêtres déplaçables (drag par le titre) & redimensionnables (bord bas-droit).
          Disposition par défaut = ergonomie terminal : marché à gauche, risque à droite,
          config en dessous, log en bas. Layout persisté (localStorage). -->
     <div class="grid-stack">
-      <div class="grid-stack-item" gs-id="price"    gs-x="0" gs-y="0"  gs-w="8" gs-h="6"><div class="grid-stack-item-content"><section class="card" id="price-card"></section></div></div>
-      <div class="grid-stack-item" gs-id="position" gs-x="8" gs-y="0"  gs-w="4" gs-h="3"><div class="grid-stack-item-content"><section class="card" id="position-card"></section></div></div>
-      <div class="grid-stack-item" gs-id="stats"    gs-x="8" gs-y="3"  gs-w="4" gs-h="3"><div class="grid-stack-item-content"><section class="card" id="stats-card"></section></div></div>
-      <div class="grid-stack-item" gs-id="markets"  gs-x="0" gs-y="6"  gs-w="12" gs-h="4"><div class="grid-stack-item-content"><section class="card" id="markets-card"></section></div></div>
-      <div class="grid-stack-item" gs-id="research" gs-x="0" gs-y="9"  gs-w="8" gs-h="5"><div class="grid-stack-item-content"><section class="card" id="research-portfolio-card"></section></div></div>
-      <div class="grid-stack-item" gs-id="equity"   gs-x="8" gs-y="6"  gs-w="4" gs-h="3"><div class="grid-stack-item-content"><section class="card" id="equity-card"></section></div></div>
-      <div class="grid-stack-item" gs-id="trades"   gs-x="8" gs-y="9"  gs-w="4" gs-h="4"><div class="grid-stack-item-content"><section class="card" id="trades-card"></section></div></div>
-      <div class="grid-stack-item" gs-id="strategy" gs-x="0" gs-y="11" gs-w="4" gs-h="4"><div class="grid-stack-item-content"><section class="card" id="strategy-card"></section></div></div>
-      <div class="grid-stack-item" gs-id="leverage" gs-x="4" gs-y="11" gs-w="4" gs-h="4"><div class="grid-stack-item-content"><section class="card" id="leverage-card"></section></div></div>
-      <div class="grid-stack-item" gs-id="external" gs-x="8" gs-y="13" gs-w="4" gs-h="4"><div class="grid-stack-item-content"><section class="card" id="external-card"></section></div></div>
-      <div class="grid-stack-item" gs-id="log"      gs-x="0" gs-y="15" gs-w="8" gs-h="4"><div class="grid-stack-item-content"><section class="card" id="log-card"></section></div></div>
+      <div class="grid-stack-item" gs-id="market-btc" gs-x="0" gs-y="0" gs-w="12" gs-h="8" data-asset="BTC/USDT"><div class="grid-stack-item-content"><section class="card market-terminal-card" id="market-btc-card" data-asset="BTC/USDT"></section></div></div>
+      <div class="grid-stack-item" gs-id="market-btc-utbot" gs-x="0" gs-y="8" gs-w="12" gs-h="8" data-asset="BTC/USDT::btc_utbot_m15_h1"><div class="grid-stack-item-content"><section class="card market-terminal-card" id="market-btc-utbot-card" data-asset="BTC/USDT::btc_utbot_m15_h1"></section></div></div>
+      <div class="grid-stack-item" gs-id="market-eth" gs-x="0" gs-y="16" gs-w="12" gs-h="8" data-asset="ETH/USDT"><div class="grid-stack-item-content"><section class="card market-terminal-card" id="market-eth-card" data-asset="ETH/USDT"></section></div></div>
+      <div class="grid-stack-item" gs-id="market-paxg" gs-x="0" gs-y="24" gs-w="12" gs-h="8" data-asset="PAXG/USDT"><div class="grid-stack-item-content"><section class="card market-terminal-card" id="market-paxg-card" data-asset="PAXG/USDT"></section></div></div>
+      <div class="grid-stack-item" gs-id="position" gs-x="0" gs-y="24" gs-w="4" gs-h="3"><div class="grid-stack-item-content"><section class="card" id="position-card"></section></div></div>
+      <div class="grid-stack-item" gs-id="stats" gs-x="4" gs-y="24" gs-w="8" gs-h="3"><div class="grid-stack-item-content"><section class="card" id="stats-card"></section></div></div>
+      <div class="grid-stack-item" gs-id="research" gs-x="0" gs-y="27" gs-w="8" gs-h="5"><div class="grid-stack-item-content"><section class="card" id="research-portfolio-card"></section></div></div>
+      <div class="grid-stack-item" gs-id="equity" gs-x="8" gs-y="27" gs-w="4" gs-h="3"><div class="grid-stack-item-content"><section class="card" id="equity-card"></section></div></div>
+      <div class="grid-stack-item" gs-id="trades" gs-x="8" gs-y="30" gs-w="4" gs-h="4"><div class="grid-stack-item-content"><section class="card" id="trades-card"></section></div></div>
+      <div class="grid-stack-item" gs-id="strategy" gs-x="0" gs-y="32" gs-w="4" gs-h="4"><div class="grid-stack-item-content"><section class="card" id="strategy-card"></section></div></div>
+      <div class="grid-stack-item" gs-id="leverage" gs-x="4" gs-y="32" gs-w="4" gs-h="4"><div class="grid-stack-item-content"><section class="card" id="leverage-card"></section></div></div>
+      <div class="grid-stack-item" gs-id="external" gs-x="8" gs-y="34" gs-w="4" gs-h="4"><div class="grid-stack-item-content"><section class="card" id="external-card"></section></div></div>
+      <div class="grid-stack-item" gs-id="log" gs-x="0" gs-y="36" gs-w="8" gs-h="4"><div class="grid-stack-item-content"><section class="card" id="log-card"></section></div></div>
+      <div class="grid-stack-item" gs-id="llm-lab" gs-x="0" gs-y="40" gs-w="12" gs-h="8"><div class="grid-stack-item-content"><section class="card" id="llm-lab-card" aria-label="Laboratoire LLM en lecture seule"></section></div></div>
     </div>
   </main>
 
@@ -63,6 +88,6 @@
     <button id="layout-reset-btn" class="btn" title="Revenir à la disposition par défaut">reset layout</button>
   </footer>
 
-  <script src="/assets/dashboard.js?v=15"></script>
+  <script src="/assets/dashboard.js?v=33"></script>
 </body>
 </html>

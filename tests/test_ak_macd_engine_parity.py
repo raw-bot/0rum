@@ -123,11 +123,24 @@ class AkMacdEngineParityTests(unittest.TestCase):
 class AkMacdEngineConfigOverrideTests(unittest.TestCase):
     def test_valid_overrides_are_applied(self):
         engine = AkMacdEngine()
-        engine.init({"confirmation_bars": 5, "candidate_window_bars": 3, "regime_filter": False, "require_candle_direction": False})
+        engine.init({"confirmation_bars": 5, "candidate_window_bars": 3,
+                     "regime_filter": False, "require_candle_direction": False,
+                     "allow_short": False})
         self.assertEqual(engine._params.confirmation_bars, 5)
         self.assertEqual(engine._params.candidate_window_bars, 3)
         self.assertFalse(engine._params.regime_filter)
         self.assertFalse(engine._params.require_candle_direction)
+        self.assertFalse(engine._params.allow_short)
+
+    def test_long_only_override_suppresses_a_confirmed_short_candidate(self):
+        engine = AkMacdEngine()
+        engine.init({"allow_short": False})
+        candles = CANDLES[:120]
+        self.assertEqual(
+            evaluate_ak_macd_verdict(candles, PARAMS, symbol="BTCUSDT", timeframe="15m").event,
+            "SELL_CANDIDATE",
+        )
+        self.assertIsNone(engine.on_candle(candles[-1], _context(candles)))
 
     def test_invalid_overrides_fall_back_to_defaults(self):
         defaults = AkMacdParams()

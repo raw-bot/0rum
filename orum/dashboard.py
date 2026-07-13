@@ -10,11 +10,12 @@ import subprocess
 import sys
 import threading
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from statistics import mean
 import urllib.request
+from collections.abc import Mapping
 from urllib.parse import urlparse
 
 import yaml
@@ -22,7 +23,12 @@ import yaml
 from orum.accounting import account_returns, compound_balance
 from orum.adapters.price import _binance_symbol
 from orum.dsl.migrate import risk_value
+from orum.llm.comparison import compare_lanes
 from orum.paths import STATE_DIR
+from orum.portfolio.forecast_history import (
+    compose_forecast_history,
+    merge_forecast_history_24h,
+)
 from orum.score import score
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -52,6 +58,349 @@ def _read_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
+def _read_jsonl_tail(path: Path, *, limit: int, max_bytes: int = 1_048_576) -> list[dict]:
+    """Read a bounded valid tail without letting a torn LLM append break the UI."""
+    if limit <= 0 or not path.exists():
+        return []
+    try:
+        with path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - max_bytes))
+            chunk = handle.read(max_bytes)
+    except OSError:
+        return []
+    lines = chunk.decode("utf-8", errors="replace").splitlines()
+    if size > max_bytes and lines:
+        lines = lines[1:]
+    records: list[dict] = []
+    for line in reversed(lines):
+        if not line.strip():
+            continue
+        try:
+            value = json.loads(line)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            continue
+        if isinstance(value, dict):
+            records.append(value)
+        if len(records) >= limit:
+            break
+    records.reverse()
+    return records
+
+
+def _safe_llm_json(path: Path, *, max_bytes: int = 1_048_576) -> dict:
+    try:
+        if path.exists() and path.stat().st_size > max_bytes:
+            return {}
+        value = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _llm_account_state(path: Path, lane: str) -> dict:
+    def empty(status: str) -> dict:
+        return {
+            "lane": lane,
+            "status": status,
+            "balance_usd": None,
+            "equity_usd": None,
+            "positions": [],
+            "processed_decision_count": 0,
+        }
+
+    raw = _safe_llm_json(path)
+    if not raw:
+        return empty("absent")
+    positions = raw.get("positions") if isinstance(raw.get("positions"), Mapping) else {}
+    visible_positions: list[dict] = []
+    unrealized = 0.0
+    for symbol, item in list(positions.items())[:10]:
+        if not isinstance(item, Mapping):
+            continue
+        side = str(item.get("side") or "")
+        try:
+            qty = float(item.get("qty") or 0)
+            entry = float(item.get("entry_px") or 0)
+            mark = float(item.get("mark_px") or entry)
+        except (TypeError, ValueError, OverflowError):
+            return empty("invalid")
+        unrealized += (1 if side == "long" else -1) * qty * (mark - entry)
+        targets = item.get("take_profits")
+        if not isinstance(targets, list):
+            targets = []
+        visible_positions.append({
+            "position_id": item.get("position_id"),
+            "decision_id": item.get("decision_id"),
+            "symbol": item.get("symbol") or symbol,
+            "side": side,
+            "qty": qty,
+            "entry_px": entry,
+            "mark_px": mark,
+            "requested_leverage": item.get("requested_leverage"),
+            "effective_leverage": item.get("effective_leverage"),
+            "liquidation_px": item.get("liquidation_px"),
+            "stop_loss": item.get("stop_loss"),
+            "take_profits": targets[:5],
+            "time_exit_at": item.get("time_exit_at"),
+            "thesis": item.get("thesis"),
+            "invalidation": item.get("invalidation"),
+        })
+    try:
+        balance = float(raw.get("balance_usd") or 0)
+    except (TypeError, ValueError, OverflowError):
+        return empty("invalid")
+    processed = raw.get("processed_decision_ids")
+    if not isinstance(processed, list):
+        return empty("invalid")
+    return {
+        "lane": lane,
+        "status": "active",
+        "starting_balance_usd": raw.get("starting_balance_usd"),
+        "balance_usd": balance,
+        "equity_usd": balance + unrealized,
+        "positions": visible_positions,
+        "processed_decision_count": len(processed),
+    }
+
+
+def _bounded_list(value: object, *, limit: int) -> list:
+    return list(value[:limit]) if isinstance(value, (list, tuple)) else []
+
+
+def _llm_timeline_item(record: Mapping[str, object]) -> dict:
+    kind = str(record.get("kind") or "unknown")
+    decision = record.get("decision") if isinstance(record.get("decision"), Mapping) else {}
+    validation = record.get("validation") if isinstance(record.get("validation"), Mapping) else {}
+    return {
+        "kind": kind,
+        "recorded_at": record.get("recorded_at") or record.get("created_at"),
+        "status": record.get("status") or (
+            "accepted" if validation.get("accepted") is True
+            else "rejected" if validation.get("accepted") is False else None
+        ),
+        "lane": record.get("lane") or decision.get("lane"),
+        "model": record.get("model"),
+        "snapshot_id": record.get("snapshot_id"),
+        "snapshot_hash": record.get("snapshot_hash"),
+        "brief_id": record.get("brief_id"),
+        "decision_id": record.get("decision_id") or decision.get("decision_id"),
+        "fill_id": record.get("fill_id"),
+        "fill_ids": _bounded_list(record.get("fill_ids"), limit=20),
+        "action": decision.get("action") or record.get("action"),
+        "side": decision.get("side") or record.get("side"),
+        "order_type": decision.get("order_type"),
+        "equity_fraction": decision.get("equity_fraction"),
+        "requested_leverage": decision.get("requested_leverage") or record.get("requested_leverage"),
+        "paper_effective_leverage": record.get("paper_effective_leverage") or validation.get("paper_effective_leverage"),
+        "fr_retail_eligible_leverage": record.get("fr_retail_eligible_leverage") or validation.get("fr_retail_eligible_leverage"),
+        "experimental_only": record.get("experimental_only"),
+        "confidence": decision.get("confidence"),
+        "memo_fr": decision.get("memo_fr"),
+        "thesis": decision.get("thesis"),
+        "counter_thesis": decision.get("counter_thesis"),
+        "risk_rationale": decision.get("risk_rationale"),
+        "invalidation": decision.get("invalidation"),
+        "stop_loss": decision.get("stop_loss"),
+        "take_profits": _bounded_list(decision.get("take_profits"), limit=5),
+        "reasons": _bounded_list(
+            validation.get("reasons") if validation.get("reasons") is not None else record.get("reasons"),
+            limit=20,
+        ),
+        "error": record.get("error"),
+    }
+
+
+def _llm_lab_state(state_dir: Path, *, now: datetime | None = None) -> dict:
+    now_utc = (now or datetime.now(UTC)).astimezone(UTC)
+    runtime_record = _read_optional_json(state_dir / "llm_runtime_status.json")
+    runtime = {
+        "enabled": False,
+        "running": False,
+        "model": "deepseek/deepseek-v4-pro",
+        "interval_minutes": 60,
+        "last_cycle_started_at": None,
+        "last_cycle_completed_at": None,
+        "last_result": "not_started",
+        "last_error": "",
+    }
+    if isinstance(runtime_record, Mapping) and runtime_record:
+        if isinstance(runtime_record.get("enabled"), bool):
+            runtime["enabled"] = runtime_record["enabled"]
+        if isinstance(runtime_record.get("running"), bool):
+            runtime["running"] = runtime_record["running"]
+        model = runtime_record.get("model")
+        if isinstance(model, str) and model:
+            runtime["model"] = model[:120]
+        interval = runtime_record.get("interval_minutes")
+        if isinstance(interval, int) and not isinstance(interval, bool) and 1 <= interval <= 1440:
+            runtime["interval_minutes"] = interval
+        for key in ("last_cycle_started_at", "last_cycle_completed_at"):
+            value = runtime_record.get(key)
+            if isinstance(value, str) and value:
+                runtime[key] = value[:80]
+        result = runtime_record.get("last_result")
+        if isinstance(result, str) and result:
+            runtime["last_result"] = result[:80]
+        error = runtime_record.get("last_error")
+        if isinstance(error, str):
+            runtime["last_error"] = error[:300]
+    brief_records = _read_jsonl_tail(state_dir / "llm_market_briefs.jsonl", limit=10)
+    decision_records = _read_jsonl_tail(state_dir / "llm_decisions.jsonl", limit=60)
+    fill_records = _read_jsonl_tail(state_dir / "llm_paper_fills.jsonl", limit=30)
+    outcome_records = _read_jsonl_tail(state_dir / "llm_outcomes.jsonl", limit=40)
+    postmortem_records = _read_jsonl_tail(state_dir / "llm_postmortems.jsonl", limit=20)
+    lesson_records = _read_jsonl_tail(state_dir / "llm_lessons.jsonl", limit=100)
+
+    valid_briefs = [
+        item for item in brief_records
+        if item.get("status") == "valid" and isinstance(item.get("brief"), Mapping)
+    ]
+    latest_brief = valid_briefs[-1] if valid_briefs else {}
+    brief = latest_brief.get("brief") if isinstance(latest_brief.get("brief"), Mapping) else {}
+    opinion = {} if not brief else {
+        "recorded_at": latest_brief.get("recorded_at"),
+        "model": latest_brief.get("model"),
+        "snapshot_id": latest_brief.get("snapshot_id"),
+        "snapshot_hash": latest_brief.get("snapshot_hash"),
+        "brief_id": brief.get("brief_id"),
+        "bias": brief.get("bias"),
+        "regime": brief.get("regime"),
+        "confidence": brief.get("confidence"),
+        "memo_fr": brief.get("memo_fr"),
+        "interpretation": brief.get("interpretation"),
+        "invalidation": brief.get("invalidation"),
+        "evidence_freshness": brief.get("evidence_freshness"),
+    }
+
+    timeline = [_llm_timeline_item(item) for item in reversed(decision_records)]
+    timeline.extend(
+        _llm_timeline_item({**item, "kind": "paper_fill"})
+        for item in reversed(fill_records)
+    )
+    timeline.sort(key=lambda item: str(item.get("recorded_at") or ""), reverse=True)
+    timeline = timeline[:30]
+
+    outcome_keys = {
+        "lane", "decision_id", "exit_candle_ts", "net_return_on_margin",
+        "exit_reason", "calibration_squared_error",
+    }
+    outcomes = []
+    for item in outcome_records:
+        outcome = item.get("outcome")
+        if not isinstance(outcome, Mapping) or not outcome_keys.issubset(outcome):
+            continue
+        try:
+            exit_ts = int(outcome["exit_candle_ts"])
+            net_return = float(outcome["net_return_on_margin"])
+            account_return = float(outcome.get("account_return", net_return))
+        except (TypeError, ValueError, OverflowError):
+            continue
+        if not all(math.isfinite(value) for value in (net_return, account_return)):
+            continue
+        normalized = dict(outcome)
+        normalized["exit_candle_ts"] = exit_ts
+        normalized["net_return_on_margin"] = net_return
+        normalized["account_return"] = account_return
+        outcomes.append(normalized)
+    outcomes = outcomes[-20:][::-1]
+    postmortems = [
+        dict(item["postmortem"])
+        for item in postmortem_records
+        if item.get("status") == "valid" and isinstance(item.get("postmortem"), Mapping)
+    ][-10:][::-1]
+    latest_lessons: dict[str, dict] = {}
+    for item in lesson_records:
+        lesson = item.get("lesson")
+        if isinstance(lesson, Mapping) and isinstance(lesson.get("lesson_id"), str):
+            latest_lessons[str(lesson["lesson_id"])] = dict(lesson)
+    lessons = sorted(
+        latest_lessons.values(),
+        key=lambda item: str(item.get("updated_at") or item.get("created_at") or ""),
+        reverse=True,
+    )[:20]
+    comparison = compare_lanes(outcomes)
+    accounts = {
+        "llm_reference": _llm_account_state(
+            state_dir / "llm_reference_account.json", "llm_reference"
+        ),
+        "llm_evolving": _llm_account_state(
+            state_dir / "llm_evolving_account.json", "llm_evolving"
+        ),
+    }
+
+    alerts: list[dict] = []
+    for lane, account in accounts.items():
+        if account["status"] == "invalid":
+            alerts.append({
+                "kind": "corrupt_state", "level": "error",
+                "message": f"État paper illisible ou trop volumineux pour {lane}.",
+            })
+    if len(valid_briefs) >= 2:
+        previous = valid_briefs[-2]
+        previous_brief = previous.get("brief") if isinstance(previous.get("brief"), Mapping) else {}
+        if previous_brief.get("bias") != brief.get("bias"):
+            alerts.append({"kind": "bias_flip", "level": "warning", "message": "Le biais LLM a changé."})
+        if previous.get("model") != latest_brief.get("model"):
+            alerts.append({"kind": "model_change", "level": "warning", "message": "Le modèle observé a changé."})
+    if opinion:
+        try:
+            recorded = datetime.fromisoformat(str(opinion["recorded_at"]).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            recorded = None
+        if recorded is None or now_utc - recorded.astimezone(UTC) > timedelta(hours=2):
+            alerts.append({"kind": "stale_evidence", "level": "warning", "message": "L'opinion LLM date de plus de deux heures."})
+    for item in timeline:
+        if item.get("status") == "model_error" or item.get("error"):
+            alerts.append({"kind": "model_error", "level": "error", "message": str(item.get("error") or "Erreur modèle")[:300]})
+            break
+    rejected = next((item for item in timeline if item.get("status") == "rejected"), None)
+    if rejected:
+        alerts.append({"kind": "rejection", "level": "warning", "message": "Décision paper rejetée : " + ", ".join(map(str, rejected.get("reasons") or []))})
+        if any("contradiction" in str(reason) for reason in rejected.get("reasons") or []):
+            alerts.append({"kind": "contradiction", "level": "warning", "message": "Contradiction entre texte et action structurée."})
+    leverage_spike = None
+    for item in timeline:
+        try:
+            paper_leverage = float(item["paper_effective_leverage"])
+            fr_leverage = float(item["fr_retail_eligible_leverage"])
+        except (KeyError, TypeError, ValueError, OverflowError):
+            continue
+        if math.isfinite(paper_leverage) and math.isfinite(fr_leverage) and paper_leverage > fr_leverage:
+            leverage_spike = item
+            break
+    if leverage_spike:
+        alerts.append({"kind": "leverage_spike", "level": "info", "message": "Levier paper supérieur au repère FR retail ; expérimental uniquement."})
+    ref_return = comparison["llm_reference"]["compounded_return"]
+    evo_return = comparison["llm_evolving"]["compounded_return"]
+    if comparison["coverage_status"] == "common_window" and abs(float(ref_return) - float(evo_return)) >= 0.1:
+        alerts.append({"kind": "lane_divergence", "level": "info", "message": "Les lanes référence et évolutive divergent sur la fenêtre commune."})
+
+    if fill_records or any(item.get("kind") in {"paper_validation", "paper_execution", "paper_monitor"} for item in decision_records):
+        mode = "paper_autonomous"
+    elif decision_records:
+        mode = "shadow"
+    elif brief_records:
+        mode = "observer"
+    else:
+        mode = "off"
+    available = bool(runtime_record or brief_records or decision_records or fill_records or outcome_records or postmortem_records or lesson_records or any(value["status"] != "absent" for value in accounts.values()))
+    return {
+        "available": available,
+        "last_observed_mode": mode,
+        "runtime": runtime,
+        "opinion": opinion,
+        "timeline": timeline,
+        "accounts": accounts,
+        "outcomes": outcomes,
+        "postmortems": postmortems,
+        "lessons": lessons,
+        "comparison": comparison,
+        "alerts": alerts[:12],
+    }
+
+
 def _compound_return(trades: list[dict], goal: dict) -> float:
     if not trades:
         return 0.0
@@ -67,6 +416,134 @@ def _portfolio(trades: list[dict], goal: dict) -> dict:
         "pnl_usd": balance - starting_balance,
         "pnl_pct": (balance / starting_balance - 1.0) if starting_balance else 0.0,
     }
+
+
+def _paper_state(goal: dict) -> dict:
+    """The unified multi-strategy paper ledger (orum/portfolio/paper_engine.py):
+    one shared account, per-strategy open positions, real fills, equity curve.
+    This is the source of truth for the portfolio now — the old mono-asset
+    worker (trades.jsonl) is retired. Empty/absent files render as a flat 10k
+    account, not an error."""
+    starting = float(goal.get("starting_balance_usd", 10000.0))
+    account = _read_optional_json(STATE_DIR / "paper_positions.json")
+    equity_recs = _read_jsonl(STATE_DIR / "paper_equity.jsonl")
+    fills = _read_jsonl(STATE_DIR / "paper_fills.jsonl")
+    balance = float(account.get("balance_usd", starting))
+    equity = float(equity_recs[-1]["equity_usd"]) if equity_recs else balance
+    positions = [
+        {"strategy_id": sid, **{k: p.get(k) for k in
+         ("symbol", "side", "qty", "entry_px", "notional_usd", "risk_pct",
+          "opened_ts", "entry_reason", "exit_policy", "monitor_timeframe",
+          "stop_loss_price", "take_profit_price", "sl_basis",
+          "reward_risk_ratio")}}
+        for sid, p in (account.get("positions") or {}).items()
+    ]
+    return {
+        "starting_balance_usd": starting,
+        "balance_usd": balance,
+        "equity_usd": equity,
+        "pnl_usd": equity - starting,
+        "pnl_pct": (equity / starting - 1.0) if starting else 0.0,
+        "open_positions": positions,
+        "open_count": len(positions),
+        "fills": fills[-30:][::-1],
+        "equity_curve": [
+            {"index": i, "ts": r.get("ts"), "equity": (float(r.get("equity_usd", starting)) / starting)}
+            for i, r in enumerate(equity_recs)
+        ],
+        "updated_at": account.get("updated_at"),
+    }
+
+
+def _paper_closed_trades() -> list[dict]:
+    """Closed paper fills, reshaped to the accounting/trade contract. The
+    dashboard's whole stats layer (portfolio, equity curve, win rate, drawdown,
+    score, trade count, latest trades, candles) now reads the unified paper
+    ledger instead of the retired mono-asset worker's trades.jsonl. Every
+    consumer already keys off net_pnl_usd / entry_price / exit_price / ts, so
+    no downstream helper changes — only the source does."""
+    out: list[dict] = []
+    open_ts: dict[str, str] = {}  # strategy_id -> its open fill ts, to date each trade's entry
+    for f in _read_jsonl(STATE_DIR / "paper_fills.jsonl"):
+        sid = f.get("strategy_id")
+        if f.get("action") == "open":
+            open_ts[sid] = f.get("ts")
+            continue
+        if f.get("action") != "close":
+            continue
+        entry = float(f.get("entry_px", 0.0) or 0.0)
+        exit_px = float(f.get("price", 0.0) or 0.0)
+        realized = float(f.get("realized_pnl_usd", 0.0) or 0.0)
+        notional = float(f.get("qty", 0.0) or 0.0) * entry
+        closed_dt = _parse_ts(f.get("ts"))
+        out.append({
+            "ts": f.get("ts"),
+            "opened_at": open_ts.pop(sid, f.get("ts")),  # entry time (matched open), for chart placement
+            "candle_ts": int(closed_dt.timestamp() * 1000) if closed_dt else None,  # exit time in ms
+            "strategy_id": sid,
+            "asset": f.get("symbol"),
+            "side": f.get("side", "long"),
+            "direction": f.get("side", "long"),
+            "entry_price": entry,
+            "exit_price": exit_px,
+            "net_pnl_usd": realized,
+            "pnl_usd": realized,
+            "notional_usd": notional,
+            "pnl_pct": (realized / notional) if notional else 0.0,
+            "r": f.get("r"),
+            "exit_reason": f.get("reason", ""),
+            "reason": f.get("reason", ""),
+        })
+    return out
+
+
+def _paper_fill_markers(symbol: str, strategy_id: str | None = None) -> list[dict]:
+    """REAL paper fills for one symbol, as chart markers (ts in ms to sit on the
+    candle axis). `real: True` lets the frontend render them distinctly from the
+    recomputed backtest overlay — the two must never be confused."""
+    out: list[dict] = []
+    for f in _read_jsonl(STATE_DIR / "paper_fills.jsonl"):
+        if f.get("symbol") != symbol or (
+            strategy_id is not None and f.get("strategy_id") != strategy_id
+        ):
+            continue
+        ts = _parse_ts(f.get("ts"))
+        if ts is None:
+            continue
+        ms = int(ts.timestamp() * 1000)
+        if f.get("action") == "open":
+            direction = "S" if f.get("side") == "short" else "L"
+            out.append({"ts": ms, "price": f.get("price"), "kind": "entry", "side": f.get("side", "long"),
+                        "label": f"IN {direction}", "strategy_id": f.get("strategy_id"), "real": True})
+        elif f.get("action") == "close":
+            reason = str(f.get("reason") or "").lower()
+            label = "SL" if reason == "stop_loss" else "TP" if reason == "take_profit" else "OUT"
+            out.append({"ts": ms, "price": f.get("price"), "kind": "exit", "side": f.get("side", "long"),
+                        "label": label, "strategy_id": f.get("strategy_id"), "real": True,
+                        "reason": f.get("reason", "")})
+    return out
+
+
+def _legacy_audit() -> dict:
+    """Seven-day, non-authoritative view of the retired mono-asset ledger."""
+    cutoff = datetime.now(UTC).timestamp() - 7 * 86_400
+    recent = []
+    for trade in _read_jsonl(STATE_DIR / "trades.jsonl"):
+        closed = _parse_ts(trade.get("ts"))
+        if closed is not None and closed.timestamp() >= cutoff:
+            recent.append(trade)
+    return {
+        "authoritative": False,
+        "source": "legacy_worker_trades.jsonl",
+        "period_days": 7,
+        "trade_count_7d": len(recent),
+        "net_pnl_usd_7d": sum(float(row.get("net_pnl_usd", 0.0) or 0.0) for row in recent),
+        "recent": recent[-12:][::-1],
+        "process_running": worker_running(),
+        "warning": "Historique séparé — exclu du solde, de l'équité et des KPI unifiés.",
+    }
+
+
 
 
 def _parse_ts(ts: str | None) -> datetime | None:
@@ -480,6 +957,41 @@ def _logs(events: list[dict]) -> list[dict]:
     ]
 
 
+def _paper_logs() -> list[dict]:
+    """Heartbeat/log lines from the unified paper engine (cycles + fills), newest
+    first. This is the live feed now — the old events.jsonl belongs to the retired
+    worker and only lingers as history below these entries."""
+    out: list[dict] = []
+    for r in _read_jsonl(STATE_DIR / "paper_equity.jsonl")[-30:]:
+        out.append({
+            "ts": r.get("ts"), "kind": "paper_cycle",
+            "detail": f"cycle · {r.get('open_positions', 0)} position(s) · equity ${float(r.get('equity_usd', 0) or 0):,.2f}",
+        })
+    for f in _read_jsonl(STATE_DIR / "paper_fills.jsonl")[-30:]:
+        if f.get("action") == "open":
+            out.append({"ts": f.get("ts"), "kind": "paper_fill",
+                        "detail": f"OPEN {f.get('strategy_id')} {f.get('symbol')} @ {f.get('price')}"})
+        elif f.get("action") == "close":
+            out.append({"ts": f.get("ts"), "kind": "paper_fill",
+                        "detail": f"CLOSE {f.get('strategy_id')} {f.get('symbol')} @ {f.get('price')} "
+                                  f"pnl ${float(f.get('realized_pnl_usd', 0) or 0):,.2f}"})
+    _floor = datetime.min.replace(tzinfo=UTC)
+    out.sort(key=lambda e: _parse_ts(e.get("ts")) or _floor, reverse=True)
+    return out[:40]
+
+
+def _paper_worker() -> dict:
+    """Health of the paper engine (launchd com.0rum.paper, hourly), keyed off the
+    freshness of paper_equity.jsonl. Replaces the retired mono-asset worker's
+    heartbeat/pid liveness. >2h without a cycle = presumed down."""
+    recs = _read_jsonl(STATE_DIR / "paper_equity.jsonl")
+    last = _parse_ts(recs[-1].get("ts")) if recs else None
+    age = (datetime.now(UTC) - last).total_seconds() if last else None
+    stale = age is None or age > 7200
+    return {"heartbeat_age_seconds": age, "stale": stale, "running": not stale,
+            "pid": None, "mode": "paper_hourly"}
+
+
 # --- trading engine process control -----------------------------------------
 # The dashboard is always-on (launchd) and acts as the remote: this Start/Stop
 # toggle launches/stops the whole TRADING ENGINE — worker + watcher + AK MACD
@@ -573,6 +1085,31 @@ def _portfolio_shadow() -> dict:
     equity_curve = [{"ts": r.get("ts"), "equity": r.get("equity")}
                     for r in recs if r.get("action") == "exit" and r.get("equity")]
     equity = float(state.get("equity", 1.0)) if state else 1.0
+
+    # Mark-to-market: realised equity is only stamped on closed trades, so a strategy
+    # HOLDING an open position looks frozen (x1.0000) even as price moves. Attach the
+    # live unrealised P&L of each open position so the panel evolves every poll — the
+    # whole point of watching a paper strategy is seeing the open trade breathe.
+    positions = (state or {}).get("pos", {}) or {}
+    equity_mtm = equity
+    for name, e in engines.items():
+        pos = positions.get(name)
+        cur = e.get("price")
+        if pos and pos.get("holding") and pos.get("entry_px") and cur:
+            entry = float(pos["entry_px"])
+            unreal_pct = (cur / entry - 1.0)  # Donchian engines are long-only breakouts
+            atr_risk = float(pos.get("atr_risk") or 0.0)
+            risk_pct = float(pos.get("risk_pct") or 0.0)
+            # equity impact = risk fraction × (move expressed in units of the ATR risk stop)
+            unreal_equity = (risk_pct * ((cur - entry) / atr_risk)) if atr_risk else 0.0
+            e["position"] = {
+                "open": True, "entry_px": entry, "current_px": cur,
+                "unrealized_pct": unreal_pct, "unrealized_equity": unreal_equity,
+            }
+            equity_mtm += unreal_equity
+        else:
+            e["position"] = {"open": False}
+
     peak = max([equity] + [pt["equity"] for pt in equity_curve]) if equity_curve else equity
     dd = (1 - equity / peak) if peak else 0.0
     last_ts = _parse_ts(recs[-1].get("ts")) if recs else None
@@ -581,6 +1118,8 @@ def _portfolio_shadow() -> dict:
         "engines": engines,
         "trades": trades[::-1],
         "equity": equity,
+        "equity_mtm": equity_mtm,
+        "open_positions": sum(1 for e in engines.values() if e.get("position", {}).get("open")),
         "equity_curve": equity_curve,
         "drawdown": dd,
         "kill_dd": 0.60,
@@ -616,13 +1155,372 @@ def _markets(goal: dict) -> list[dict]:
     return markets
 
 
+# --- Signal overlays: each asset shows the engine that actually tracks it -------
+_SIGNAL_TTL = 120.0
+_sig_lock = threading.Lock()
+_sig_cache: dict[str, dict] = {}
+
+
+def _binance_klines(asset: str, interval: str, limit: int = 300) -> list[dict]:
+    """Generic Binance OHLCV (single REST call), cached per (asset, interval, limit).
+    Display-only — never touches the trading path."""
+    key = f"{asset}:{interval}:{limit}"
+    now = time.time()
+    with _cb_lock:
+        c = _cb_cache.get(key)
+        if c and c["candles"] and (now - c["ts"]) < _CB_TTL_SECONDS:
+            return c["candles"]
+    url = (f"https://api.binance.com/api/v3/klines?symbol={_binance_symbol(asset)}"
+           f"&interval={interval}&limit={limit}")
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "0rum-dashboard"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            raw = json.loads(resp.read().decode())
+    except Exception:  # noqa: BLE001 - chart display must never break the snapshot.
+        return []
+    out: list[dict] = []
+    for row in sorted(raw, key=lambda r: r[0]):
+        try:
+            out.append({"ts": int(row[0]), "open": float(row[1]), "high": float(row[2]),
+                        "low": float(row[3]), "close": float(row[4]), "volume": float(row[5])})
+        except (TypeError, ValueError, IndexError):
+            continue
+    if out:
+        with _cb_lock:
+            _cb_cache[key] = {"ts": now, "candles": out}
+    return out
+
+
+def _ak_macd_markers(candles: list[dict]) -> list[dict]:
+    """AK MACD entry markers via the REAL brain, so the chart matches the bot.
+    allow_short=True here is DISPLAY-ONLY (shows potential shorts); the live bot
+    stays long-only. Exits are bracket/runner-managed, not chartable signals."""
+    try:
+        from orum.external.ak_macd import (  # local import: keep dashboard import-safe
+            AkMacdParams, compute_state, _flip_up, _flip_down,
+            _strictly_increasing, _strictly_decreasing,
+            _other_long_conditions, _other_short_conditions, _regime_at)
+    except Exception:  # noqa: BLE001
+        return []
+    p = AkMacdParams(allow_short=False, regime_filter=True)
+    if len(candles) < p.warmup:
+        return []
+    st = compute_state(candles, p)
+    n = len(st.macd); W = p.candidate_window_bars; cb = p.confirmation_bars
+    cand = None
+    out: list[dict] = []
+    for t in range(2, n):
+        fu = _flip_up(st.macd, t); fd = _flip_down(st.macd, t)
+        reg = _regime_at(st.closes, t)[0] if p.regime_filter else None
+        if fu:
+            cand = (t, "long")
+        elif fd and p.allow_short:
+            cand = (t, "short")
+        elif cand is not None:
+            c0, side = cand
+            if t > c0 + W:
+                cand = None
+            elif side == "long":
+                if not (st.macd[t] > st.macd[t - 1]):
+                    cand = None
+                elif (_strictly_increasing(st.macd, t, cb) and _other_long_conditions(st, t, p)
+                      and reg != "unfavorable"):
+                    out.append({"ts": candles[t]["ts"], "price": st.closes[t], "kind": "entry", "side": "long", "label": "InL"})
+                    cand = None
+            else:
+                if not (st.macd[t] < st.macd[t - 1]):
+                    cand = None
+                elif (_strictly_decreasing(st.macd, t, cb) and _other_short_conditions(st, t, p)
+                      and reg != "favorable"):
+                    out.append({"ts": candles[t]["ts"], "price": st.closes[t], "kind": "entry", "side": "short", "label": "InS"})
+                    cand = None
+    return out
+
+
+def _utbot_mtf_markers(m15_candles: list[dict], h1_candles: list[dict]) -> list[dict]:
+    """Display the same closed-candle long-only UT Bot contract as the paper engine."""
+    from orum.strategies.utbot_mtf import ema_last, utbot_signal_series
+
+    now_ms = int(time.time() * 1000)
+    m15_candles = [row for row in m15_candles if int(row["ts"]) + 900_000 <= now_ms]
+    if not m15_candles or not h1_candles:
+        return []
+    buys, _, _ = utbot_signal_series(m15_candles, key_value=6.0, atr_period=10)
+    _, sells, _ = utbot_signal_series(m15_candles, key_value=7.0, atr_period=20)
+    markers: list[dict] = []
+    holding = False
+    for index, candle in enumerate(m15_candles):
+        decision_ts = int(candle["ts"]) + 900_000
+        closed_h1 = [row for row in h1_candles if int(row["ts"]) + 3_600_000 <= decision_ts]
+        h1_closes = [float(row["close"]) for row in closed_h1]
+        if not h1_closes:
+            continue
+        trend = ema_last(h1_closes, 200)
+        if not holding and buys[index] and trend is not None and h1_closes[-1] > trend:
+            markers.append({"ts": candle["ts"], "price": candle["close"], "kind": "entry",
+                            "side": "long", "label": "InL", "strategy_id": "btc_utbot_m15_h1"})
+            holding = True
+        elif holding and sells[index]:
+            markers.append({"ts": candle["ts"], "price": candle["close"], "kind": "exit",
+                            "side": "long", "label": "OUT", "strategy_id": "btc_utbot_m15_h1"})
+            holding = False
+    return markers
+
+
+def _donchian_markers(candles: list[dict], entry_n: int = 20, exit_n: int = 10) -> list[dict]:
+    """Operational long-only Donchian entry and signal exit overlay."""
+    c = [x["close"] for x in candles]
+    out: list[dict] = []
+    hold_l = False
+    for i in range(entry_n + 2, len(c)):
+        hi_e = max(c[i - entry_n - 1:i - 1]); lo_x = min(c[i - exit_n - 1:i - 1])
+        if not hold_l and c[i] > hi_e:
+            out.append({"ts": candles[i]["ts"], "price": c[i], "kind": "entry", "side": "long", "label": "InL"}); hold_l = True
+        elif hold_l and c[i] < lo_x:
+            out.append({"ts": candles[i]["ts"], "price": c[i], "kind": "exit", "side": "long", "label": "OUT"}); hold_l = False
+    return out
+
+
+def _gold_cot_markers(candles: list[dict]) -> list[dict]:
+    """gold_cot (long-only): go long when the COT commercial index <= 20 (gate opens),
+    exit when it climbs back > 20. Joins weekly COT (by release/usable_from date) to the
+    daily PAXG bars. Same engine as scripts/portfolio_shadow.gold_cot."""
+    try:
+        import os as _os
+        import datetime as _dt
+        _scripts = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "scripts")
+        if _scripts not in sys.path:
+            sys.path.insert(0, _scripts)
+        from data_layer import fetch_cot, cot_index
+        rows = fetch_cot(range(2020, 2027), "GOLD - COMMODITY EXCHANGE")
+        idxs = cot_index([r["comm_net"] for r in rows], 156)
+    except Exception:  # noqa: BLE001 - COT unavailable -> no gold markers, chart still renders.
+        return []
+    gates: list[tuple[int, float]] = []
+    for r, v in zip(rows, idxs):
+        stamp = r.get("usable_from") or r.get("report_date")
+        try:
+            d = _dt.datetime.fromisoformat(str(stamp)[:10]).replace(tzinfo=_dt.timezone.utc)
+            gates.append((int(d.timestamp() * 1000), float(v)))
+        except Exception:  # noqa: BLE001
+            continue
+    gates.sort()
+    if not gates:
+        return []
+
+    def idx_at(ts: int):
+        applicable = None
+        for ms, v in gates:
+            if ms <= ts:
+                applicable = v
+            else:
+                break
+        return applicable
+
+    out: list[dict] = []
+    hold = False
+    for c in candles:
+        v = idx_at(c["ts"])
+        if v is None:
+            continue
+        gate_open = v <= 20.0
+        if gate_open and not hold:
+            out.append({"ts": c["ts"], "price": c["close"], "kind": "entry", "side": "long", "label": "InL"}); hold = True
+        elif not gate_open and hold:
+            out.append({"ts": c["ts"], "price": c["close"], "kind": "exit", "side": "long", "label": "OUT"}); hold = False
+    return out
+
+
+def _pair_trades(markers: list[dict]) -> list[dict]:
+    """Pair each entry with the next exit of the SAME side -> a trade segment
+    (entry -> exit) the chart can draw a line for. Green if it closed TP, red if SL."""
+    trades: list[dict] = []
+    open_by_side: dict[str, dict] = {}
+    for m in markers:
+        side = m.get("side")
+        if m.get("kind") == "entry":
+            open_by_side[side] = m
+        elif m.get("kind") == "exit" and side in open_by_side:
+            e = open_by_side.pop(side)
+            trades.append({"entry_ts": e["ts"], "entry_price": e["price"],
+                           "exit_ts": m["ts"], "exit_price": m["price"],
+                           "side": side, "result": m.get("label")})
+    return trades
+
+
+def _market_signals(goal: dict) -> dict:
+    """Return display candles and native-engine overlays for each tracked asset.
+
+    Most cards observe comparable 1h candles. The M15/H1 UT Bot sleeve displays
+    its native M15 bars and separately fetches H1 context for the EMA filter.
+    This function remains display-only and is not imported by the paper engine.
+    """
+    now = time.time()
+    with _sig_lock:
+        c = _sig_cache.get("all")
+        if c and (now - c["ts"]) < _SIGNAL_TTL:
+            return c["data"]
+    runtime = goal.get("asset", "BTC/USDT")
+    out: dict[str, dict] = {}
+    forecast_state = _read_optional_json(STATE_DIR / "forecast_gate.json")
+    forecast_strategies = forecast_state.get("strategies") or {}
+    forecast_history_records = _read_jsonl(STATE_DIR / "forecast_history.jsonl")
+
+    def _shown(display_candles, markers, n=160):
+        display_candles = display_candles[-n:]
+        if not display_candles:
+            return [], []
+        first_ts = display_candles[0]["ts"]
+        visible = []
+        for marker in markers:
+            if marker["ts"] < first_ts:
+                continue
+            model_marker = dict(marker)
+            label = str(model_marker.get("label") or "")
+            if not label.upper().startswith("MODEL"):
+                model_marker["label"] = f"MODEL {label}".strip()
+            visible.append(model_marker)
+        return display_candles, visible
+
+    def _signal_payload(
+        asset, engine, native_timeframe, marker_fn, note, *, strategy_id, n=480,
+        display_timeframe="1h", marker_context_timeframe=None,
+    ):
+        display = _binance_klines(asset, display_timeframe, 500)
+        native = (
+            display if native_timeframe == display_timeframe
+            else _binance_klines(asset, native_timeframe, 300)
+        )
+        marker_context = (
+            _binance_klines(asset, marker_context_timeframe, 500)
+            if marker_context_timeframe else display
+        )
+        candles, markers = _shown(display, marker_fn(native, marker_context), n=n)
+        real_markers = _paper_fill_markers(asset, strategy_id=strategy_id)
+        calibrated = forecast_strategies.get(strategy_id) or {}
+        active = calibrated.get("active") is True
+        return {
+            "asset": asset,
+            "engine": engine,
+            "strategy_id": strategy_id,
+            "timeframe": native_timeframe,
+            "display_timeframe": display_timeframe,
+            "is_runtime": runtime == asset,
+            "candles": candles,
+            "markers": markers,
+            "real_markers": real_markers,
+            "trades": _pair_trades(markers),
+            "calibrated_forecast": calibrated,
+            "forecast_history": compose_forecast_history(
+                forecast_history_records, strategy_id=strategy_id
+            )[-28:],
+            "forecast_history_24h": merge_forecast_history_24h(
+                calibrated.get("history_24h") or [],
+                forecast_history_records,
+                strategy_id=strategy_id,
+            ),
+            "scenario_mode": "calibrated_active" if active else "calibrated_locked" if calibrated else "display_only",
+            "scenario_note": (
+                "Prévision walk-forward qualifiée : filtre et taille adaptative actifs sur les nouvelles entrées paper."
+                if active else
+                "Prévision calibrée visible mais verrouillée : la stratégie conserve sa décision et sa taille d'origine."
+                if calibrated else
+                "Éventail de stress visuel, non probabiliste, jamais utilisé par le moteur."
+            ),
+            "note": note,
+        }
+
+    def _error_payload(
+        asset, engine, native_timeframe, exc, *, strategy_id, display_timeframe="1h"
+    ):
+        calibrated = forecast_strategies.get(strategy_id) or {}
+        return {
+            "asset": asset,
+            "engine": engine,
+            "strategy_id": strategy_id,
+            "timeframe": native_timeframe,
+            "display_timeframe": display_timeframe,
+            "is_runtime": runtime == asset,
+            "candles": [],
+            "markers": [],
+            "real_markers": [],
+            "trades": [],
+            "calibrated_forecast": calibrated,
+            "forecast_history": compose_forecast_history(
+                forecast_history_records, strategy_id=strategy_id
+            )[-28:],
+            "forecast_history_24h": merge_forecast_history_24h(
+                calibrated.get("history_24h") or [],
+                forecast_history_records,
+                strategy_id=strategy_id,
+            ),
+            "scenario_mode": "display_only",
+            "scenario_note": "Éventail indisponible sans bougies ; aucune incidence moteur.",
+            "note": f"erreur: {exc}",
+        }
+
+    try:
+        out["BTC/USDT"] = _signal_payload(
+            "BTC/USDT", "AK MACD", "4h", lambda native, _display: _ak_macd_markers(native),
+            "signal AK MACD calculé en 4 h · fills paper réels IN/TP/SL · sorties bracket ATR",
+            strategy_id="btc_ak_macd_4h",
+        )
+    except Exception as e:  # noqa: BLE001
+        out["BTC/USDT"] = _error_payload(
+            "BTC/USDT", "AK MACD", "4h", e, strategy_id="btc_ak_macd_4h"
+        )
+
+    try:
+        out["BTC/USDT::btc_utbot_m15_h1"] = _signal_payload(
+            "BTC/USDT", "UT BOT", "15m", _utbot_mtf_markers,
+            "signal UT Bot M15 · permission H1 EMA200 · paper long-only",
+            strategy_id="btc_utbot_m15_h1",
+            display_timeframe="15m", marker_context_timeframe="1h",
+        )
+    except Exception as e:  # noqa: BLE001
+        out["BTC/USDT::btc_utbot_m15_h1"] = _error_payload(
+            "BTC/USDT", "UT BOT", "15m", e, strategy_id="btc_utbot_m15_h1",
+            display_timeframe="15m",
+        )
+
+    try:
+        out["ETH/USDT"] = _signal_payload(
+            "ETH/USDT", "Donchian 20/10", "1d", lambda native, _display: _donchian_markers(native),
+            "signal Donchian calculé en 1 j · cassure 20 j / sortie 10 j · fills paper réels IN/TP/SL",
+            strategy_id="eth_donchian",
+        )
+    except Exception as e:  # noqa: BLE001
+        out["ETH/USDT"] = _error_payload(
+            "ETH/USDT", "Donchian 20/10", "1d", e, strategy_id="eth_donchian"
+        )
+
+    try:
+        gate = _read_optional_json(STATE_DIR / "cot_gate.json")  # real source (was retired portfolio_shadow.jsonl)
+        idx = gate.get("cot_index")
+        gate_open = bool(gate.get("gate_on"))
+        out["PAXG/USDT"] = _signal_payload(
+            "PAXG/USDT", "Or · fenêtre COT", "1d", lambda native, _display: _gold_cot_markers(native),
+            (f"signal COT calculé en 1 j · index ≤20 · actuel "
+             f"{idx if idx is not None else '?'} → {'OUVERT' if gate_open else 'FERMÉ'} · fills paper réels IN/TP/SL"),
+            strategy_id="gold_cot",
+        )
+    except Exception as e:  # noqa: BLE001
+        out["PAXG/USDT"] = _error_payload(
+            "PAXG/USDT", "Or · fenêtre COT", "1d", e, strategy_id="gold_cot"
+        )
+
+    with _sig_lock:
+        _sig_cache["all"] = {"ts": now, "data": out}
+    return out
+
+
 def build_snapshot() -> dict:
     goal = _read_yaml(STATE_DIR / "goal.yaml")
     strategy = _read_yaml(STATE_DIR / "strategy.yaml")
     heartbeat = _read_json(STATE_DIR / "heartbeat.json")
     watcher = _read_optional_json(STATE_DIR / "orum_watcher.json")
     open_position = _read_optional_json(STATE_DIR / "open_position.json")
-    trades = _read_jsonl(STATE_DIR / "trades.jsonl")
+    trades = _paper_closed_trades()  # source of truth: unified paper ledger (was trades.jsonl)
     hypotheses = _read_jsonl(STATE_DIR / "hypotheses.jsonl")
     events = _read_jsonl(STATE_DIR / "events.jsonl")
     ext_records = _read_jsonl(STATE_DIR / "external_signals.jsonl")
@@ -644,28 +1542,22 @@ def build_snapshot() -> dict:
     progress = min(len(pending_trades), reflection_every) if reflection_every else 0
     remaining = max(0, reflection_every - len(pending_trades)) if reflection_every else 0
 
-    heartbeat_ts = _parse_ts(heartbeat.get("ts"))
-    heartbeat_age = (datetime.now(UTC) - heartbeat_ts).total_seconds() if heartbeat_ts else None
-
+    paper = _paper_state(goal)
     return {
         "asset": goal.get("asset", "BTC/USDT"),
         "mode": "paper",
+        "paper": paper,
+        "llm_lab": _llm_lab_state(STATE_DIR),
+        "legacy_audit": _legacy_audit(),
         "signal_source": str(goal.get("signal_source", "native")),
         "external": _external_feed(events, goal),
-        "logs": _logs(events),
+        "logs": _paper_logs() + _logs(events),  # live paper heartbeat on top, old worker events as history
         "price_series": _binance_15m_candles(goal.get("asset", "BTC/USDT")) or _price_series(),
         "markets": _markets(goal),
+        "market_signals": _market_signals(goal),
         "trade_markers": _trade_markers(trades),
         "signals": _signal_markers(ext_records, events, open_position.get("external_signal_id")),
-        "worker": {
-            "heartbeat_age_seconds": heartbeat_age,
-            # 3 missed 60s loop intervals = the worker is presumed dead.
-            "stale": heartbeat_age is None or heartbeat_age > 180,
-            # process-level truth (is the run_loop actually running?), distinct
-            # from heartbeat freshness — lets the UI show ON/OFF reliably.
-            "running": worker_running(),
-            "pid": _worker_pid(),
-        },
+        "worker": _paper_worker(),
         "portfolio": _portfolio(trades, goal),
         "research_portfolio": _portfolio_shadow(),
         "open_position": _open_position(open_position, heartbeat, strategy),

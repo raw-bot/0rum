@@ -2,7 +2,7 @@
 
 Date: 2026-07-13
 
-Status: design approved in conversation; written specification awaiting user review
+Status: approved by the user; observer/shadow foundation implemented
 
 Target repository: `/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading`
 

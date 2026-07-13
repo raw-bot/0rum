@@ -55,6 +55,7 @@ class StrategyContextTests(unittest.TestCase):
         context = StrategyContext(candles=[{"close": 1.0}], symbol="BTC/USDT", timeframe="15m")
         self.assertIsNone(context.regime)
         self.assertEqual(context.candles, [{"close": 1.0}])
+        self.assertEqual(context.candles_by_timeframe, {})
 
     def test_exposes_no_executor_accounting_or_dashboard_access(self):
         # A strategy engine must not be able to reach execution/accounting/IO
@@ -62,7 +63,10 @@ class StrategyContextTests(unittest.TestCase):
         # seam. This pins the field list so a future field can't smuggle that
         # access back in unnoticed.
         field_names = {f.name for f in StrategyContext.__dataclass_fields__.values()}
-        self.assertEqual(field_names, {"candles", "symbol", "timeframe", "regime"})
+        self.assertEqual(
+            field_names,
+            {"candles", "symbol", "timeframe", "regime", "candles_by_timeframe"},
+        )
 
 
 class StrategyEngineProtocolTests(unittest.TestCase):

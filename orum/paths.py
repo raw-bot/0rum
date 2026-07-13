@@ -20,3 +20,29 @@ HEARTBEAT_PATH = STATE_DIR / "heartbeat.json"
 EVENTS_PATH = STATE_DIR / "events.jsonl"
 WATCHER_HEARTBEAT_PATH = STATE_DIR / "orum_watcher.json"
 HISTORY_DIR = STATE_DIR / "history"
+
+# COT gate cache: written by the separate updater (scripts/update_cot_gate.py),
+# read ONLY by the gold_cot strategy. COT is a weekly, gold-specific dependency;
+# keeping it in a cache file (never fetched inside on_candle) is what isolates it
+# from the BTC/ETH strategies and from the per-loop hot path.
+COT_GATE_PATH = STATE_DIR / "cot_gate.json"
+
+# Unified paper portfolio ledger (single account for every strategy).
+PAPER_FILLS_PATH = STATE_DIR / "paper_fills.jsonl"
+PAPER_POSITIONS_PATH = STATE_DIR / "paper_positions.json"
+PAPER_EQUITY_PATH = STATE_DIR / "paper_equity.jsonl"
+FORECAST_GATE_PATH = STATE_DIR / "forecast_gate.json"
+FORECAST_AUDIT_PATH = STATE_DIR / "forecast_audit.jsonl"
+FORECAST_HISTORY_PATH = STATE_DIR / "forecast_history.jsonl"
+
+# Append-only LLM laboratory journals. These remain under the same redirectable
+# state root so tests and ad-hoc experiments cannot write into live bot state.
+LLM_MARKET_BRIEFS_PATH = STATE_DIR / "llm_market_briefs.jsonl"
+LLM_DECISIONS_PATH = STATE_DIR / "llm_decisions.jsonl"
+LLM_OUTCOMES_PATH = STATE_DIR / "llm_outcomes.jsonl"
+LLM_LESSONS_PATH = STATE_DIR / "llm_lessons.jsonl"
+LLM_PAPER_FILLS_PATH = STATE_DIR / "llm_paper_fills.jsonl"
+LLM_POSTMORTEMS_PATH = STATE_DIR / "llm_postmortems.jsonl"
+LLM_REFERENCE_ACCOUNT_PATH = STATE_DIR / "llm_reference_account.json"
+LLM_EVOLVING_ACCOUNT_PATH = STATE_DIR / "llm_evolving_account.json"
+LLM_RUNTIME_STATUS_PATH = STATE_DIR / "llm_runtime_status.json"
