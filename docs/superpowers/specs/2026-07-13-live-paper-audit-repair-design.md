@@ -48,6 +48,11 @@ the operator explicitly approves their shutdown. Their historical trades stay
 visible in a separate panel and are never merged into unified equity or P&L.
 This is the selected approach.
 
+The authoritative `btc_ak_macd_4h` sleeve accepts new entries after its current
+position closes. It evaluates the validated H4 long-only policy directly;
+short candidates remain disabled. The retired local producer stays
+unauthorized and is not used as an alternate entry route.
+
 ## Position and exit contract
 
 Every persisted position gains optional, backward-compatible fields:

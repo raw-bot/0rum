@@ -31,6 +31,10 @@ ATR fallback bracket because its original structural inputs were not persisted.
 Signal-exit strategies keep their validated exit semantics; missing TP/SL
 levels are displayed honestly rather than fabricated.
 
+The unified AK H4 sleeve is the sole path allowed to accept future AK entries
+and remains long-only. The legacy local producer is neither reauthorized nor
+used to backfill trades that were missed before this decision.
+
 Forecast state is keyed and merged by strategy. An append-only six-hour history
 records predictions and later realizations so the dashboard can compare what
 was known at the time with what actually happened.
