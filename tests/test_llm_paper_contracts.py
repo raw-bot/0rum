@@ -22,6 +22,7 @@ def _position(**overrides):
         "symbol": "BTC/USDT",
         "side": "long",
         "qty": 0.2,
+        "initial_qty": 0.2,
         "entry_px": 100_000,
         "mark_px": 101_000,
         "notional_usd": 20_000,

@@ -126,6 +126,7 @@ class LlmPaperPosition:
     symbol: str
     side: str
     qty: float
+    initial_qty: float
     entry_px: float
     mark_px: float
     notional_usd: float
@@ -154,8 +155,10 @@ class LlmPaperPosition:
         if side not in {"long", "short"}:
             raise PaperContractError("side must be long or short")
         object.__setattr__(self, "side", side)
-        for name in ("qty", "entry_px", "mark_px", "notional_usd", "requested_leverage", "effective_leverage", "liquidation_px"):
+        for name in ("qty", "initial_qty", "entry_px", "mark_px", "notional_usd", "requested_leverage", "effective_leverage", "liquidation_px"):
             object.__setattr__(self, name, _number(getattr(self, name), name, minimum=0.0000001))
+        if self.qty > self.initial_qty:
+            raise PaperContractError("qty must not exceed initial_qty")
         object.__setattr__(self, "initial_margin_usd", _number(self.initial_margin_usd, "initial_margin_usd", minimum=0))
         object.__setattr__(self, "entry_fee_usd", _number(self.entry_fee_usd, "entry_fee_usd", minimum=0))
         object.__setattr__(self, "stop_loss", _optional_number(self.stop_loss, "stop_loss", minimum=0.0000001))
@@ -201,6 +204,7 @@ class LlmPaperPosition:
             "symbol": self.symbol,
             "side": self.side,
             "qty": self.qty,
+            "initial_qty": self.initial_qty,
             "entry_px": self.entry_px,
             "mark_px": self.mark_px,
             "notional_usd": self.notional_usd,
