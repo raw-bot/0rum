@@ -169,6 +169,17 @@ def _bounded_list(value: object, *, limit: int) -> list:
     return list(value[:limit]) if isinstance(value, (list, tuple)) else []
 
 
+def _llm_operator_error(value: object) -> str:
+    text = value.strip() if isinstance(value, str) else ""
+    if not text:
+        return ""
+    if "OpenRouter HTTP 429" in text:
+        return "Limite temporaire OpenRouter (quota ou cadence)"
+    if "response_not_french" in text:
+        return "Réponse du modèle refusée : le texte doit être en français"
+    return text[:300]
+
+
 def _llm_timeline_item(record: Mapping[str, object]) -> dict:
     kind = str(record.get("kind") or "unknown")
     decision = record.get("decision") if isinstance(record.get("decision"), Mapping) else {}
@@ -208,7 +219,7 @@ def _llm_timeline_item(record: Mapping[str, object]) -> dict:
             validation.get("reasons") if validation.get("reasons") is not None else record.get("reasons"),
             limit=20,
         ),
-        "error": record.get("error"),
+        "error": _llm_operator_error(record.get("error")),
     }
 
 
@@ -243,9 +254,7 @@ def _llm_lab_state(state_dir: Path, *, now: datetime | None = None) -> dict:
         result = runtime_record.get("last_result")
         if isinstance(result, str) and result:
             runtime["last_result"] = result[:80]
-        error = runtime_record.get("last_error")
-        if isinstance(error, str):
-            runtime["last_error"] = error[:300]
+        runtime["last_error"] = _llm_operator_error(runtime_record.get("last_error"))
     brief_records = _read_jsonl_tail(state_dir / "llm_market_briefs.jsonl", limit=10)
     decision_records = _read_jsonl_tail(state_dir / "llm_decisions.jsonl", limit=60)
     fill_records = _read_jsonl_tail(state_dir / "llm_paper_fills.jsonl", limit=30)
@@ -1704,10 +1713,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             path = urlparse(self.path).path
             if path == "/":
                 self._send(200, (STATIC_DIR / "dashboard.html").read_bytes(), "text/html; charset=utf-8")
+            elif path == "/bot":
+                self._send(200, (STATIC_DIR / "bot.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/assets/dashboard.css":
                 self._send(200, (STATIC_DIR / "dashboard.css").read_bytes(), "text/css; charset=utf-8")
             elif path == "/assets/dashboard.js":
                 self._send(200, (STATIC_DIR / "dashboard.js").read_bytes(), "application/javascript")
+            elif path == "/assets/bot.js":
+                self._send(200, (STATIC_DIR / "bot.js").read_bytes(), "application/javascript")
             elif path == "/assets/fonts/Montserrat-VariableFont_wght.ttf":
                 self._send(200, (STATIC_DIR / "fonts/Montserrat-VariableFont_wght.ttf").read_bytes(), "font/ttf")
             elif path == "/api/state":

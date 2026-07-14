@@ -116,7 +116,7 @@ class DashboardTerminalContractTests(unittest.TestCase):
         html = (ROOT / "orum/static/dashboard.html").read_text()
         js = (ROOT / "orum/static/dashboard.js").read_text()
         grid_ids = re.findall(r'gs-id="([^"]+)"', html)
-        self.assertEqual(len(grid_ids), 14)
+        self.assertEqual(len(grid_ids), 13)
         for grid_id in grid_ids:
             self.assertGreaterEqual(js.count(f'["{grid_id}",'), 3)
 
@@ -395,8 +395,8 @@ class DashboardTerminalContractTests(unittest.TestCase):
             css,
             r"\.terminal-svg \.scenario-path\.central\s*\{[^}]*opacity:\s*\.5",
         )
-        self.assertIn('/assets/dashboard.css?v=32', html)
-        self.assertIn('/assets/dashboard.js?v=33', html)
+        self.assertIn('/assets/dashboard.css?v=33', html)
+        self.assertIn('/assets/dashboard.js?v=34', html)
 
     def test_event_pins_and_scenario_join_have_explicit_layers(self):
         css = (ROOT / "orum/static/dashboard.css").read_text()

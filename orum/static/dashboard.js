@@ -1109,95 +1109,6 @@ function renderProChart(s) {
   });
 }
 
-/* ---- LLM paper laboratory (read-only audit surface) ------------------ */
-function renderLlmLab(s) {
-  const card = $("llm-lab-card");
-  const lab = s.llm_lab || {};
-  const runtime = lab.runtime || {};
-  if (!lab.available) {
-    card.innerHTML = `<h2>Laboratoire LLM <span class="hint">lecture seule · inactif</span></h2><div class="flat">Aucun journal LLM disponible</div>`;
-    return;
-  }
-  const opinion = lab.opinion || {};
-  const accounts = lab.accounts || {};
-  const timeline = lab.timeline || [];
-  const outcomes = lab.outcomes || [];
-  const postmortems = lab.postmortems || [];
-  const lessons = lab.lessons || [];
-  const comparison = lab.comparison || {};
-  const alerts = lab.alerts || [];
-  const laneName = (lane) => lane === "llm_evolving" ? "Évolutif" : "Référence";
-  const laneCards = ["llm_reference", "llm_evolving"].map((lane) => {
-    const account = accounts[lane] || {};
-    const positions = account.positions || [];
-    const positionRows = positions.length ? positions.map((position) => `
-      <div class="llm-position">
-        <div><b>${esc(position.symbol)}</b> · ${esc(String(position.side || "").toUpperCase())}</div>
-        <div class="llm-metrics"><span>entrée ${num(position.entry_px, 2)}</span><span>mark ${num(position.mark_px, 2)}</span><span>levier ${num(position.effective_leverage, 1)}×</span><span>liq. ${num(position.liquidation_px, 2)}</span></div>
-        <div class="llm-copy">${esc(position.thesis || "Thèse non renseignée")}</div>
-        <div class="llm-id">position ${esc(position.position_id)} · décision ${esc(position.decision_id)}</div>
-      </div>`).join("") : `<div class="llm-empty">Aucune position ouverte</div>`;
-    return `<section class="llm-panel" aria-label="Compte ${laneName(lane)}">
-      <h3>${laneName(lane)} <span class="llm-badge neutral">${esc(account.status || "absent")}</span></h3>
-      <div class="llm-metrics"><span>solde ${account.balance_usd == null ? "—" : usd(account.balance_usd)}</span><span>equity ${account.equity_usd == null ? "—" : usd(account.equity_usd)}</span><span>${Number(account.processed_decision_count || 0)} décisions</span></div>
-      ${positionRows}
-    </section>`;
-  }).join("");
-  const decisionCards = timeline.slice(0, 8).map((decision) => {
-    const state = decision.status === "rejected" || decision.status === "model_error" ? "bad" : decision.status === "accepted" || decision.status === "executed" ? "good" : "neutral";
-    const leverage = decision.requested_leverage == null ? "—" : `${num(decision.requested_leverage, 1)}× demandé · ${decision.paper_effective_leverage == null ? "—" : num(decision.paper_effective_leverage, 1) + "× paper"} · ${decision.fr_retail_eligible_leverage == null ? "FR n/v" : num(decision.fr_retail_eligible_leverage, 1) + "× repère FR"}`;
-    return `<article class="llm-decision">
-      <div class="llm-decision-head"><span class="llm-badge ${state}">${esc(decision.status || decision.kind)}</span><b>${esc(String(decision.action || decision.kind || "événement").toUpperCase())}</b><span>${esc(laneName(decision.lane))}</span><time>${esc(hhmmss(decision.recorded_at))}</time></div>
-      <div class="llm-copy">${esc(decision.memo_fr || decision.error || (decision.reasons || []).join(", ") || "Événement mécanique audité")}</div>
-      ${decision.thesis ? `<div class="llm-subcopy"><b>Thèse</b> ${esc(decision.thesis)} · <b>Invalidation</b> ${esc(decision.invalidation)}</div>` : ""}
-      <div class="llm-metrics"><span>${leverage}</span><span>confiance ${decision.confidence == null ? "—" : pct(decision.confidence, 0)}</span></div>
-      <div class="llm-id">snapshot ${esc(decision.snapshot_id)} · brief ${esc(decision.brief_id)} · décision ${esc(decision.decision_id)} · fills ${esc((decision.fill_ids || []).join(", "))}</div>
-    </article>`;
-  }).join("") || `<div class="llm-empty">Aucune décision journalisée</div>`;
-  const outcomeRows = outcomes.slice(0, 6).map((outcome) => `<div class="llm-row">
-    <span>${esc(laneName(outcome.lane))} · ${esc(outcome.side)}</span><b class="${cls(outcome.net_return_on_margin)}">${signed(outcome.net_return_on_margin, pct)}</b><span>${esc(outcome.exit_reason)}</span><small>${esc(outcome.decision_id)} → ${esc(outcome.outcome_id)}</small>
-  </div>`).join("") || `<div class="llm-empty">Aucun outcome fermé</div>`;
-  const postmortem = postmortems[0] || {};
-  const lessonRows = lessons.slice(0, 6).map((lesson) => `<div class="llm-lesson">
-    <span class="llm-badge ${lesson.state === "active" ? "good" : "neutral"}">${esc(lesson.state)}</span>
-    <b>${esc(lesson.error_category)}</b><span>${esc(lesson.adjustment)}</span>
-    <small>${esc(lesson.lesson_id)} · ${Number((lesson.supporting_decision_ids || []).length)} cas · force ${num(lesson.evidence_strength, 2)}</small>
-  </div>`).join("") || `<div class="llm-empty">Aucune leçon candidate ou active</div>`;
-  const ref = comparison.llm_reference || {};
-  const evo = comparison.llm_evolving || {};
-  const alertRows = alerts.map((alert) => `<div class="llm-alert ${esc(alert.level)}"><b>${esc(alert.kind)}</b><span>${esc(alert.message)}</span></div>`).join("") || `<div class="llm-empty">Aucune alerte LLM</div>`;
-  const runtimeState = runtime.running ? "cycle en cours" : runtime.enabled ? "agent horaire actif" : "agent désactivé";
-  const runtimeError = runtime.last_error ? `<div class="llm-alert error"><b>runtime</b><span>${esc(runtime.last_error)}</span></div>` : "";
-
-  card.innerHTML = `<h2>Laboratoire LLM <span class="hint">lecture seule · dernier mode observé ${esc(lab.last_observed_mode || "off")}</span></h2>
-    <div class="body llm-lab-body">
-      <section class="llm-panel" aria-label="État du runtime LLM">
-        <h3>Runtime <span class="llm-badge ${runtime.running ? "info" : runtime.enabled ? "good" : "neutral"}">${esc(runtimeState)}</span></h3>
-        <div class="llm-metrics"><span>${esc(runtime.model || "modèle inconnu")}</span><span>cadence ${Number(runtime.interval_minutes || 60)} min</span><span>résultat ${esc(runtime.last_result || "not_started")}</span><span>dernier ${ago(runtime.last_cycle_completed_at)}</span></div>
-        ${runtimeError}
-      </section>
-      <div class="llm-alerts" aria-label="Alertes LLM">${alertRows}</div>
-      <div class="llm-lab-grid">
-        <section class="llm-panel llm-opinion">
-          <h3>Avis marché <span class="llm-badge info">${esc(opinion.bias || "sans biais")}</span></h3>
-          <div class="llm-metrics"><span>${esc(opinion.regime || "régime inconnu")}</span><span>confiance ${opinion.confidence == null ? "—" : pct(opinion.confidence, 0)}</span><span>${esc(opinion.model || "modèle inconnu")}</span><span>${ago(opinion.recorded_at)}</span></div>
-          <p class="llm-copy">${esc(opinion.memo_fr || "Aucun mémo disponible")}</p>
-          <p class="llm-subcopy"><b>Lecture</b> ${esc(opinion.interpretation)} · <b>Invalidation</b> ${esc(opinion.invalidation)}</p>
-          <div class="llm-id">snapshot ${esc(opinion.snapshot_id)} · brief ${esc(opinion.brief_id)}</div>
-        </section>
-        <section class="llm-panel llm-comparison">
-          <h3>Comparaison <span class="llm-badge neutral">${esc(comparison.coverage_status)}</span></h3>
-          <div class="llm-compare"><div><span>Référence</span><b class="${cls(ref.compounded_return)}">${pct(ref.compounded_return)}</b><small>${Number(ref.decision_count || 0)} décisions · DD ${pct(ref.max_drawdown)}</small></div><div><span>Évolutif</span><b class="${cls(evo.compounded_return)}">${pct(evo.compounded_return)}</b><small>${Number(evo.decision_count || 0)} décisions · DD ${pct(evo.max_drawdown)}</small></div></div>
-          <div class="llm-id">fenêtre commune ${esc(comparison.common_cutoff_start)} → ${esc(comparison.common_cutoff_end)}</div>
-        </section>
-        ${laneCards}
-        <section class="llm-panel llm-timeline"><h3>Décisions et exécution</h3>${decisionCards}</section>
-        <section class="llm-panel"><h3>Outcomes et post-mortem</h3>${outcomeRows}${postmortem.memo_fr ? `<div class="llm-postmortem"><b>${esc(postmortem.process_quality)} · ${esc(postmortem.primary_error)}</b><p>${esc(postmortem.memo_fr)}</p><small>${esc(postmortem.postmortem_id)} · outcome ${esc(postmortem.outcome_id)}</small></div>` : ""}</section>
-        <section class="llm-panel"><h3>Leçons falsifiables</h3>${lessonRows}</section>
-      </div>
-    </div>`;
-}
-
 document.querySelectorAll("[data-toggle-asset]").forEach(button => {
   button.addEventListener("click", () => toggleMarketCard(button.dataset.toggleAsset));
 });
@@ -1284,7 +1195,7 @@ async function tick() {
     const s = await r.json();
     window.__lastState = s;
     renderTop(s); renderWorker(s); renderKpis(s); renderProChart(s); renderStats(s);
-    renderPosition(s); renderEquity(s); renderStrategy(s); renderLeverage(s); renderExternal(s); renderLogs(s); renderTrades(s); renderResearchPortfolio(s); renderLlmLab(s);
+    renderPosition(s); renderEquity(s); renderStrategy(s); renderLeverage(s); renderExternal(s); renderLogs(s); renderTrades(s); renderResearchPortfolio(s);
     $("clock").textContent = new Date().toTimeString().slice(0, 8);
     $("conn").textContent = "● live"; $("conn").classList.remove("down");
   } catch (err) {
@@ -1315,17 +1226,17 @@ const DASHBOARD_LAYOUT_PRESETS = {
   column: [
     ["market-btc",0,0,12,8],["market-btc-utbot",0,8,12,8],["market-eth",0,16,12,8],["market-paxg",0,24,12,8],
     ["position",0,32,12,3],["stats",0,35,12,3],["research",0,38,12,5],["equity",0,43,12,3],
-    ["trades",0,46,12,4],["strategy",0,50,12,4],["leverage",0,54,12,4],["external",0,58,12,4],["log",0,62,12,4],["llm-lab",0,66,12,8],
+    ["trades",0,46,12,4],["strategy",0,50,12,4],["leverage",0,54,12,4],["external",0,58,12,4],["log",0,62,12,4],
   ],
   "two-column": [
     ["market-btc",0,0,6,8],["market-btc-utbot",6,0,6,8],["market-eth",0,8,6,8],["market-paxg",6,8,6,8],
     ["position",0,16,6,3],["stats",6,16,6,3],["research",0,19,6,5],["equity",6,19,6,5],
-    ["strategy",0,24,6,4],["leverage",6,24,6,4],["trades",0,28,6,4],["external",6,28,6,4],["log",0,32,12,4],["llm-lab",0,36,12,8],
+    ["strategy",0,24,6,4],["leverage",6,24,6,4],["trades",0,28,6,4],["external",6,28,6,4],["log",0,32,12,4],
   ],
   "aligned-wall": [
     ["market-btc",0,0,6,7],["market-btc-utbot",6,0,6,7],["market-eth",0,7,6,7],["market-paxg",6,7,6,7],
     ["position",0,14,4,4],["stats",4,14,4,4],["equity",8,14,4,4],["research",0,18,8,5],
-    ["trades",8,18,4,5],["strategy",0,23,4,4],["leverage",4,23,4,4],["external",8,23,4,4],["log",0,27,12,4],["llm-lab",0,31,12,8],
+    ["trades",8,18,4,5],["strategy",0,23,4,4],["leverage",4,23,4,4],["external",8,23,4,4],["log",0,27,12,4],
   ],
 };
 Object.keys(DASHBOARD_LAYOUT_PRESETS).forEach(name => {

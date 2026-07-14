@@ -11,6 +11,7 @@ from typing import Any
 
 from orum.llm.contracts import ContractError, MarketBrief, MarketSnapshot, ProposedDecision
 from orum.llm.journal import JsonlJournal
+from orum.llm.language import ModelLanguageError, ensure_no_cjk_narrative
 from orum.llm.leverage import LeverageResult, apply_leverage_policy
 from orum.llm.openrouter import CompletionResult, JsonCompletionClient
 from orum.llm.prompts import build_analyst_prompt, build_trader_prompt
@@ -18,6 +19,29 @@ from orum.llm.prompts import build_analyst_prompt, build_trader_prompt
 
 class LlmServiceError(RuntimeError):
     """Raised after a failed model result has been made visible in its journal."""
+
+
+_BRIEF_NARRATIVE_FIELDS = (
+    "regime",
+    "facts",
+    "evidence_freshness",
+    "narrative_vs_price",
+    "interpretation",
+    "pain_trade",
+    "main_scenario",
+    "alternate_scenarios",
+    "catalysts",
+    "invalidation",
+    "memo_fr",
+)
+_DECISION_NARRATIVE_FIELDS = (
+    "horizon",
+    "thesis",
+    "counter_thesis",
+    "risk_rationale",
+    "invalidation",
+    "memo_fr",
+)
 
 
 def _utcnow() -> datetime:
@@ -33,6 +57,18 @@ def _timestamp(clock: Callable[[], datetime]) -> str:
 
 def _unknown(requested: Sequence[str], allowed: set[str]) -> list[str]:
     return sorted(set(requested) - allowed)
+
+
+def _ensure_brief_language(payload: Mapping[str, Any]) -> None:
+    ensure_no_cjk_narrative(
+        tuple(payload[field] for field in _BRIEF_NARRATIVE_FIELDS if field in payload)
+    )
+
+
+def _ensure_decision_language(payload: Mapping[str, Any]) -> None:
+    ensure_no_cjk_narrative(
+        tuple(payload[field] for field in _DECISION_NARRATIVE_FIELDS if field in payload)
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,9 +102,12 @@ class MarketAnalyst:
             )
             raw_payload = completion.payload
             try:
+                _ensure_brief_language(raw_payload)
                 canonical_payload = dict(raw_payload)
                 canonical_payload["created_at"] = snapshot.cutoff.isoformat()
                 brief = MarketBrief.from_mapping(canonical_payload)
+            except ModelLanguageError as exc:
+                raise LlmServiceError("response_not_french") from exc
             except ContractError as exc:
                 raise LlmServiceError(f"invalid market brief: {exc}") from exc
             if brief.snapshot_id != snapshot.snapshot_id:
@@ -191,7 +230,10 @@ class ShadowTrader:
             )
             raw_payload = completion.payload
             try:
+                _ensure_decision_language(raw_payload)
                 decision = ProposedDecision.from_mapping(raw_payload)
+            except ModelLanguageError as exc:
+                raise LlmServiceError("response_not_french") from exc
             except ContractError as exc:
                 raise LlmServiceError(f"invalid decision: {exc}") from exc
             self._validate_provenance(

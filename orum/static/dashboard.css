@@ -61,11 +61,44 @@ body {
   width: 5px; height: 5px; margin-left: 2px; border-radius: 50%; background: transparent;
 }
 .layout-custom-saved.active { background: var(--accent); }
+.topbar-link {
+  color: var(--muted); border: 1px solid var(--line); border-radius: 3px;
+  padding: 5px 8px; font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: .7px; text-decoration: none;
+}
+.topbar-link:hover, .topbar-link:focus-visible { color: var(--accent); border-color: var(--accent); }
 
 @media (max-width: 900px) {
   #topbar { gap: 8px; flex-wrap: wrap; }
   #topbar .chips { order: 2; flex-basis: 100%; }
   .layout-presets { margin-left: auto; }
+}
+
+/* ---- Bot operations page (read-only) --------------------------------- */
+.bot-main { max-width: 1440px; margin: 0 auto; padding: 22px 18px 38px; }
+.bot-intro { display: flex; justify-content: space-between; gap: 18px; align-items: end; margin-bottom: 18px; }
+.bot-intro h1 { margin: 2px 0 7px; font-size: 23px; letter-spacing: -.3px; }
+.bot-intro p { max-width: 800px; margin: 0; color: var(--muted); line-height: 1.5; }
+.eyebrow { margin: 0; color: var(--accent); font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+.bot-updated, .bot-note, .bot-meta { color: var(--dim); font-family: var(--mono); font-size: 10.5px; }
+.bot-page-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.bot-card { min-width: 0; padding: 13px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+.bot-span-two { grid-column: 1 / -1; }
+.bot-card-head { display: flex; justify-content: space-between; gap: 12px; align-items: start; margin-bottom: 12px; }
+.bot-card h2 { margin: 3px 0 0; font-size: 15px; }
+.bot-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.bot-metrics > div { min-width: 0; padding: 8px; border: 1px solid var(--line-soft); border-radius: 4px; background: var(--panel-2); }
+.bot-metrics span { display: block; color: var(--dim); font-family: var(--mono); font-size: 9.5px; text-transform: uppercase; }
+.bot-metrics b { display: block; margin-top: 4px; overflow-wrap: anywhere; font-family: var(--mono); font-size: 12px; }
+.bot-table-wrap { overflow-x: auto; }
+.bot-feed { max-height: 720px; overflow-y: auto; }
+
+@media (max-width: 900px) {
+  .bot-intro { display: block; }
+  .bot-updated { margin-top: 10px !important; }
+  .bot-page-grid { grid-template-columns: 1fr; }
+  .bot-span-two { grid-column: 1; }
+  .bot-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 .chip {
