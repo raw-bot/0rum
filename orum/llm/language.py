@@ -15,6 +15,7 @@ def _contains_cjk(value: str) -> bool:
         if (
             0x1100 <= codepoint <= 0x11FF  # Hangul Jamo
             or 0x2E80 <= codepoint <= 0x2FDF  # CJK Radicals and Ideographic Description
+            or codepoint == 0x3007  # Ideographic Number Zero
             or 0x3040 <= codepoint <= 0x30FF  # Hiragana and Katakana
             or 0x3100 <= codepoint <= 0x31FF  # Bopomofo and Katakana Phonetic Extensions
             or 0x3130 <= codepoint <= 0x318F  # Hangul Compatibility Jamo
@@ -26,6 +27,7 @@ def _contains_cjk(value: str) -> bool:
             or 0xF900 <= codepoint <= 0xFAFF  # CJK Compatibility Ideographs
             or 0xFE30 <= codepoint <= 0xFE4F  # CJK Compatibility Forms
             or 0xFF66 <= codepoint <= 0xFF9F  # Halfwidth Katakana
+            or 0xFFA0 <= codepoint <= 0xFFDC  # Halfwidth Hangul Jamo
             or 0x20000 <= codepoint <= 0x2FA1F  # CJK Extensions B through I
             or 0x30000 <= codepoint <= 0x323AF  # CJK Extension G and later
             or 0x1B000 <= codepoint <= 0x1B16F  # Kana Supplement and Extended-A

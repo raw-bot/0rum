@@ -377,7 +377,7 @@ def test_analyst_rejects_cjk_memo_and_journals_raw_payload_as_model_error(tmp_pa
     snapshot = _snapshot()
     journal = JsonlJournal(tmp_path / "briefs.jsonl")
     analyst = MarketAnalyst(
-        client=FakeCompletionClient(_brief(memo_fr="Le marché reste calme 漢.")),
+        client=FakeCompletionClient(_brief(memo_fr="Le marché reste calme 〇.")),
         journal=journal,
     )
 
@@ -388,7 +388,23 @@ def test_analyst_rejects_cjk_memo_and_journals_raw_payload_as_model_error(tmp_pa
     assert len(records) == 1
     assert records[0]["status"] == "model_error"
     assert records[0]["brief"] is None
-    assert records[0]["raw_payload"]["memo_fr"] == "Le marché reste calme 漢."
+    assert records[0]["raw_payload"]["memo_fr"] == "Le marché reste calme 〇."
+
+
+def test_analyst_rejects_kana_memo_and_journals_model_error(tmp_path):
+    snapshot = _snapshot()
+    journal = JsonlJournal(tmp_path / "briefs.jsonl")
+    analyst = MarketAnalyst(
+        client=FakeCompletionClient(_brief(memo_fr="Le marché reste calme カ.")),
+        journal=journal,
+    )
+
+    with pytest.raises(LlmServiceError, match="response_not_french"):
+        analyst.analyze(snapshot)
+
+    records = journal.read()
+    assert [record["status"] for record in records] == ["model_error"]
+    assert records[0]["brief"] is None
 
 
 def test_trader_rejects_cjk_memo_and_only_journals_model_error(tmp_path):
@@ -410,3 +426,23 @@ def test_trader_rejects_cjk_memo_and_only_journals_model_error(tmp_path):
     assert [record["status"] for record in records] == ["model_error"]
     assert records[0]["decision"] is None
     assert records[0]["raw_payload"]["memo_fr"] == "J'achète le breakout 漢."
+
+
+def test_trader_rejects_halfwidth_hangul_memo_and_journals_model_error(tmp_path):
+    snapshot = _snapshot()
+    brief = MarketAnalyst(
+        client=FakeCompletionClient(_brief()),
+        journal=JsonlJournal(tmp_path / "briefs.jsonl"),
+    ).analyze(snapshot)
+    journal = JsonlJournal(tmp_path / "decisions.jsonl")
+    trader = ShadowTrader(
+        client=FakeCompletionClient(_decision(memo_fr="Le marché reste calme \uffa0.")),
+        journal=journal,
+    )
+
+    with pytest.raises(LlmServiceError, match="response_not_french"):
+        trader.decide(snapshot, brief, lane="llm_reference", lessons=[])
+
+    records = journal.read()
+    assert [record["status"] for record in records] == ["model_error"]
+    assert records[0]["decision"] is None
