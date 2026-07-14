@@ -9,32 +9,30 @@ class ModelLanguageError(ValueError):
     """Raised when a model narrative contains disallowed CJK text."""
 
 
+_CJK_NARRATIVE_RANGES = (
+    (0x1100, 0x11FF),  # Hangul Jamo
+    (0x3000, 0x303F),  # CJK Symbols and Punctuation
+    (0x3040, 0x30FF),  # Hiragana and Katakana
+    (0x31F0, 0x31FF),  # Katakana Phonetic Extensions
+    (0x3400, 0x4DBF),  # CJK Unified Ideographs Extension A
+    (0x4E00, 0x9FFF),  # CJK Unified Ideographs
+    (0xA960, 0xA97F),  # Hangul Jamo Extended-A
+    (0xAC00, 0xD7FF),  # Hangul Syllables and Jamo Extended-B
+    (0xF900, 0xFAFF),  # CJK Compatibility Ideographs
+    (0xFF66, 0xFF9F),  # Halfwidth Katakana
+    (0xFFA0, 0xFFDC),  # Halfwidth Hangul Jamo
+    (0x1AFF0, 0x1AFFF),  # Kana Extended-B
+    (0x1B000, 0x1B16F),  # Kana Supplement and Extended-A
+    (0x20000, 0x2FA1F),  # CJK Unified Ideograph Extensions B through I
+)
+
+
 def _contains_cjk(value: str) -> bool:
-    for character in value:
-        codepoint = ord(character)
-        if (
-            0x1100 <= codepoint <= 0x11FF  # Hangul Jamo
-            or 0x2E80 <= codepoint <= 0x2FDF  # CJK Radicals and Ideographic Description
-            or codepoint == 0x3007  # Ideographic Number Zero
-            or 0x3040 <= codepoint <= 0x30FF  # Hiragana and Katakana
-            or 0x3100 <= codepoint <= 0x31FF  # Bopomofo and Katakana Phonetic Extensions
-            or 0x3130 <= codepoint <= 0x318F  # Hangul Compatibility Jamo
-            or 0x31A0 <= codepoint <= 0x31BF  # Bopomofo Extended
-            or 0x3400 <= codepoint <= 0x4DBF  # CJK Unified Ideographs Extension A
-            or 0x4E00 <= codepoint <= 0x9FFF  # CJK Unified Ideographs
-            or 0xA960 <= codepoint <= 0xA97F  # Hangul Jamo Extended-A
-            or 0xAC00 <= codepoint <= 0xD7FF  # Hangul syllables and Extended-B
-            or 0xF900 <= codepoint <= 0xFAFF  # CJK Compatibility Ideographs
-            or 0xFE30 <= codepoint <= 0xFE4F  # CJK Compatibility Forms
-            or 0xFF66 <= codepoint <= 0xFF9F  # Halfwidth Katakana
-            or 0xFFA0 <= codepoint <= 0xFFDC  # Halfwidth Hangul Jamo
-            or 0x20000 <= codepoint <= 0x2FA1F  # CJK Extensions B through I
-            or 0x30000 <= codepoint <= 0x323AF  # CJK Extension G and later
-            or 0x1B000 <= codepoint <= 0x1B16F  # Kana Supplement and Extended-A
-            or 0x1B170 <= codepoint <= 0x1B2FF  # Kana Extended-B
-        ):
-            return True
-    return False
+    return any(
+        start <= ord(character) <= end
+        for character in value
+        for start, end in _CJK_NARRATIVE_RANGES
+    )
 
 
 def ensure_no_cjk_narrative(value: object) -> None:

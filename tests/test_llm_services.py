@@ -407,6 +407,23 @@ def test_analyst_rejects_kana_memo_and_journals_model_error(tmp_path):
     assert records[0]["brief"] is None
 
 
+@pytest.mark.parametrize("character", ["\u3005", "\u302e", "\u3031", "\U0001aff0"])
+def test_analyst_rejects_cjk_symbols_and_kana_extensions(tmp_path, character):
+    snapshot = _snapshot()
+    journal = JsonlJournal(tmp_path / "briefs.jsonl")
+    analyst = MarketAnalyst(
+        client=FakeCompletionClient(_brief(memo_fr=f"Le marché reste calme {character}.")),
+        journal=journal,
+    )
+
+    with pytest.raises(LlmServiceError, match="response_not_french"):
+        analyst.analyze(snapshot)
+
+    records = journal.read()
+    assert [record["status"] for record in records] == ["model_error"]
+    assert records[0]["brief"] is None
+
+
 def test_trader_rejects_cjk_memo_and_only_journals_model_error(tmp_path):
     snapshot = _snapshot()
     brief = MarketAnalyst(
