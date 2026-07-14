@@ -59,15 +59,15 @@ def _unknown(requested: Sequence[str], allowed: set[str]) -> list[str]:
     return sorted(set(requested) - allowed)
 
 
-def _ensure_brief_language(brief: MarketBrief) -> None:
+def _ensure_brief_language(payload: Mapping[str, Any]) -> None:
     ensure_no_cjk_narrative(
-        tuple(getattr(brief, field) for field in _BRIEF_NARRATIVE_FIELDS)
+        tuple(payload[field] for field in _BRIEF_NARRATIVE_FIELDS if field in payload)
     )
 
 
-def _ensure_decision_language(decision: ProposedDecision) -> None:
+def _ensure_decision_language(payload: Mapping[str, Any]) -> None:
     ensure_no_cjk_narrative(
-        tuple(getattr(decision, field) for field in _DECISION_NARRATIVE_FIELDS)
+        tuple(payload[field] for field in _DECISION_NARRATIVE_FIELDS if field in payload)
     )
 
 
@@ -102,10 +102,10 @@ class MarketAnalyst:
             )
             raw_payload = completion.payload
             try:
+                _ensure_brief_language(raw_payload)
                 canonical_payload = dict(raw_payload)
                 canonical_payload["created_at"] = snapshot.cutoff.isoformat()
                 brief = MarketBrief.from_mapping(canonical_payload)
-                _ensure_brief_language(brief)
             except ModelLanguageError as exc:
                 raise LlmServiceError("response_not_french") from exc
             except ContractError as exc:
@@ -230,8 +230,8 @@ class ShadowTrader:
             )
             raw_payload = completion.payload
             try:
+                _ensure_decision_language(raw_payload)
                 decision = ProposedDecision.from_mapping(raw_payload)
-                _ensure_decision_language(decision)
             except ModelLanguageError as exc:
                 raise LlmServiceError("response_not_french") from exc
             except ContractError as exc:
