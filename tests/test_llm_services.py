@@ -423,6 +423,8 @@ def test_analyst_rejects_kana_memo_and_journals_model_error(tmp_path):
         "\U00016fe2",
         "\U00016ff0",
         "\U000323b0",
+        "\U000323b1",
+        "\U00033479",
         "\U0001f200",
         "\u32d0",
         "\u3200",

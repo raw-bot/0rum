@@ -22,7 +22,7 @@ _SCRIPT_MARK_RANGES = (
     (0x3000, 0x303F),  # CJK Symbols and Punctuation
     (0x16FE0, 0x16FFF),  # Ideographic symbols and Vietnamese reading marks
 )
-_UNNAMED_CJK_CODEPOINTS = frozenset({0x323B0})
+_HAN_EXTENSION_J_FALLBACK_RANGE = (0x323B0, 0x33479)
 
 
 def _has_cjk_script_name(character: str) -> bool:
@@ -36,7 +36,9 @@ def _contains_cjk(value: str) -> bool:
     return any(
         _has_cjk_script_name(character)
         or any(start <= ord(character) <= end for start, end in _SCRIPT_MARK_RANGES)
-        or ord(character) in _UNNAMED_CJK_CODEPOINTS
+        or _HAN_EXTENSION_J_FALLBACK_RANGE[0]
+        <= ord(character)
+        <= _HAN_EXTENSION_J_FALLBACK_RANGE[1]
         for character in value
     )
 
