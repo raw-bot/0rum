@@ -3,37 +3,41 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+import unicodedata
 
 
 class ModelLanguageError(ValueError):
     """Raised when a model narrative contains disallowed CJK text."""
 
 
-_CJK_NARRATIVE_RANGES = (
-    (0x1100, 0x11FF),  # Hangul Jamo
-    (0x3000, 0x303F),  # CJK Symbols and Punctuation
-    (0x3040, 0x30FF),  # Hiragana and Katakana
-    (0x3130, 0x318F),  # Hangul Compatibility Jamo
-    (0x31F0, 0x31FF),  # Katakana Phonetic Extensions
-    (0x3400, 0x4DBF),  # CJK Unified Ideographs Extension A
-    (0x4E00, 0x9FFF),  # CJK Unified Ideographs
-    (0xA960, 0xA97F),  # Hangul Jamo Extended-A
-    (0xAC00, 0xD7FF),  # Hangul Syllables and Jamo Extended-B
-    (0xF900, 0xFAFF),  # CJK Compatibility Ideographs
-    (0xFF66, 0xFF9F),  # Halfwidth Katakana
-    (0xFFA0, 0xFFDC),  # Halfwidth Hangul Jamo
-    (0x1AFF0, 0x1AFFF),  # Kana Extended-B
-    (0x1B000, 0x1B16F),  # Kana Supplement and Extended-A
-    (0x20000, 0x2FA1F),  # CJK Unified Ideograph Extensions B-F and I
-    (0x30000, 0x323AF),  # CJK Unified Ideograph Extensions G and H
+_CJK_NAME_PREFIXES = (
+    "CJK UNIFIED IDEOGRAPH",
+    "CJK COMPATIBILITY IDEOGRAPH",
+    "CJK RADICAL",
+    "KANGXI RADICAL",
+    "CJK STROKE",
 )
+_SCRIPT_NAME_MARKERS = ("HIRAGANA", "KATAKANA", "HANGUL")
+_SCRIPT_MARK_RANGES = (
+    (0x3000, 0x303F),  # CJK Symbols and Punctuation
+    (0x16FE0, 0x16FFF),  # Ideographic symbols and Vietnamese reading marks
+)
+_UNNAMED_CJK_CODEPOINTS = frozenset({0x323B0})
+
+
+def _has_cjk_script_name(character: str) -> bool:
+    name = unicodedata.name(character, "")
+    return name.startswith(_CJK_NAME_PREFIXES) or any(
+        marker in name for marker in _SCRIPT_NAME_MARKERS
+    )
 
 
 def _contains_cjk(value: str) -> bool:
     return any(
-        start <= ord(character) <= end
+        _has_cjk_script_name(character)
+        or any(start <= ord(character) <= end for start, end in _SCRIPT_MARK_RANGES)
+        or ord(character) in _UNNAMED_CJK_CODEPOINTS
         for character in value
-        for start, end in _CJK_NARRATIVE_RANGES
     )
 
 

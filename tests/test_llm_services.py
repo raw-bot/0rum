@@ -418,6 +418,14 @@ def test_analyst_rejects_kana_memo_and_journals_model_error(tmp_path):
         "\U00030000",
         "\U00031350",
         "\U000323af",
+        "\u2e80",
+        "\u2f00",
+        "\U00016fe2",
+        "\U00016ff0",
+        "\U000323b0",
+        "\U0001f200",
+        "\u32d0",
+        "\u3200",
     ],
 )
 def test_analyst_rejects_cjk_symbols_and_kana_extensions(tmp_path, character):
