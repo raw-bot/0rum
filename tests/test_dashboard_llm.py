@@ -209,7 +209,7 @@ def test_llm_lab_exposes_only_bounded_runtime_status(tmp_path):
             "last_cycle_started_at": NOW.isoformat(),
             "last_cycle_completed_at": NOW.isoformat(),
             "last_result": "ok",
-            "last_error": "<redacted error>",
+            "last_error": "OpenRouter HTTP 429: rate limit exceeded",
             "unexpected": "must-not-escape",
         }),
         encoding="utf-8",
@@ -226,9 +226,56 @@ def test_llm_lab_exposes_only_bounded_runtime_status(tmp_path):
         "last_cycle_started_at": NOW.isoformat(),
         "last_cycle_completed_at": NOW.isoformat(),
         "last_result": "ok",
-        "last_error": "<redacted error>",
+        "last_error": "Limite temporaire OpenRouter (quota ou cadence)",
     }
     assert "must-not-escape" not in json.dumps(state)
+
+
+def test_llm_timeline_presents_language_rejection_in_french(tmp_path):
+    _write_jsonl(
+        tmp_path / "llm_decisions.jsonl",
+        [{
+            "kind": "proposed_decision",
+            "status": "error",
+            "recorded_at": NOW.isoformat(),
+            "lane": "llm_reference",
+            "error": "response_not_french: CJK narrative detected",
+        }],
+    )
+
+    state = dashboard._llm_lab_state(tmp_path, now=NOW)
+
+    assert state["timeline"] == [{
+        "kind": "proposed_decision",
+        "recorded_at": NOW.isoformat(),
+        "status": "error",
+        "lane": "llm_reference",
+        "model": None,
+        "snapshot_id": None,
+        "snapshot_hash": None,
+        "brief_id": None,
+        "decision_id": None,
+        "fill_id": None,
+        "fill_ids": [],
+        "action": None,
+        "side": None,
+        "order_type": None,
+        "equity_fraction": None,
+        "requested_leverage": None,
+        "paper_effective_leverage": None,
+        "fr_retail_eligible_leverage": None,
+        "experimental_only": None,
+        "confidence": None,
+        "memo_fr": None,
+        "thesis": None,
+        "counter_thesis": None,
+        "risk_rationale": None,
+        "invalidation": None,
+        "stop_loss": None,
+        "take_profits": [],
+        "reasons": [],
+        "error": "Réponse du modèle refusée : le texte doit être en français",
+    }]
 
 
 def test_llm_lab_ignores_structurally_corrupt_optional_records(tmp_path):
