@@ -13,6 +13,7 @@ _CJK_NARRATIVE_RANGES = (
     (0x1100, 0x11FF),  # Hangul Jamo
     (0x3000, 0x303F),  # CJK Symbols and Punctuation
     (0x3040, 0x30FF),  # Hiragana and Katakana
+    (0x3130, 0x318F),  # Hangul Compatibility Jamo
     (0x31F0, 0x31FF),  # Katakana Phonetic Extensions
     (0x3400, 0x4DBF),  # CJK Unified Ideographs Extension A
     (0x4E00, 0x9FFF),  # CJK Unified Ideographs
@@ -23,7 +24,8 @@ _CJK_NARRATIVE_RANGES = (
     (0xFFA0, 0xFFDC),  # Halfwidth Hangul Jamo
     (0x1AFF0, 0x1AFFF),  # Kana Extended-B
     (0x1B000, 0x1B16F),  # Kana Supplement and Extended-A
-    (0x20000, 0x2FA1F),  # CJK Unified Ideograph Extensions B through I
+    (0x20000, 0x2FA1F),  # CJK Unified Ideograph Extensions B-F and I
+    (0x30000, 0x323AF),  # CJK Unified Ideograph Extensions G and H
 )
 
 

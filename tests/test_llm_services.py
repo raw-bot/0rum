@@ -407,7 +407,19 @@ def test_analyst_rejects_kana_memo_and_journals_model_error(tmp_path):
     assert records[0]["brief"] is None
 
 
-@pytest.mark.parametrize("character", ["\u3005", "\u302e", "\u3031", "\U0001aff0"])
+@pytest.mark.parametrize(
+    "character",
+    [
+        "\u3005",
+        "\u302e",
+        "\u3031",
+        "\u3131",
+        "\U0001aff0",
+        "\U00030000",
+        "\U00031350",
+        "\U000323af",
+    ],
+)
 def test_analyst_rejects_cjk_symbols_and_kana_extensions(tmp_path, character):
     snapshot = _snapshot()
     journal = JsonlJournal(tmp_path / "briefs.jsonl")
