@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>0rum · Opérations du bot</title>
+  <link rel="stylesheet" href="/assets/dashboard.css?v=33" />
+</head>
+<body class="bot-page">
+  <header id="topbar">
+    <div class="brand">0RUM<span class="brand-sub">opérations du bot</span></div>
+    <div class="chips"><span class="chip info"><b>LECTURE SEULE</b><span class="k">aucune action envoyée</span></span></div>
+    <a class="topbar-link" href="/" aria-label="Retourner au tableau de marché">MARCHÉS</a>
+    <span id="bot-poll" class="clock">connexion…</span>
+  </header>
+
+  <main class="bot-main">
+    <section class="bot-intro">
+      <div>
+        <p class="eyebrow">CONSOLE OPÉRATEUR</p>
+        <h1>État, décisions et apprentissage du bot</h1>
+        <p>Cette page observe le portefeuille paper unifié et le laboratoire LLM. Elle ne modifie ni les ordres, ni le modèle, ni sa cadence.</p>
+      </div>
+      <p id="bot-updated" class="bot-updated">Dernière lecture : —</p>
+    </section>
+
+    <div class="bot-page-grid">
+      <section id="bot-unified" class="bot-card" aria-label="Portefeuille paper unifié"></section>
+      <section id="bot-runtime" class="bot-card" aria-label="Runtime LLM et alertes"></section>
+      <section id="bot-lanes" class="bot-card bot-span-two" aria-label="Comptes paper LLM"></section>
+      <section id="bot-decisions" class="bot-card bot-span-two" aria-label="Décisions LLM et fills paper"></section>
+      <section id="bot-learning" class="bot-card bot-span-two" aria-label="Avis LLM et apprentissage"></section>
+    </div>
+  </main>
+
+  <script src="/assets/bot.js"></script>
+</body>
+</html>

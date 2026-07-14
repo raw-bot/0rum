@@ -180,23 +180,32 @@ def test_llm_dashboard_static_surface_is_read_only_responsive_and_escapes_model_
     html = (ROOT / "orum/static/dashboard.html").read_text(encoding="utf-8")
     css = (ROOT / "orum/static/dashboard.css").read_text(encoding="utf-8")
     js = (ROOT / "orum/static/dashboard.js").read_text(encoding="utf-8")
+    bot_html = (ROOT / "orum/static/bot.html").read_text(encoding="utf-8")
+    bot_js = (ROOT / "orum/static/bot.js").read_text(encoding="utf-8")
 
-    assert 'gs-id="llm-lab"' in html
-    assert 'id="llm-lab-card"' in html
-    assert 'aria-label="Laboratoire LLM en lecture seule"' in html
-    assert "confirm-paper" not in html
+    assert 'href="/bot"' in html
+    assert 'aria-label="Ouvrir les opérations du bot"' in html
+    assert 'gs-id="llm-lab"' not in html
+    assert 'id="llm-lab-card"' not in html
     assert ".llm-lab-grid" in css
+    assert ".bot-page-grid" in css
     assert "@media (max-width: 900px)" in css
-    assert "function renderLlmLab(s)" in js
-    assert "const runtime = lab.runtime || {}" in js
-    assert "runtime.model" in js
-    assert "runtime.last_result" in js
-    assert "runtime.last_cycle_completed_at" in js
-    assert "esc(runtime.last_error" in js
-    assert "esc(opinion.memo_fr" in js
-    assert "esc(decision.memo_fr" in js
-    assert "renderLlmLab(s)" in js
-    assert js.count('["llm-lab",') == 3
+    assert "function renderLlmLab(s)" not in js
+    assert "renderLlmLab(s)" not in js
+    assert '"llm-lab"' not in js
+    assert 'href="/"' in bot_html
+    assert 'id="bot-unified"' in bot_html
+    assert 'id="bot-runtime"' in bot_html
+    assert 'id="bot-lanes"' in bot_html
+    assert 'id="bot-decisions"' in bot_html
+    assert 'id="bot-learning"' in bot_html
+    assert "/assets/bot.js" in bot_html
+    assert 'fetch("/api/state"' in bot_js
+    assert "method: \"POST\"" not in bot_js
+    assert "const esc = (value)" in bot_js
+    assert "esc(runtime.last_error" in bot_js
+    assert "esc(opinion.memo_fr" in bot_js
+    assert "esc(message)" in bot_js
 
 
 def test_llm_lab_exposes_only_bounded_runtime_status(tmp_path):

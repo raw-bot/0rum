@@ -1713,10 +1713,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             path = urlparse(self.path).path
             if path == "/":
                 self._send(200, (STATIC_DIR / "dashboard.html").read_bytes(), "text/html; charset=utf-8")
+            elif path == "/bot":
+                self._send(200, (STATIC_DIR / "bot.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/assets/dashboard.css":
                 self._send(200, (STATIC_DIR / "dashboard.css").read_bytes(), "text/css; charset=utf-8")
             elif path == "/assets/dashboard.js":
                 self._send(200, (STATIC_DIR / "dashboard.js").read_bytes(), "application/javascript")
+            elif path == "/assets/bot.js":
+                self._send(200, (STATIC_DIR / "bot.js").read_bytes(), "application/javascript")
             elif path == "/assets/fonts/Montserrat-VariableFont_wght.ttf":
                 self._send(200, (STATIC_DIR / "fonts/Montserrat-VariableFont_wght.ttf").read_bytes(), "font/ttf")
             elif path == "/api/state":
