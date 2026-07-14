@@ -106,7 +106,11 @@ function render(snapshot) {
   $("bot-updated").textContent = `Dernière lecture : ${new Date().toLocaleTimeString("fr-FR")}`;
 }
 
+let pollInFlight = false;
+
 async function tick() {
+  if (pollInFlight) return;
+  pollInFlight = true;
   try {
     const response = await fetch("/api/state", { cache: "no-store" });
     if (!response.ok) throw new Error(String(response.status));
@@ -116,6 +120,8 @@ async function tick() {
   } catch (error) {
     $("bot-poll").textContent = "● déconnecté";
     $("bot-poll").className = "clock conn down";
+  } finally {
+    pollInFlight = false;
   }
 }
 

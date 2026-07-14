@@ -35,6 +35,9 @@ def test_bot_page_and_script_are_served_from_real_static_root():
     assert script_status == 200
     assert script_type == "application/javascript"
     assert 'fetch("/api/state"' in script_body.decode()
+    assert "let pollInFlight = false;" in script_body.decode()
+    assert "if (pollInFlight) return;" in script_body.decode()
+    assert "finally {\n    pollInFlight = false;\n  }" in script_body.decode()
 
 
 def test_unknown_asset_remains_a_json_404():
