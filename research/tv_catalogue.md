@@ -24,6 +24,9 @@ _Verdicts : CERVEAU / FILTRE / EXIT candidat, IDÉE (hypothèse extraite), DOUBL
 | 15 | @liquidity_poll (18s) | Playbook SMC télégraphique : low sweep → CHoCH bas TF → entrée au "rejection block" (+ breaker block, inducement) → cible swing high, RR 7.54 affiché | non déterminé | Sous-ensemble de n°11 : sweep + bascule LTF + reversal, en 18s, zéro définition, 4 objets de jargon non définis, 1 exemple gagnant | POUBELLE — rien d'extractible qui ne soit déjà au catalogue | CHoCH = cassure de structure LTF (≈ notre flip de momentum) ; rejection/breaker blocks = variantes de vocabulaire zones sans preuve (famille order blocks). Aucune hypothèse nouvelle. ⚠️ Leçon d'hygiène : le RR 7.54 vient d'un stop à 0,047% du prix — plus fin que spread+slippage réels → RR d'affichage, inexécutable. Toujours demander d'où vient un RR |
 | 16 | @bennnytrades (101s) | "TradeX QuantORB" : ORB 9:30-9:45 ET sur MNQ 15m + filtres de régime ATR & volume relatif (seuils cachés, "optimisés"), Pine strategy auto, deep backtest +271% 2020-2026 (2177 trades, 51.4%, DD 15%) | MNQ 15m | 1:non (Pine sur clôtures) · 2:ORB+RVOL = LA recette Zarattini/Aziz — configuration académiquement testée · 3:2177 trades sur micros, frais non montrés · 4:**oui — la couche contexte qui manquait aux ORB n°8/13** (filtres ATR/RVOL) · 5:oui · ⚠️ **RED FLAG : optimisation de paramètres IN-SAMPLE puis courbe montrée sur le même historique** — le +271% "sans variance" est la signature d'un overfit, pas d'un edge | **STRATÉGIE backtestable (framework, pas les claims)** | Complète le batch ORB en étude d'ablation propre : ORB × {sans filtre, displacement/FVG (n°8), ATR seuil, RVOL seuil} × {TP-mini (n°13), 3:1, trailing} sur MNQ + BTC + or, avec walk-forward — jamais d'optimisation in-sample. Stats de forme crédible (51.4%, RR>1) mais tous les seuils cachés derrière le funnel "comment orb" |
 | 17 | @trademachineoff (62s) | SMC reversal éducatif : anti-FOMO (ne pas chasser l'impulsion) → CHoCH (cassure du dernier LH) → pullback dans le dernier order block (dernière bougie baissière avant l'impulsion) → long, cible = liquidité (swing high) | non déterminé (schémas) | 1:discrétionnaire mais objectivable (CHoCH = fractals + cassure ; OB = "dernière bougie opposée avant impulsion ≥ k×ATR") · 2:zéro · 3:intestable (rien de chiffré) · 4:non — mais MIROIR de notre bot : impulsion → cassure de structure → pullback → entrée = notre séquence AK MACD en vocabulaire SMC · 5:n/a | DOUBLON conceptuel (famille n°11/15) — intérêt : valide notre architecture par convergence | Confirme l'axe de design "entrée sur pullback vs chasse du breakout" (déjà dans le batch ORB via n°8). Extraction mineure : définition codable de l'order block ("dernière bougie opposée avant impulsion ≥ k×ATR") = un type de zone de plus pour le batch niveaux, priorité basse |
+| 18 | Instagram (image statique, 2026-07-06) | Chart daily annoté SMC complet : liquidity swipe, IDM, FVG ×2, weekly FVG, BOS ×3, OF, CHoCH, Order Block, flèches buy/sell | NZDUSD probable (échelle 0.556–0.606, Sep→2026) | 1:**pire que repaint — 100% hindsight** (annotations posées en connaissant la suite, flèches sur les extrêmes locaux) · 2:zéro (famille SMC, cf. recherche) · 3:intestable (aucune règle, stop, TF d'entrée) · 4:**non — 0 objet nouveau** (sweep=n°7/11, IDM=n°15, FVG=n°8/9, BOS/CHoCH=n°9/15/17, OB=n°17, weekly FVG=variante HTF) · 5:n/a (pas un système, un récit) | **POUBELLE — doublon intégral du glossaire SMC** | Aucune. Intérêt méta seulement : établit le niveau de preuve le plus bas du catalogue (image annotée a posteriori < vidéo < règles complètes), cf. détails |
+| 19 | @temirlan.smc (48s, RU, musique seule — reconstruit des frames) | Short ICT continuation : BOS baissier + displacement → retracement dans FVG ∩ Breaker ∩ OTE (0.618–0.786) + sweep Trendline Liquidity → short, cible = 0 du Fib. Vignette « +6 800 $ » | non déterminé (tick fin 0.0006x, TF inconnu) | 1:discrétion élevée (ancres Fib, trendline et swings choisis ex-post, 1 seul exemple) · 2:zéro (ICT/Fib/breaker — déjà documenté n°11) · 3:**non — stop à 0.055% du prix < frais crypto RT ≈ spread forex → RR 1:1.6 d'affichage, inexécutable (leçon n°15 récidive)** · 4:quasi nul — OTE=n°11, FVG=n°8/9, breaker=n°15, BOS=n°9, displacement=n°8 ; seuls objets : trendline liquidity + orientation CONTINUATION (n°11 était reversal) · 5:non (confluence stack + lead-magnet) | POUBELLE argumentée — DOUBLON de n°11 en mode continuation | (a) sweep de trendline (lows alignés ± tolérance sous droite ascendante) = 1 type de niveau de plus pour le batch niveaux (rang 8, priorité basse) ; (b) profondeur de pullback 62–79% vs pullback court comme paramètre du motif trend→pullback déjà chez nous — balayage bon marché dans le harnais existant |
+| 20 | @tradingwalk 3 (28s) | « Stop trading breakouts » : anticiper la chasse de stops sous un niveau évident, entrer long sur point vert du « 10X Trading System » (indicateur du créateur, **verrouillé**), stop sous le point, TP sur point rouge à de nouveaux plus hauts | non déterminé (ni TF, ni ticker, ni settings) | 1:**invérifiable — indicateur fermé** ; points parfaits aux extrêmes sur l'historique = signature de repaint ou cherry-pick · 2:zéro · 3:intestable (rien de chiffré) · 4:non — sweep-réversion = n°7/11/15 (famille Turtle Soup) ; version « sweep dans le sens de la tendance » = notre thread liquidation-continuation déjà ouvert · 5:non — toute la méthode dépend d'une boîte noire payante · ⚠️ prémisse « les breakouts échouent » CONTREDITE par nos données (Donchian breakout = notre meilleur moteur, PF 3.42) | **POUBELLE — funnel pur** (la vidéo est une pub pour le script verrouillé du créateur, montré dans la barre de recherche TV) | Aucune nouvelle. Le seul contenu réel (sweep d'un niveau évident → continuation tendancielle) est déjà couvert deux fois : recherche liquidation-continuation + batch niveaux (rang 8) |
 
 ## Observation transversale (après 12 entrées)
 
@@ -194,3 +197,93 @@ UTC. Elle éclairera d'un coup toutes les hypothèses de session du catalogue et
   (effets de session US documentés en crypto) ; (c) retest-entry vs entrée immédiate.
 - Marketing : "9 years in the markets", "comment class" → cours en live. Schémas purs,
   aucun trade réel montré, claim "consistent winning" non chiffré.
+
+### 18. Instagram — chart NZDUSD annoté SMC (image statique)
+- Source : `~/Documents/00-code/VideosTranscriptions/Instagram • Messages.jpg` (2026-07-06).
+- Contenu : daily Sep 2025→2026, échelle 0.556–0.606 (NZDUSD probable). Le playbook SMC
+  entier posé sur un seul chart : liquidity swipe au sommet → sell ; deux FVG en résistance
+  → sell ; cascades BOS/OF à la baisse ; IDM + BOS en bas → CHoCH → buy sur weekly FVG ;
+  Order Block + IDM → buy → rallye final. Chaque flèche tombe sur un extrême local.
+- **Pourquoi c'est le niveau de preuve le plus bas du catalogue** : une vidéo montre au
+  moins un ordre de narration (ce que l'auteur dit AVANT le mouvement suivant) ; une image
+  statique n'a même pas ça. Tout est annoté en connaissance du dénouement. Placer "buy" au
+  plancher exact et "sell" au plafond exact n'est possible qu'ex-post — c'est une
+  démonstration de lecture rétrospective, pas de prédiction. Zéro règle d'entrée, de stop,
+  de taille, de timeframe d'exécution : rien à falsifier.
+- Inventaire objet par objet → tout est déjà au catalogue : sweep (n°7/11), IDM/inducement
+  (n°15), FVG (n°8/9), weekly FVG (= FVG HTF, variante d'échelle du 1H FVG de n°11),
+  BOS/CHoCH (n°9/15/17), Order Block (n°17), OF/orderflow (jargon de la même famille).
+  Le batch niveaux (rang 8) et le batch ORB (rang 5) couvrent déjà les sous-composants
+  objectivables. **Extraction : néant.**
+- Hygiène (à réutiliser pour toute soumission future) : hiérarchie de preuve du catalogue
+  désormais explicite — (1) règles complètes chiffrées (n°13) > (2) règles partielles en
+  vidéo (n°7/8) > (3) vidéo narrative (n°11/15) > (4) **image annotée a posteriori (n°18,
+  plancher)**. Une soumission de niveau 4 ne coûte plus d'analyse : verdict direct sauf
+  objet inédit visible.
+
+### 19. @temirlan.smc — Short ICT en OTE (FVG + Breaker + sweep trendline)
+- Dossier : `~/Documents/00-code/VideosTranscriptions/temirlan_watch/` (.watch.md + frames ;
+  pas de voix — musique + CTA russe « écris STRATÉGIE », lead-magnet ; reconstruit à 100%
+  des captures, niveau de preuve 3 de la hiérarchie).
+- Séquence : range → BOS baissier → breaker + FVG marqués sur l'origine de la cassure →
+  displacement → retracement haussier → sweep d'une trendline liquidity (lows quasi-égaux
+  sous droite ascendante, « $$$ ») → entrée short dans FVG ∩ Breaker ∩ OTE 0.618–0.786 →
+  cible = 0 du Fib. Un seul exemple, instrument/TF non identifiés.
+- **Squelette sous le jargon : pullback-continuation** — impulsion → pullback profond →
+  entrée dans le sens de l'impulsion. C'est le motif de NOTRE bot (trend→pullback→flip,
+  déjà noté aux n°8 et 17), habillé en Fibonacci. Contrairement à n°11 (même boîte à
+  outils en reversal contre-tendance), celui-ci trade AVEC le displacement — cohérent
+  volatility clustering. La direction est la bonne ; la méthode reste infalsifiable en
+  l'état (ancres Fib/trendline ex-post, confirmation d'entrée non précisée).
+- **Le chiffre qui tue (leçon n°15, 2e occurrence)** : stop affiché 0.00063 = **0.055% du
+  prix**. C'est SOUS les frais crypto RT (0.1%) et de l'ordre du spread forex. Le RR 1:1.6
+  et le « +6 800 $ » sont donc des chiffres d'affichage sur un stop inexécutable en réel.
+  Deux créateurs indépendants (n°15, n°19) utilisent le même artifice → à vérifier
+  systématiquement sur toute soumission avec panneau de trade.
+- Inventaire : OTE (n°11), FVG (n°8/9), breaker (n°15), BOS/structure (n°9), displacement
+  (n°8) — tout déjà au catalogue. Deux extractions mineures :
+  - **Trendline liquidity** : objet nouveau par le nom, variante de pool de liquidité —
+    objectivable (≥3 lows alignés à tolérance k×ATR sous droite ascendante, sweep = mèche
+    au travers puis clôture au-dessus). Un type de niveau de plus pour le batch niveaux
+    (rang 8), priorité basse.
+  - **Profondeur de pullback comme paramètre** : l'OTE 0.618–0.786 est juste « pullback
+    profond » quantifié. Question falsifiable et bon marché : sur notre motif
+    trend→pullback (AK 4h, Donchian), la profondeur du pullback (25/38/50/62/79%)
+    change-t-elle l'espérance de la continuation ? Balayage dans le harnais existant —
+    et si 62–79% ne bat pas les profondeurs quelconques, le mythe OTE est enterré au
+    passage sur nos données.
+- Livrable standard du .watch.md (checklist + Pine d'aide) : NON produit — le verdict ne
+  justifie pas l'investissement ; les deux hypothèses extraites passent par le labo
+  Python, pas par un indicateur visuel.
+  _(Mise à jour : livrable produit sur demande de cube — `pine/temirlan_ote_helper.pine`
+  v6 compilé + README/checklist. Le verdict catalogue reste inchangé.)_
+
+### 20. @tradingwalk 3 — anti-breakout + « 10X Trading System » (verrouillé)
+- Dossier : `~/Documents/00-code/VideosTranscriptions/@tradingwalk 3/` (.watch.md + 8 frames).
+- Discours : « les breakouts sont des bull traps ; anticipez la chasse de stops sous le
+  niveau et entrez sur le signal de reversal 10X » — point vert au bottom = entrée long,
+  stop sous le point, TP au point rouge sur nouveaux plus hauts.
+- **Le funnel le plus direct du catalogue** : la vidéo MONTRE la recherche TradingView
+  avec le résultat « 10X Trading System par tradingwalk » **cadenas visible** — le
+  créateur fait la pub de son propre indicateur fermé. Sans accès payant : pas de formule,
+  pas de settings, pas de TF, pas de ticker. La « méthode » se résume à « achetez quand
+  MON indicateur dit d'acheter ». Rien à reproduire, rien à falsifier.
+- Points parfaits aux extrêmes sur tout l'historique montré = signature classique de
+  repaint (pivots non confirmés recalculés) ou de cherry-pick — invérifiable puisque
+  fermé, et c'est précisément le piège n°1 documenté dans
+  `tradingview_indicateurs_recherche.md` (§2).
+- **La prémisse est contredite par nos propres données** : « stop trading breakouts »
+  alors que Donchian breakout daily est notre meilleur moteur validé (PF 3.42 BTC,
+  2.31 ETH, walk-forward, coûts inclus). Le conseil est peut-être défendable en intraday
+  forex (faux breakouts fréquents documentés), mais vendu comme vérité universelle sans
+  aucune donnée. Ironie : le batch ORB (rang 5) teste exactement la question que la vidéo
+  tranche par slogan — qu'est-ce qui sépare un breakout qui tient d'un bull trap
+  (displacement ? RVOL ? ATR ?).
+- Squelette réel sous le marketing : sweep d'un niveau évident contre la tendance courte
+  → entrée dans le sens de la tendance de fond. C'est (a) la famille Turtle Soup/sweep
+  déjà cataloguée (n°7/11/15) et (b) notre thread de recherche liquidation-continuation
+  déjà ouvert (`research/liquidation-continuation/`). Extraction : néant.
+- Hygiène : 3e mécanisme de funnel identifié — (n°1-6) communauté en bio ·
+  (n°11/19) lead-magnet « écris STRATÉGIE » · (n°20) **auto-pub d'indicateur verrouillé
+  dans la vidéo elle-même**. Tout signal dont la source est un script fermé du créateur
+  = verdict direct sans analyse approfondie (comme le niveau 4 de la hiérarchie de preuve).
