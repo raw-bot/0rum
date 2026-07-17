@@ -27,4 +27,13 @@ state/hermes_watcher.json
 state/candle_history.json
 state/live_candles.json
 state/archive/
+# Large data files, caches, and test runs
+backtests/runs/
+backtests/snapshots/
+graphify-out/
+state/data_cache/
+backups/
+.superpowers/
+orum/graphify-out/
 run_local.log
+

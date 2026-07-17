@@ -6,7 +6,7 @@ max_total_stop_risk_pct: 0.05
 max_symbol_stop_risk_pct: 0.03
 
 forecast_gate:
-  enabled: true
+  enabled: false   # 2026-07-17 : replay 2,5 ans = verrouillé 310/311, aucune influence sur les trades.
   history_limit: 900
   min_evaluations: 250
   neighbour_count: 80
@@ -38,6 +38,22 @@ strategies:
       sell_key: 7.0
       sell_atr_period: 20
       trend_ema_period: 200
+
+  - id: btc_ha_trend_4h
+    engine: ha_trend
+    symbol: BTC/USDT
+    timeframe: "4h"
+    risk_pct: 0.01
+    entry_enabled: false   # 2026-07-17 : replay duo vs trio = valeur marginale négative (voir backtests/)
+    exit_policy: structural_bracket
+    monitor_timeframe: "15m"
+    params:            # TradingView-validated defaults (backtests 2026-07-16)
+      ema_len: 20
+      slope_len: 5
+      touch_window: 5
+      swing_len: 10
+      rr: 3.0
+      rsi_len: 14
 
   - id: eth_donchian
     engine: donchian

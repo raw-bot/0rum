@@ -7,10 +7,12 @@ asset_mutable: true
 watch_assets: ["ETH/USDT", "PAXG/USDT"]
 starting_balance_usd: 10000.0
 
-# PAPER FORWARD-TEST: drive entries from the AK MACD TradingView emitter.
-# Native RSI DSL is suspended while signal_source = tradingview_external; the
-# worker becomes a pure risk supervisor over what the external orchestrator opens.
-signal_source: tradingview_external
+# 2026-07-08: TradingView external path RETIRED. The mono-asset worker is
+# replaced by the unified multi-strategy paper engine (state/portfolio.yaml,
+# orum/portfolio/paper_engine.py, launchd com.0rum.paper). This file no longer
+# drives trading — kept for dashboard display (asset, watch_assets, balance,
+# thresholds) and legacy module defaults only.
+signal_source: native
 allow_short: false                # 2026-07-01: switched to 4h long-only. Rigorous OOS validation
                                    # (next-bar-open execution, outlier-drop check, parameter sweep,
                                    # cross-asset check on ETH/SOL/BNB/LINK) found shorts have NO
@@ -19,25 +21,11 @@ allow_short: false                # 2026-07-01: switched to 4h long-only. Rigoro
                                    # survives dropping the top 5 winning trades). validate.py already
                                    # rejects any SELL_CANDIDATE with a clear reason when this is false.
 
-# External-signal allowlist. ONE active strategy on purpose: the engine has no
-# per-strategy "A opens / A closes" ownership yet. symbol must match
-# syminfo.ticker EXACTLY. Chart is BINANCE:BTCUSDT -> "BTCUSDT" so signal,
-# bracket AND the worker's exit monitoring all price off the SAME venue
-# (Binance). Previously COINBASE:BTCUSD -> bracket levels were Coinbase but
-# exits were checked on the Binance feed (~25-60pt basis gap), which silently
-# stole take-profits and tripped stops early. Keep all three on one venue.
-allowed_external_sources: ["tradingview", "local"]
-allowed_external_strategies:
-  - id: "ak_macd_15m_v1"
-    symbol: "BTCUSDT"           # TradingView identity (syminfo.ticker), match exact
-    engine_asset: "BTC/USDT"    # venue the worker prices/risk-manages on (Binance)
-    timeframe: "4h"             # 2026-07-01: switched 15m->4h. Validated long-only edge
-                                # (PF ~1.5-2.0 OOS on BTC and ETH; alts SOL/BNB/LINK rejected,
-                                # in-sample-only, OOS-negative). Must match the Pine/producer
-                                # payload timeframe (validate.py checks it).
-    events: ["BUY_CANDIDATE", "EXIT"]   # SELL_CANDIDATE intentionally dropped: shorts have no
-                                # validated edge (see allow_short note above). EXIT still allowed
-                                # so an open long can always be closed.
+# (Removed 2026-07-08) allowed_external_sources / allowed_external_strategies —
+# the TradingView external-signal allowlist and its single ak_macd_15m_v1 entry.
+# Per-strategy ownership now lives in state/portfolio.yaml (btc_ak_macd_4h /
+# eth_donchian / gold_cot), each with its own asset, timeframe and params. The
+# external/ package readers all default cleanly when these keys are absent.
 
 # Performance targets are evaluation anchors, not risk mandates.
 target_return_30d: 0.07

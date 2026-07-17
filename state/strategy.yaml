@@ -24,8 +24,8 @@ risk:
   take_profit_pct: 3.0
   max_hold_candles: 120
   position_size_r: 2.0
-  reward_risk_ratio: 2.0      # TP = entry +/- rr*risk - set via dashboard slider
-  max_leverage: 3.0           # notional cap (× equity) — set via dashboard slider
+  reward_risk_ratio: 1.5      # TP = entry +/- rr*risk - set via dashboard slider
+  max_leverage: 2.0           # notional cap (× equity) — set via dashboard slider
   # SSL band trail (exit_mode="bracket" only). Cuts the trade when a CLOSED 15m bar
   # closes back through the baseline ∓ k*ATR band — the "red line" exit that the
   # deep frozen stop never gave. Computed on closed 15m bars only (forming bar

@@ -1,0 +1,88 @@
+# Multi-strategy paper portfolio — ONE shared account, all paper, no live, no
+# TradingView. Read by scripts/run_paper_portfolio.py -> orum.portfolio.PaperEngine.
+# This file is intentionally separate from goal.yaml (the old mono-asset worker)
+# so bringing the portfolio up changes nothing about the running system until the
+# worker is retired in the follow-up step.
+starting_balance_usd: 10000.0
+candles_limit: 300            # bars fetched per strategy per cycle
+max_total_stop_risk_pct: 0.05
+max_symbol_stop_risk_pct: 0.03
+
+# Paper-only calibrated forecast gate. It affects NEW entries only after the
+# fixed walk-forward quality lock passes; otherwise the baseline size is kept.
+forecast_gate:
+  enabled: false   # 2026-07-17 : verrouillé 310/311 sur 2,5 ans de replay (aucune influence) ;
+                   # hors du chemin de décision, recherche offline via le harnais uniquement.
+  history_limit: 900
+  min_evaluations: 250
+  neighbour_count: 80
+
+max_leverage: 3.0   # notional cap (× equity) — set via dashboard slider
+
+strategies:
+  - id: btc_ak_macd_4h
+    engine: ak_macd
+    symbol: BTC/USDT
+    timeframe: "4h"
+    risk_pct: 0.02   # set via dashboard slider
+    entry_enabled: true       # authoritative H4 sleeve; legacy producer stays unauthorized
+    exit_policy: structural_bracket
+    monitor_timeframe: "15m"
+    reward_risk_ratio: 2.0   # set via dashboard slider
+    params:
+      allow_short: false     # validated H4 policy is long-only
+
+  - id: btc_utbot_m15_h1
+    engine: utbot_mtf
+    symbol: BTC/USDT
+    timeframe: "15m"
+    risk_pct: 0.0075   # set via dashboard slider
+    entry_enabled: true
+    exit_policy: signal_or_stop
+    monitor_timeframe: "15m"
+    params:
+      buy_key: 6.0
+      buy_atr_period: 10
+      sell_key: 7.0
+      sell_atr_period: 20
+      trend_ema_period: 200
+
+  - id: btc_ha_trend_4h
+    engine: ha_trend
+    symbol: BTC/USDT
+    timeframe: "4h"
+    risk_pct: 0.01           # 1% comme le backtest TradingView (2026-07-16)
+    entry_enabled: false     # 2026-07-17 : valeur marginale mesurée négative (replay duo vs trio :
+                             # −13,5 k$ à DD égal — il occupait le cap BTC et affamait AK).
+                             # Sorties protectrices actives ; témoin HA = re-runs iso_ha du harnais.
+    exit_policy: structural_bracket
+    monitor_timeframe: "15m"
+    params:
+      ema_len: 20
+      slope_len: 5
+      touch_window: 5
+      swing_len: 10
+      rr: 3.0
+      rsi_len: 14
+
+  - id: eth_donchian
+    engine: donchian
+    symbol: ETH/USDT
+    timeframe: "1d"
+    risk_pct: 0.02
+    entry_enabled: false      # legacy exit-only during EUR-universe migration
+    exit_policy: donchian_signal
+    monitor_timeframe: "1d"
+    params:
+      entry_n: 20
+      exit_n: 10
+
+  - id: gold_cot
+    engine: gold_cot
+    symbol: PAXG/USDT
+    timeframe: "1d"
+    risk_pct: 0.02
+    entry_enabled: false      # no open gold trade; freeze new legacy entries
+    exit_policy: cot_signal
+    monitor_timeframe: "1d"
+    params: {}               # reads state/cot_gate.json (written by scripts/update_cot_gate.py)

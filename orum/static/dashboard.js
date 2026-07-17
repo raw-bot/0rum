@@ -596,86 +596,120 @@ function renderStrategy(s) {
       </div></div>`;
 }
 
-/* ---- max-leverage slider (writes risk.max_leverage live) -------------- */
-let _levInited = false;
-let _tpBusy = false;  // true while dragging/saving TP - pauses external sync
-let _levBusy = false; // true while dragging or saving — pauses external sync
+/* ---- portfolio risk card (writes state/portfolio.yaml — the file the LIVE
+   paper engine reloads at the start of every cycle, so a slider change takes
+   effect at the next cycle without any restart). Same visual structure as the
+   original leverage card: muted label, big readout, slider, graduated scale. */
+let _pfInited = false;
+let _pfBusy = false; // true while dragging or saving — pauses external sync
+const _pfFmtPct = (v) => (Number(v) * 100).toFixed(2).replace(/\.?0+$/, "") + "%";
 function renderLeverage(s) {
   const card = $("leverage-card");
   if (!card) return;
-  const risk = ((s.strategy || {}).risk) || {};
-  const lev = Number(risk.max_leverage != null ? risk.max_leverage : 3);
-  const rr = Number(risk.reward_risk_ratio != null ? risk.reward_risk_ratio : 2);
-  if (!_levInited) {
-    card.innerHTML = `
-      <h2>Risk · Max Leverage <span class="hint">notional cap (× equity)</span></h2>
-      <div class="body lev-body">
-        <div class="lev-readout"><span id="lev-val">${lev.toFixed(1)}</span><span class="lev-x">×</span></div>
-        <input id="lev-range" type="range" min="1" max="5" step="0.5" value="${lev}" />
-        <div class="lev-scale"><span>1×</span><span>2×</span><span>3×</span><span>4×</span><span>5×</span></div>
-        <div id="lev-status" class="muted lev-status">&nbsp;</div>
-        <div class="muted" style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-top:14px">Take-profit (reward : risk)</div>
-        <div class="lev-readout"><span id="tp-val">${rr.toFixed(1)}</span><span class="lev-x">R</span></div>
-        <input id="tp-range" type="range" min="0.5" max="5" step="0.5" value="${rr}" />
-        <div class="lev-scale"><span>0.5</span><span>1.5</span><span>2.5</span><span>3.5</span><span>5</span></div>
-        <div id="tp-status" class="muted lev-status">&nbsp;</div>
-      </div>`;
-    const range = $("lev-range"), val = $("lev-val"), status = $("lev-status");
-    range.addEventListener("input", () => {
-      _levBusy = true;
-      val.textContent = Number(range.value).toFixed(1);
-    });
-    range.addEventListener("change", async () => {
-      const v = Number(range.value);
-      status.textContent = "saving…";
-      try {
-        const r = await fetch("/api/risk/leverage", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ max_leverage: v }),
-        });
-        const j = await r.json();
-        if (j.ok) {
-          const applied = Number(j.max_leverage);
-          range.value = applied; val.textContent = applied.toFixed(1);
-          status.textContent = `applied ${applied.toFixed(1)}× ✓`;
-        } else {
-          status.textContent = "error: " + (j.error || r.status);
-        }
-      } catch (e) {
-        status.textContent = "error: " + e;
-      } finally {
-        _levBusy = false;
-        setTimeout(() => { if (!_levBusy) status.textContent = " "; }, 4000);
-      }
-    });
-    const tr = $("tp-range");
-    tr.addEventListener("input", () => { _tpBusy = true; $("tp-val").textContent = Number(tr.value).toFixed(1); });
-    tr.addEventListener("change", async () => {
-      const tstatus = $("tp-status"); tstatus.textContent = "saving...";
-      try {
-        const r = await fetch("/api/risk/reward", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reward_risk_ratio: Number(tr.value) }) });
-        const j = await r.json();
-        if (j.ok) { const a = Number(j.reward_risk_ratio); tr.value = a; $("tp-val").textContent = a.toFixed(1); tstatus.textContent = "applied " + a.toFixed(1) + "R"; }
-        else { tstatus.textContent = "error: " + (j.error || r.status); }
-      } catch (e) { tstatus.textContent = "error: " + e; }
-      finally { _tpBusy = false; setTimeout(() => { if (!_tpBusy) tstatus.textContent = " "; }, 4000); }
-    });
-    _levInited = true;
+  const pc = s.portfolio_config || {};
+  const strategies = pc.strategies || [];
+  const bounds = pc.risk_bounds || { min: 0.005, max: 0.02 };
+  if (!strategies.length) {
+    card.innerHTML = `<h2>Risk · Portfolio</h2><div class="body muted">portfolio.yaml not found</div>`;
     return;
   }
-  // Later polls: reflect external edits to strategy.yaml only when idle, so a
+  const active = strategies.filter((st) => st.entry_enabled);
+  const inactive = strategies.filter((st) => !st.entry_enabled);
+  if (!_pfInited) {
+    const riskScale = [0, 1 / 3, 2 / 3, 1]
+      .map((t) => `<span>${_pfFmtPct(bounds.min + t * (bounds.max - bounds.min))}</span>`).join("");
+    const label = (text) =>
+      `<div class="muted" style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-top:14px">${text}</div>`;
+    const levSet = pc.max_leverage != null;
+    const levBlock = `
+        ${label("portfolio — max leverage (notional cap × equity)")}
+        <div class="lev-readout"><span id="pf-lev-val">${levSet ? Number(pc.max_leverage).toFixed(1) : "off"}</span><span class="lev-x" id="pf-lev-unit">${levSet ? "×" : ""}</span></div>
+        <input id="pf-lev" class="pf-range" type="range" min="1" max="5" step="0.5" value="${levSet ? Number(pc.max_leverage) : 5}" />
+        <div class="lev-scale"><span>1×</span><span>2×</span><span>3×</span><span>4×</span><span>5×</span></div>`;
+    const rows = active.map((st) => {
+      const riskPct = Number(st.risk_pct || 0) * 100;
+      let html = `
+        ${label(`${esc(st.id)} — risk / trade`)}
+        <div class="lev-readout"><span id="pf-risk-val-${st.id}">${riskPct.toFixed(2)}</span><span class="lev-x">%</span></div>
+        <input id="pf-risk-${st.id}" data-sid="${st.id}" class="pf-range pf-risk" type="range"
+               min="${(bounds.min * 100).toFixed(2)}" max="${(bounds.max * 100).toFixed(2)}" step="0.25" value="${riskPct}" />
+        <div class="lev-scale">${riskScale}</div>`;
+      if (st.reward_risk_ratio != null) {
+        html += `
+        ${label(`${esc(st.id)} — take-profit (reward : risk)`)}
+        <div class="lev-readout"><span id="pf-rr-val-${st.id}">${Number(st.reward_risk_ratio).toFixed(1)}</span><span class="lev-x">R</span></div>
+        <input id="pf-rr-${st.id}" data-sid="${st.id}" class="pf-range pf-rr" type="range" min="0.5" max="5" step="0.5" value="${Number(st.reward_risk_ratio)}" />
+        <div class="lev-scale"><span>0.5</span><span>1.5</span><span>2.5</span><span>3.5</span><span>5</span></div>`;
+      }
+      return html;
+    }).join("");
+    const offLine = inactive.length
+      ? label("entries off — " + inactive.map((st) => `${esc(st.id)} ${_pfFmtPct(st.risk_pct || 0)}`).join(" · "))
+      : "";
+    card.innerHTML = `
+      <h2>Risk · Portfolio <span class="hint">applied next engine cycle</span></h2>
+      <div class="body lev-body">${levBlock}${rows}${offLine}<div id="pf-status" class="muted lev-status">&nbsp;</div></div>`;
+    const post = async (body, after) => {
+      const status = $("pf-status");
+      status.textContent = "saving…";
+      try {
+        const r = await fetch("/api/portfolio/risk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const j = await r.json();
+        if (j.ok) { after(j); status.textContent = "applied ✓ — effective next engine cycle"; }
+        else { status.textContent = "error: " + (j.error || r.status); }
+      } catch (e) { status.textContent = "error: " + e; }
+      finally { _pfBusy = false; setTimeout(() => { if (!_pfBusy) status.textContent = " "; }, 5000); }
+    };
+    const levEl = $("pf-lev");
+    if (levEl) {
+      levEl.addEventListener("input", () => { _pfBusy = true; $("pf-lev-val").textContent = Number(levEl.value).toFixed(1); $("pf-lev-unit").textContent = "×"; });
+      levEl.addEventListener("change", () => post(
+        { max_leverage: Number(levEl.value) },
+        (j) => { levEl.value = j.max_leverage; $("pf-lev-val").textContent = Number(j.max_leverage).toFixed(1); $("pf-lev-unit").textContent = "×"; },
+      ));
+    }
+    card.querySelectorAll(".pf-risk").forEach((el) => {
+      el.addEventListener("input", () => { _pfBusy = true; $(`pf-risk-val-${el.dataset.sid}`).textContent = Number(el.value).toFixed(2); });
+      el.addEventListener("change", () => post(
+        { strategy_id: el.dataset.sid, risk_pct: Number(el.value) / 100 },
+        (j) => { el.value = j.risk_pct * 100; $(`pf-risk-val-${el.dataset.sid}`).textContent = (j.risk_pct * 100).toFixed(2); },
+      ));
+    });
+    card.querySelectorAll(".pf-rr").forEach((el) => {
+      el.addEventListener("input", () => { _pfBusy = true; $(`pf-rr-val-${el.dataset.sid}`).textContent = Number(el.value).toFixed(1); });
+      el.addEventListener("change", () => post(
+        { strategy_id: el.dataset.sid, reward_risk_ratio: Number(el.value) },
+        (j) => { el.value = j.reward_risk_ratio; $(`pf-rr-val-${el.dataset.sid}`).textContent = Number(j.reward_risk_ratio).toFixed(1); },
+      ));
+    });
+    _pfInited = true;
+    return;
+  }
+  // Later polls: reflect external edits to portfolio.yaml only when idle, so a
   // drag or in-flight save is never clobbered by the background refresh.
-  const range = $("lev-range");
-  if (!_levBusy && document.activeElement !== range) {
-    range.value = lev;
-    $("lev-val").textContent = lev.toFixed(1);
+  if (_pfBusy) return;
+  const levEl = $("pf-lev");
+  if (levEl && pc.max_leverage != null && document.activeElement !== levEl) {
+    levEl.value = Number(pc.max_leverage);
+    $("pf-lev-val").textContent = Number(pc.max_leverage).toFixed(1);
+    $("pf-lev-unit").textContent = "×";
   }
-  const tr = $("tp-range");
-  if (tr && !_tpBusy && document.activeElement !== tr) {
-    tr.value = rr;
-    $("tp-val").textContent = rr.toFixed(1);
-  }
+  active.forEach((st) => {
+    const riskEl = $(`pf-risk-${st.id}`);
+    if (riskEl && document.activeElement !== riskEl) {
+      riskEl.value = Number(st.risk_pct || 0) * 100;
+      $(`pf-risk-val-${st.id}`).textContent = (Number(st.risk_pct || 0) * 100).toFixed(2);
+    }
+    const rrEl = $(`pf-rr-${st.id}`);
+    if (rrEl && st.reward_risk_ratio != null && document.activeElement !== rrEl) {
+      rrEl.value = Number(st.reward_risk_ratio);
+      $(`pf-rr-val-${st.id}`).textContent = Number(st.reward_risk_ratio).toFixed(1);
+    }
+  });
 }
 
 /* ---- trades table (entry / gain-loss) --------------------------------- */
@@ -1226,17 +1260,17 @@ const DASHBOARD_LAYOUT_PRESETS = {
   column: [
     ["market-btc",0,0,12,8],["market-btc-utbot",0,8,12,8],["market-eth",0,16,12,8],["market-paxg",0,24,12,8],
     ["position",0,32,12,3],["stats",0,35,12,3],["research",0,38,12,5],["equity",0,43,12,3],
-    ["trades",0,46,12,4],["strategy",0,50,12,4],["leverage",0,54,12,4],["external",0,58,12,4],["log",0,62,12,4],
+    ["trades",0,46,12,4],["strategy",0,50,12,4],["leverage",0,54,12,9],["external",0,63,12,4],["log",0,67,12,4],
   ],
   "two-column": [
     ["market-btc",0,0,6,8],["market-btc-utbot",6,0,6,8],["market-eth",0,8,6,8],["market-paxg",6,8,6,8],
     ["position",0,16,6,3],["stats",6,16,6,3],["research",0,19,6,5],["equity",6,19,6,5],
-    ["strategy",0,24,6,4],["leverage",6,24,6,4],["trades",0,28,6,4],["external",6,28,6,4],["log",0,32,12,4],
+    ["strategy",0,24,6,4],["leverage",6,24,6,9],["trades",0,28,6,4],["external",6,33,6,4],["log",0,37,12,4],
   ],
   "aligned-wall": [
     ["market-btc",0,0,6,7],["market-btc-utbot",6,0,6,7],["market-eth",0,7,6,7],["market-paxg",6,7,6,7],
     ["position",0,14,4,4],["stats",4,14,4,4],["equity",8,14,4,4],["research",0,18,8,5],
-    ["trades",8,18,4,5],["strategy",0,23,4,4],["leverage",4,23,4,4],["external",8,23,4,4],["log",0,27,12,4],
+    ["trades",8,18,4,5],["strategy",0,23,4,4],["leverage",4,23,4,9],["external",8,23,4,4],["log",0,32,12,4],
   ],
 };
 Object.keys(DASHBOARD_LAYOUT_PRESETS).forEach(name => {
