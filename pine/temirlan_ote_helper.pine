@@ -1,0 +1,101 @@
+// temirlan_ote_helper — aide visuelle pour le setup @temirlan.smc (catalogue n°19)
+// Reproduction stricte de l'observable de la vidéo. Tout ce qui n'est pas montré est
+// soit un input marqué "à calibrer", soit laissé en repère manuel (BOS, Breaker,
+// Trendline Liquidity). Aucune valeur inventée.
+//@version=6
+indicator("OTE Confluence Helper [temirlan n°19]", "OTE Helper", overlay = true, max_boxes_count = 60, max_lines_count = 30)
+
+// ── Fibonacci / OTE — ancres cliquées par l'utilisateur (jugement humain, comme la vidéo)
+grpFib = "Fibonacci / OTE (jambe de displacement)"
+swingHighTime  = input.time(0,   "Swing HIGH (niveau 1) — cliquer sur le chart", group = grpFib, confirm = true)
+swingHighPrice = input.price(0.0, "Prix du swing HIGH", group = grpFib, confirm = true)
+swingLowTime   = input.time(0,   "Swing LOW (niveau 0 = creux du displacement)", group = grpFib, confirm = true)
+swingLowPrice  = input.price(0.0, "Prix du swing LOW", group = grpFib, confirm = true)
+// Zone OTE telle que montrée : 0.618 → 0.786. Bornes exposées mais valeurs de la vidéo.
+oteLo = input.float(0.618, "OTE borne basse", group = grpFib, step = 0.001)
+oteHi = input.float(0.786, "OTE borne haute", group = grpFib, step = 0.001)
+
+// ── FVG — seule brique 100% objective de la vidéo (imbalance 3 bougies)
+grpFvg = "Fair Value Gaps"
+showBearFvg = input.bool(true,  "FVG baissiers (montrés dans la vidéo)", group = grpFvg)
+showBullFvg = input.bool(false, "FVG haussiers (NON montrés — hypothèse, à calibrer)", group = grpFvg)
+fvgMaxAge   = input.int(120, "Age max d'un FVG (barres) — non déterminé dans la vidéo, à calibrer", group = grpFvg, minval = 10)
+fvgMinTicks = input.int(0, "Taille min du gap (ticks) — non déterminé, 0 = tout", group = grpFvg, minval = 0)
+
+// ── Rappels manuels
+grpMan = "Repères manuels (aucune définition programmable montrée)"
+showChecklist = input.bool(true, "Afficher la table checklist", group = grpMan)
+
+// ═══ FVG : détection objective
+var array<box> fvgBoxes = array.new<box>()
+minGap = fvgMinTicks * syminfo.mintick
+
+// FVG baissier : le low d'il y a 2 barres reste AU-DESSUS du high courant → gap [high, low[2]]
+bearFvg = low[2] - high > minGap
+// FVG haussier (symétrie NON montrée dans la vidéo — désactivé par défaut)
+bullFvg = low - high[2] > minGap
+
+if bearFvg and showBearFvg
+    b = box.new(bar_index - 2, low[2], bar_index, high, border_color = color.new(color.teal, 40), bgcolor = color.new(color.teal, 82), extend = extend.right)
+    box.set_text(b, "FVG")
+    box.set_text_color(b, color.new(color.teal, 30))
+    box.set_text_size(b, size.tiny)
+    array.push(fvgBoxes, b)
+if bullFvg and showBullFvg
+    b = box.new(bar_index - 2, low, bar_index, high[2], border_color = color.new(color.green, 40), bgcolor = color.new(color.green, 85), extend = extend.right)
+    box.set_text(b, "FVG (hyp.)")
+    box.set_text_size(b, size.tiny)
+    array.push(fvgBoxes, b)
+
+// Nettoyage : âge max + plafond de boîtes
+if array.size(fvgBoxes) > 0
+    for i = array.size(fvgBoxes) - 1 to 0
+        bx = array.get(fvgBoxes, i)
+        if bar_index - box.get_left(bx) > fvgMaxAge
+            box.delete(bx)
+            array.remove(fvgBoxes, i)
+while array.size(fvgBoxes) > 40
+    box.delete(array.shift(fvgBoxes))
+
+// ═══ Fibonacci + OTE (uniquement si les 2 ancres sont posées)
+var line  l1   = na
+var line  l786 = na
+var line  l618 = na
+var line  l50  = na
+var line  l0   = na
+var box   oteBox = na
+var label oteLbl = na
+
+fibReady = swingHighPrice != 0.0 and swingLowPrice != 0.0 and swingHighTime != 0 and swingLowTime != 0
+
+fibLevel(float ratio) =>
+    // 1 = swing high, 0 = swing low (ancrage montré dans la vidéo)
+    swingLowPrice + (swingHighPrice - swingLowPrice) * ratio
+
+if fibReady and barstate.islast
+    startBar = swingLowTime
+    line.delete(l1)
+    line.delete(l786)
+    line.delete(l618)
+    line.delete(l50)
+    line.delete(l0)
+    box.delete(oteBox)
+    label.delete(oteLbl)
+    l1   := line.new(startBar, fibLevel(1.0),   time, fibLevel(1.0),   xloc = xloc.bar_time, extend = extend.right, color = color.gray)
+    l786 := line.new(startBar, fibLevel(0.786), time, fibLevel(0.786), xloc = xloc.bar_time, extend = extend.right, color = color.orange)
+    l618 := line.new(startBar, fibLevel(0.618), time, fibLevel(0.618), xloc = xloc.bar_time, extend = extend.right, color = color.orange)
+    l50  := line.new(startBar, fibLevel(0.5),   time, fibLevel(0.5),   xloc = xloc.bar_time, extend = extend.right, color = color.new(color.gray, 40), style = line.style_dotted)
+    l0   := line.new(startBar, fibLevel(0.0),   time, fibLevel(0.0),   xloc = xloc.bar_time, extend = extend.right, color = color.gray)
+    oteBox := box.new(startBar, fibLevel(oteHi), time, fibLevel(oteLo), xloc = xloc.bar_time, extend = extend.right, border_color = color.new(color.red, 50), bgcolor = color.new(color.red, 86))
+    oteLbl := label.new(time, fibLevel(oteHi), "OTE " + str.tostring(oteLo) + "–" + str.tostring(oteHi) + " (zone de short)", xloc = xloc.bar_time, style = label.style_label_down, color = color.new(color.red, 70), textcolor = color.white, size = size.small)
+
+// ═══ Table checklist (rappel de la séquence — les repères manuels restent manuels)
+var table chk = table.new(position.bottom_right, 1, 7, bgcolor = color.new(color.black, 80), border_width = 1)
+if showChecklist and barstate.islast
+    table.cell(chk, 0, 0, "Checklist n°19 (short)", text_color = color.white, text_size = size.small)
+    table.cell(chk, 0, 1, "1. BOS baissier → tracer (MANUEL)", text_color = color.silver, text_size = size.tiny)
+    table.cell(chk, 0, 2, "2. Breaker sur l'origine (MANUEL)", text_color = color.silver, text_size = size.tiny)
+    table.cell(chk, 0, 3, "3. FVG ← auto (boîtes teal)", text_color = color.teal, text_size = size.tiny)
+    table.cell(chk, 0, 4, "4. Trendline liquidity (MANUEL)", text_color = color.silver, text_size = size.tiny)
+    table.cell(chk, 0, 5, "5. Fib 1→0 sur le displacement ← cliquer les 2 ancres", text_color = color.orange, text_size = size.tiny)
+    table.cell(chk, 0, 6, "6. Short en FVG∩Breaker∩OTE après sweep — confirmation NON DÉTERMINÉE", text_color = color.red, text_size = size.tiny)

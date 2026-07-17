@@ -1,0 +1,97 @@
+// 0rum Mirror — AK MACD 4h long-only. Miroir d'AUDIT du cerveau live
+// (orum/external/ak_macd.py, machine à candidats) avec les overrides goal.yaml
+// du 2026-07-01 : timeframe 4h, allow_short=false. Le bot ne lit PAS ce script :
+// il sert à vérifier à l'œil (et via MCP data_get_pine_labels) que le chart
+// raconte la même histoire que le Python. Signaux valides à la CLÔTURE de barre.
+// Parité testée le 2026-07-06 contre confirmed_entries() (voir README).
+//@version=6
+indicator("0rum Mirror — AK MACD 4h long-only", "0RUM 4H", overlay = true, max_labels_count = 500, max_bars_back = 500)
+
+grpP = "Paramètres (défauts = AkMacdParams du bot — ne pas dériver du live)"
+macdFast   = input.int(12, "MACD fast", group = grpP)
+macdSlow   = input.int(26, "MACD slow", group = grpP)
+baseLen    = input.int(30, "Baseline EMA", group = grpP)
+atrLen     = input.int(14, "ATR", group = grpP)
+atrMult    = input.float(0.2, "Bande ATR (mult)", group = grpP)
+volMaLen   = input.int(9,  "Volume SMA", group = grpP)
+trendLook  = input.int(50, "Lookback tendance (blue)", group = grpP)
+pullLook   = input.int(10, "Lookback pullback", group = grpP)
+confBars   = input.int(2,  "Barres de confirmation (MACD strictement croissant)", group = grpP)
+windowBars = input.int(2,  "Fenêtre du candidat (barres)", group = grpP)
+regLen     = input.int(20, "Régime : lookback (closes)", group = grpP)
+regThr     = input.float(0.003, "Régime : seuil rolling return", group = grpP, step = 0.001)
+useRegime  = input.bool(true, "Filtre régime (bloque long si unfavorable)", group = grpP)
+useVol     = input.bool(true, "Filtre volume > SMA9", group = grpP)
+useCandle  = input.bool(true, "Bougie d'entrée verte obligatoire", group = grpP)
+
+// ── Séries (compute_state)
+macd     = ta.ema(close, macdFast) - ta.ema(close, macdSlow)
+baseline = ta.ema(close, baseLen)
+band     = ta.atr(atrLen) * atrMult
+isBlue   = close > baseline + band
+isRed    = close < baseline - band
+isGray   = not isBlue and not isRed
+volMa    = ta.sma(volume, volMaLen)
+
+// ── flip_up : macd[t] > macd[t-1] et macd[t-1] <= macd[t-2]
+flipUp = bar_index >= 2 and macd > macd[1] and macd[1] <= macd[2]
+
+// ── Régime : rolling return sur les regLen derniers closes (fenêtre INCLUANT la barre courante)
+regRet   = (close - close[regLen - 1]) / close[regLen - 1]
+regUnfav = regRet <= -regThr
+
+// ── _strictly_increasing sur confBars+1 valeurs
+f_strictInc(int n) =>
+    ok = true
+    for i = 0 to n - 1
+        if not (macd[i] > macd[i + 1])
+            ok := false
+    ok
+
+// ── _sequenced_long : la plus récente barre gray/red dans pullLook, précédée d'une blue dans trendLook
+f_seqLong() =>
+    res = false
+    found = false
+    for o = 0 to pullLook
+        if not found and (isGray[o] or isRed[o])
+            found := true
+            for b = o + 1 to o + trendLook
+                if isBlue[b]
+                    res := true
+                    break
+    res
+
+// Appels hoistés au scope global (cohérence historique — recommandation compilateur)
+strictOk = f_strictInc(confBars)
+seqOk    = f_seqLong()
+
+// ── _other_long_conditions
+volOk    = not useVol or volume > volMa
+candleOk = not useCandle or close > open
+otherLong = macd > 0 and close > baseline and volOk and seqOk and candleOk
+
+// ── Machine à candidats (run_candidate_machine, allow_short=false)
+// flip_up (ré)arme ; la barre de flip ne confirme jamais ; le candidat meurt si
+// fenêtre dépassée ou séquence MACD cassée ; il SURVIT à un rejet conditions/régime.
+var int candAt = na
+buy = false
+if flipUp
+    candAt := bar_index
+else if not na(candAt)
+    if bar_index > candAt + windowBars
+        candAt := na
+    else if not (macd > macd[1])
+        candAt := na
+    else if strictOk and otherLong and (not useRegime or not regUnfav)
+        buy := true
+        candAt := na
+
+// ── Visuels
+plot(baseline, "Baseline EMA30", color = isBlue ? color.new(color.blue, 0) : isRed ? color.new(color.red, 0) : color.new(color.gray, 30), linewidth = 2)
+plotshape(flipUp, "flip_up (candidat armé)", shape.circle, location.belowbar, color.new(color.orange, 40), size = size.tiny)
+bgcolor(useRegime and regUnfav ? color.new(color.red, 94) : na, title = "Régime unfavorable")
+
+if buy
+    label.new(bar_index, low, "BUY " + str.format_time(time, "yyyy-MM-dd HH:mm", "UTC"), style = label.style_label_up, color = color.new(color.green, 20), textcolor = color.white, size = size.small)
+
+alertcondition(buy, "0rum 4H BUY (mirror)", "AK MACD 4h long confirmé (miroir — le bot décide seul)")
