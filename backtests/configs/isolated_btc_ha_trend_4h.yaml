@@ -1,0 +1,23 @@
+starting_balance_usd: 10000.0
+candles_limit: 300
+max_total_stop_risk_pct: 0.05
+max_symbol_stop_risk_pct: 0.03
+max_leverage: 3.0
+forecast_gate:
+  enabled: false
+strategies:
+- id: btc_ha_trend_4h
+  engine: ha_trend
+  symbol: BTC/USDT
+  timeframe: 4h
+  risk_pct: 0.01
+  entry_enabled: true
+  exit_policy: structural_bracket
+  monitor_timeframe: 15m
+  params:
+    ema_len: 20
+    slope_len: 5
+    touch_window: 5
+    swing_len: 10
+    rr: 3.0
+    rsi_len: 14

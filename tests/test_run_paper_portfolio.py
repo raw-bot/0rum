@@ -31,7 +31,10 @@ class PaperPortfolioRuntimeTests(unittest.TestCase):
         self.assertEqual([row["ts"] for row in result], [0, 900_000])
 
     def test_direct_utbot_sleeve_and_shared_risk_caps_are_configured(self):
-        config = run_paper_portfolio.load_config()
+        # Committed defaults: state/portfolio.yaml is operator-owned since the
+        # dashboard risk sliders (risk_pct/reward_risk_ratio/max_leverage) write
+        # into it, so structural assertions target the committed file.
+        config = run_paper_portfolio.load_config(path=run_paper_portfolio.DEFAULT_PORTFOLIO_PATH)
         by_id = {row["id"]: row for row in config["strategies"]}
         sleeve = by_id["btc_utbot_m15_h1"]
         self.assertEqual(sleeve["engine"], "utbot_mtf")
@@ -43,7 +46,7 @@ class PaperPortfolioRuntimeTests(unittest.TestCase):
         self.assertEqual(config["max_symbol_stop_risk_pct"], 0.03)
 
     def test_authoritative_ak_4h_sleeve_accepts_new_entries(self):
-        config = run_paper_portfolio.load_config()
+        config = run_paper_portfolio.load_config(path=run_paper_portfolio.DEFAULT_PORTFOLIO_PATH)
         sleeve = {row["id"]: row for row in config["strategies"]}["btc_ak_macd_4h"]
         self.assertEqual(sleeve["engine"], "ak_macd")
         self.assertEqual(sleeve["timeframe"], "4h")

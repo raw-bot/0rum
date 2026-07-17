@@ -1,0 +1,19 @@
+starting_balance_usd: 10000.0
+candles_limit: 300
+max_total_stop_risk_pct: 0.05
+max_symbol_stop_risk_pct: 0.03
+max_leverage: 3.0
+forecast_gate:
+  enabled: false
+strategies:
+- id: btc_ak_macd_4h
+  engine: ak_macd
+  symbol: BTC/USDT
+  timeframe: 4h
+  risk_pct: 0.02
+  entry_enabled: true
+  exit_policy: structural_bracket
+  monitor_timeframe: 15m
+  reward_risk_ratio: 2.0
+  params:
+    allow_short: false
