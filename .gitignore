@@ -1,1 +1,10 @@
 .gitnexus
+.DS_Store
+Docs/.DS_Store
+*.docx
+*.ex4
+*.ex5
+*.zip
+*.tar.gz
+__pycache__/
+*.pyc
