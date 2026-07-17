@@ -1,0 +1,557 @@
+{"ts": "2026-07-08T08:32:27+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-08T08:33:18+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-08T08:38:47+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-08T09:38:49+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-08T10:38:52+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-08T11:38:55+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-08T12:38:59+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-08T13:39:01+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-08T14:39:04+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-08T15:39:07+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-08T16:39:10+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-08T17:39:12+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-08T18:39:15+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-08T19:39:17+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-08T20:39:20+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-08T21:39:23+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-08T22:39:25+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-08T23:39:28+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-09T00:39:31+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-09T01:39:34+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-09T02:39:36+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-09T03:39:39+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-09T04:39:41+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-09T05:39:44+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-09T06:39:46+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-09T07:39:49+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-09T08:39:52+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-09T09:39:54+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-09T10:39:57+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-09T11:39:59+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-09T12:40:02+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-09T13:40:05+00:00", "equity_usd": 10000.0, "balance_usd": 10000.0, "open_positions": 0, "unrealized_by_strategy": {}}
+{"ts": "2026-07-09T14:40:08+00:00", "equity_usd": 9996.1984, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 0.0}}
+{"ts": "2026-07-09T15:40:11+00:00", "equity_usd": 9998.5091, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 2.3107}}
+{"ts": "2026-07-09T16:40:13+00:00", "equity_usd": 9975.426, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": -20.7724}}
+{"ts": "2026-07-09T17:40:17+00:00", "equity_usd": 10002.9663, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 6.7679}}
+{"ts": "2026-07-09T18:11:23+00:00", "equity_usd": 10054.4242, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 58.2259}}
+{"ts": "2026-07-09T19:11:25+00:00", "equity_usd": 10030.7481, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 34.5497}}
+{"ts": "2026-07-09T20:11:28+00:00", "equity_usd": 10031.6903, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 35.4919}}
+{"ts": "2026-07-09T21:11:31+00:00", "equity_usd": 10043.5519, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 47.3535}}
+{"ts": "2026-07-09T22:11:33+00:00", "equity_usd": 10036.1668, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 39.9684}}
+{"ts": "2026-07-09T23:11:35+00:00", "equity_usd": 10026.2994, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 30.101}}
+{"ts": "2026-07-10T00:11:38+00:00", "equity_usd": 10020.8469, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 24.6485}}
+{"ts": "2026-07-10T01:11:40+00:00", "equity_usd": 10003.9048, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 7.7064}}
+{"ts": "2026-07-10T02:11:43+00:00", "equity_usd": 10101.849, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 105.6507}}
+{"ts": "2026-07-10T03:11:46+00:00", "equity_usd": 10113.9341, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 117.7358}}
+{"ts": "2026-07-10T04:11:48+00:00", "equity_usd": 10117.9589, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 121.7605}}
+{"ts": "2026-07-10T05:11:51+00:00", "equity_usd": 10120.4242, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 124.2259}}
+{"ts": "2026-07-10T06:11:54+00:00", "equity_usd": 10131.2398, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 135.0414}}
+{"ts": "2026-07-10T07:11:56+00:00", "equity_usd": 10107.9296, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 111.7313}}
+{"ts": "2026-07-10T08:11:59+00:00", "equity_usd": 10122.7929, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 126.5946}}
+{"ts": "2026-07-10T09:12:02+00:00", "equity_usd": 10148.1179, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 151.9195}}
+{"ts": "2026-07-10T10:12:04+00:00", "equity_usd": 10159.7548, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 163.5565}}
+{"ts": "2026-07-10T11:12:06+00:00", "equity_usd": 10177.1463, "balance_usd": 9996.1984, "open_positions": 1, "unrealized_by_strategy": {"btc_ak_macd_4h": 180.9479}}
+{"ts": "2026-07-10T12:12:09+00:00", "equity_usd": 10180.719, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 185.7215, "eth_donchian": 0.0}}
+{"ts": "2026-07-10T13:12:11+00:00", "equity_usd": 10142.222, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 157.5278, "eth_donchian": -10.3033}}
+{"ts": "2026-07-10T14:12:14+00:00", "equity_usd": 10146.4185, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 158.9652, "eth_donchian": -7.5442}}
+{"ts": "2026-07-10T15:12:16+00:00", "equity_usd": 10106.2143, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 129.1843, "eth_donchian": -17.9675}}
+{"ts": "2026-07-10T16:12:18+00:00", "equity_usd": 10111.4204, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 129.7786, "eth_donchian": -13.3557}}
+{"ts": "2026-07-10T17:12:21+00:00", "equity_usd": 10111.1604, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 126.9328, "eth_donchian": -10.7698}}
+{"ts": "2026-07-10T18:12:23+00:00", "equity_usd": 10100.218, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 119.8291, "eth_donchian": -14.6086}}
+{"ts": "2026-07-10T19:12:26+00:00", "equity_usd": 10089.5617, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 113.0648, "eth_donchian": -18.5006}}
+{"ts": "2026-07-10T20:12:28+00:00", "equity_usd": 10087.7363, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 105.5746, "eth_donchian": -12.8358}}
+{"ts": "2026-07-10T21:12:32+00:00", "equity_usd": 10101.6675, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 120.4922, "eth_donchian": -13.8222}}
+{"ts": "2026-07-10T22:12:34+00:00", "equity_usd": 10119.2566, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 132.4698, "eth_donchian": -8.2107}}
+{"ts": "2026-07-10T23:12:37+00:00", "equity_usd": 10119.8283, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 136.0138, "eth_donchian": -11.183}}
+{"ts": "2026-07-10T23:33:50+00:00", "equity_usd": 10136.5795, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 150.0859, "eth_donchian": -8.5039}}
+{"ts": "2026-07-11T00:33:53+00:00", "equity_usd": 10124.1563, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 141.0882, "eth_donchian": -11.9295}}
+{"ts": "2026-07-11T01:33:55+00:00", "equity_usd": 10144.9374, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 156.7777, "eth_donchian": -6.8378}}
+{"ts": "2026-07-11T02:33:58+00:00", "equity_usd": 10115.2096, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 134.3409, "eth_donchian": -14.1287}}
+{"ts": "2026-07-11T03:34:00+00:00", "equity_usd": 10129.2936, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 143.1332, "eth_donchian": -8.8371}}
+{"ts": "2026-07-11T04:34:03+00:00", "equity_usd": 10139.4366, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 148.9843, "eth_donchian": -4.5452}}
+{"ts": "2026-07-11T05:34:05+00:00", "equity_usd": 10145.0697, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 151.3651, "eth_donchian": -1.2929}}
+{"ts": "2026-07-11T06:34:08+00:00", "equity_usd": 10153.5337, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 158.6029, "eth_donchian": -0.0666}}
+{"ts": "2026-07-11T07:34:11+00:00", "equity_usd": 10149.5698, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 155.2787, "eth_donchian": -0.7064}}
+{"ts": "2026-07-11T08:34:13+00:00", "equity_usd": 10151.9769, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 157.7525, "eth_donchian": -0.7731}}
+{"ts": "2026-07-11T09:34:16+00:00", "equity_usd": 10143.7207, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 154.5213, "eth_donchian": -5.7981}}
+{"ts": "2026-07-11T10:34:19+00:00", "equity_usd": 10135.1692, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 145.4367, "eth_donchian": -5.265}}
+{"ts": "2026-07-11T11:34:21+00:00", "equity_usd": 10140.4909, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 148.5591, "eth_donchian": -3.0657}}
+{"ts": "2026-07-11T12:34:23+00:00", "equity_usd": 10136.2285, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 144.23, "eth_donchian": -2.999}}
+{"ts": "2026-07-11T13:34:25+00:00", "equity_usd": 10150.6467, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 153.8232, "eth_donchian": 1.8261}}
+{"ts": "2026-07-11T14:34:28+00:00", "equity_usd": 10178.8808, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 177.2988, "eth_donchian": 6.5845}}
+{"ts": "2026-07-11T15:34:31+00:00", "equity_usd": 10205.4353, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 181.6739, "eth_donchian": 28.764}}
+{"ts": "2026-07-11T16:34:34+00:00", "equity_usd": 10182.6367, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 159.4484, "eth_donchian": 28.1908}}
+{"ts": "2026-07-11T17:34:36+00:00", "equity_usd": 10199.3744, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 172.4406, "eth_donchian": 31.9363}}
+{"ts": "2026-07-11T18:34:38+00:00", "equity_usd": 10197.1041, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 169.5972, "eth_donchian": 32.5094}}
+{"ts": "2026-07-11T19:34:41+00:00", "equity_usd": 10176.2762, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 157.1932, "eth_donchian": 24.0855}}
+{"ts": "2026-07-11T20:34:43+00:00", "equity_usd": 10198.2823, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 171.0153, "eth_donchian": 32.2695}}
+{"ts": "2026-07-11T21:34:46+00:00", "equity_usd": 10196.612, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 170.7979, "eth_donchian": 30.8166}}
+{"ts": "2026-07-11T22:34:48+00:00", "equity_usd": 10176.9635, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 162.4923, "eth_donchian": 19.4737}}
+{"ts": "2026-07-11T23:34:51+00:00", "equity_usd": 10090.5331, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 110.8906, "eth_donchian": -15.355}}
+{"ts": "2026-07-12T00:34:53+00:00", "equity_usd": 10077.6001, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 104.0623, "eth_donchian": -21.4597}}
+{"ts": "2026-07-12T01:34:56+00:00", "equity_usd": 10125.3836, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 128.4801, "eth_donchian": 1.906}}
+{"ts": "2026-07-12T02:34:59+00:00", "equity_usd": 10139.552, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 139.7028, "eth_donchian": 4.8518}}
+{"ts": "2026-07-12T03:35:02+00:00", "equity_usd": 10158.7414, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 150.2683, "eth_donchian": 13.4756}}
+{"ts": "2026-07-12T04:35:05+00:00", "equity_usd": 10130.9098, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 128.648, "eth_donchian": 7.2643}}
+{"ts": "2026-07-12T05:35:07+00:00", "equity_usd": 10114.4428, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 118.1924, "eth_donchian": 1.2529}}
+{"ts": "2026-07-12T06:35:09+00:00", "equity_usd": 10080.4322, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 95.9113, "eth_donchian": -10.4766}}
+{"ts": "2026-07-12T07:26:05+00:00", "equity_usd": 10100.4063, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 111.6202, "eth_donchian": -6.2113}}
+{"ts": "2026-07-12T08:26:21+00:00", "equity_usd": 10126.5321, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 127.8025, "eth_donchian": 3.7321}}
+{"ts": "2026-07-12T09:26:38+00:00", "equity_usd": 10096.6314, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 105.6193, "eth_donchian": -3.9854}}
+{"ts": "2026-07-12T10:26:54+00:00", "equity_usd": 10108.5975, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 114.3331, "eth_donchian": -0.7331}}
+{"ts": "2026-07-12T11:27:11+00:00", "equity_usd": 10108.3276, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 114.9962, "eth_donchian": -1.6661}}
+{"ts": "2026-07-12T12:27:28+00:00", "equity_usd": 10135.6894, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 134.6138, "eth_donchian": 6.078}}
+{"ts": "2026-07-12T13:27:45+00:00", "equity_usd": 10135.886, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 133.3576, "eth_donchian": 7.5309}}
+{"ts": "2026-07-12T14:28:04+00:00", "equity_usd": 10100.4765, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 124.2995, "eth_donchian": -18.8205}}
+{"ts": "2026-07-12T14:29:27+00:00", "equity_usd": 9994.9975, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {}}
+{"ts": "2026-07-12T14:44:32+00:00", "equity_usd": 10122.0656, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 127.0681}}
+{"ts": "2026-07-12T14:59:41+00:00", "equity_usd": 10130.7975, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 135.8}}
+{"ts": "2026-07-12T15:14:51+00:00", "equity_usd": 10146.8457, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 151.8482}}
+{"ts": "2026-07-12T15:30:00+00:00", "equity_usd": 10149.2954, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 154.2979}}
+{"ts": "2026-07-12T15:45:10+00:00", "equity_usd": 10140.7845, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 145.787}}
+{"ts": "2026-07-12T16:00:20+00:00", "equity_usd": 10143.5747, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 148.5772}}
+{"ts": "2026-07-12T16:15:35+00:00", "equity_usd": 10129.7116, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 134.7141}}
+{"ts": "2026-07-12T16:30:45+00:00", "equity_usd": 10143.6677, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 148.6702}}
+{"ts": "2026-07-12T16:45:54+00:00", "equity_usd": 10136.7513, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 141.7538}}
+{"ts": "2026-07-12T17:01:03+00:00", "equity_usd": 10143.7801, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 148.7826}}
+{"ts": "2026-07-12T17:16:12+00:00", "equity_usd": 10139.3229, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 144.3254}}
+{"ts": "2026-07-12T17:31:21+00:00", "equity_usd": 10138.3542, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 143.3567}}
+{"ts": "2026-07-12T17:46:30+00:00", "equity_usd": 10141.8982, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 146.9007}}
+{"ts": "2026-07-12T18:01:39+00:00", "equity_usd": 10131.7373, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 136.7398}}
+{"ts": "2026-07-12T18:16:48+00:00", "equity_usd": 10127.0119, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 132.0144}}
+{"ts": "2026-07-12T18:31:58+00:00", "equity_usd": 10130.2878, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 135.2903}}
+{"ts": "2026-07-12T18:47:08+00:00", "equity_usd": 10138.0172, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 143.0197}}
+{"ts": "2026-07-12T19:02:17+00:00", "equity_usd": 10140.1914, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 145.1939}}
+{"ts": "2026-07-12T19:17:27+00:00", "equity_usd": 10143.8211, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 148.8236}}
+{"ts": "2026-07-12T19:32:37+00:00", "equity_usd": 10147.2335, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 152.236}}
+{"ts": "2026-07-12T19:47:46+00:00", "equity_usd": 10141.4911, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 146.4936}}
+{"ts": "2026-07-12T20:02:55+00:00", "equity_usd": 10149.9271, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 154.9296}}
+{"ts": "2026-07-12T20:18:11+00:00", "equity_usd": 10145.4748, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 150.4773}}
+{"ts": "2026-07-12T20:33:20+00:00", "equity_usd": 10146.8675, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 151.87}}
+{"ts": "2026-07-12T20:48:30+00:00", "equity_usd": 10148.1551, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 153.1576}}
+{"ts": "2026-07-12T21:03:40+00:00", "equity_usd": 10146.3396, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 151.3421}}
+{"ts": "2026-07-12T21:18:49+00:00", "equity_usd": 10147.4461, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 152.4486}}
+{"ts": "2026-07-12T21:33:58+00:00", "equity_usd": 10135.1194, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 140.1219}}
+{"ts": "2026-07-12T21:49:07+00:00", "equity_usd": 10128.7477, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 133.7502}}
+{"ts": "2026-07-12T22:04:16+00:00", "equity_usd": 10112.7007, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 117.7032}}
+{"ts": "2026-07-12T22:19:25+00:00", "equity_usd": 10097.1924, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 102.1949}}
+{"ts": "2026-07-12T22:34:35+00:00", "equity_usd": 10101.298, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 106.3005}}
+{"ts": "2026-07-12T22:49:44+00:00", "equity_usd": 10095.7417, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 100.7442}}
+{"ts": "2026-07-12T23:04:55+00:00", "equity_usd": 10108.6506, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 113.6531}}
+{"ts": "2026-07-12T23:20:04+00:00", "equity_usd": 10101.176, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 106.1785}}
+{"ts": "2026-07-12T23:35:13+00:00", "equity_usd": 10101.4176, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 106.4201}}
+{"ts": "2026-07-12T23:50:23+00:00", "equity_usd": 10099.607, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 104.6095}}
+{"ts": "2026-07-13T00:05:34+00:00", "equity_usd": 10102.2995, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 100.7442, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T00:20:58+00:00", "equity_usd": 10164.5067, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 162.9513, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T00:36:12+00:00", "equity_usd": 10150.8151, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 149.2597, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T00:51:26+00:00", "equity_usd": 10103.0243, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 101.4689, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T01:06:40+00:00", "equity_usd": 10137.5716, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 136.0162, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T01:21:54+00:00", "equity_usd": 10111.4857, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 109.9303, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T01:37:09+00:00", "equity_usd": 10095.0521, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 93.4967, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T01:52:23+00:00", "equity_usd": 10091.9079, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 90.3526, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T02:07:38+00:00", "equity_usd": 10057.8498, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 56.2944, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T02:22:52+00:00", "equity_usd": 10057.8631, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 56.3077, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T02:38:06+00:00", "equity_usd": 10064.6431, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 63.0877, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T02:53:20+00:00", "equity_usd": 10064.6141, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 63.0587, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T03:08:35+00:00", "equity_usd": 10053.4989, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 51.9436, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T03:23:49+00:00", "equity_usd": 10011.0616, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 9.5062, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T03:39:05+00:00", "equity_usd": 10016.781, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 15.2257, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T03:54:19+00:00", "equity_usd": 9986.5242, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -15.0312, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T04:09:34+00:00", "equity_usd": 9984.699, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -16.8563, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T04:24:52+00:00", "equity_usd": 9986.0954, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -15.46, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T04:40:06+00:00", "equity_usd": 9992.9804, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -8.5749, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T04:55:21+00:00", "equity_usd": 9974.0199, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -27.5354, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T05:10:36+00:00", "equity_usd": 9968.4636, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -33.0918, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T05:25:51+00:00", "equity_usd": 9985.0832, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -16.4722, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T05:41:05+00:00", "equity_usd": 9964.1151, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -37.4402, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T05:56:20+00:00", "equity_usd": 9984.4273, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -17.1281, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T06:11:35+00:00", "equity_usd": 9983.804, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -17.7514, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T06:26:49+00:00", "equity_usd": 9977.4347, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -24.1207, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T06:42:05+00:00", "equity_usd": 9989.2287, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -12.3267, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T06:57:18+00:00", "equity_usd": 9988.853, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -12.7023, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T07:12:33+00:00", "equity_usd": 9983.6288, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -17.9265, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T07:27:46+00:00", "equity_usd": 9984.902, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -16.6534, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T07:43:00+00:00", "equity_usd": 10003.7356, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 2.1803, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T07:58:15+00:00", "equity_usd": 10005.4919, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 3.9366, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T08:13:39+00:00", "equity_usd": 10006.3338, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 4.7785, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T08:29:04+00:00", "equity_usd": 10012.7502, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 11.1949, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T08:44:29+00:00", "equity_usd": 10020.1619, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 18.6066, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T08:59:53+00:00", "equity_usd": 10023.5272, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 21.9718, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T09:15:18+00:00", "equity_usd": 10026.8368, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 25.2815, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T09:30:44+00:00", "equity_usd": 10023.9065, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 22.3511, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T09:46:10+00:00", "equity_usd": 10021.2877, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 19.7323, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T10:01:36+00:00", "equity_usd": 10020.1644, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 18.609, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T10:17:00+00:00", "equity_usd": 10018.4491, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 16.8938, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T10:32:25+00:00", "equity_usd": 10020.1619, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 18.6066, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T10:47:52+00:00", "equity_usd": 9999.9235, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -1.6319, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T11:03:18+00:00", "equity_usd": 9992.1252, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -9.4301, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T11:18:44+00:00", "equity_usd": 10018.1713, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 16.616, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T11:34:12+00:00", "equity_usd": 10011.5037, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 9.9483, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T11:49:38+00:00", "equity_usd": 10003.5025, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 1.9471, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T12:05:03+00:00", "equity_usd": 9996.2442, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -5.3112, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T12:20:30+00:00", "equity_usd": 9989.0427, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -12.5127, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T12:35:55+00:00", "equity_usd": 9977.5325, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -24.0228, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T12:51:20+00:00", "equity_usd": 9961.4589, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -40.0964, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T13:06:46+00:00", "equity_usd": 9962.8045, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -38.7508, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T13:22:12+00:00", "equity_usd": 9949.863, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -51.6923, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T13:37:36+00:00", "equity_usd": 9951.4345, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -50.1208, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T13:53:02+00:00", "equity_usd": 9927.396, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -74.1594, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T14:08:28+00:00", "equity_usd": 9925.7037, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -75.8516, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T14:23:55+00:00", "equity_usd": 9937.54, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -64.0154, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T14:39:22+00:00", "equity_usd": 9954.4531, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -47.1023, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T14:54:49+00:00", "equity_usd": 9962.0786, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -39.4768, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T15:10:15+00:00", "equity_usd": 9982.9403, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -18.615, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T15:25:43+00:00", "equity_usd": 9983.2012, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -18.3541, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T15:41:09+00:00", "equity_usd": 9985.6158, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -15.9395, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T15:56:36+00:00", "equity_usd": 9965.9149, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -35.6405, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T16:12:03+00:00", "equity_usd": 9961.9421, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -39.6133, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T16:27:29+00:00", "equity_usd": 9952.1846, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -49.3707, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T16:42:54+00:00", "equity_usd": 9929.319, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -72.2364, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T16:58:19+00:00", "equity_usd": 9931.5609, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -69.9945, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T17:13:44+00:00", "equity_usd": 9920.6305, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -80.9249, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T17:29:11+00:00", "equity_usd": 9925.8064, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -75.749, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T17:44:35+00:00", "equity_usd": 9909.2762, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -92.2792, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T18:00:01+00:00", "equity_usd": 9875.816, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -125.7394, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T18:15:29+00:00", "equity_usd": 9878.5942, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -122.9612, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T18:30:56+00:00", "equity_usd": 9881.0112, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -120.5442, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T18:46:23+00:00", "equity_usd": 9887.2911, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -114.2643, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T19:01:49+00:00", "equity_usd": 9889.7081, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -111.8472, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T19:17:14+00:00", "equity_usd": 9896.1149, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -105.4405, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T19:32:40+00:00", "equity_usd": 9888.9834, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -112.572, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T19:48:06+00:00", "equity_usd": 9908.2978, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -93.2576, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T20:03:31+00:00", "equity_usd": 9922.1078, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -79.4476, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T20:18:57+00:00", "equity_usd": 9914.1054, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -87.45, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T20:34:24+00:00", "equity_usd": 9913.5848, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -87.9706, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T20:47:13+00:00", "equity_usd": 9909.3342, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -92.2212, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T21:02:39+00:00", "equity_usd": 9912.7779, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -88.7774, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T21:18:03+00:00", "equity_usd": 9900.3377, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -101.2177, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T21:21:05+00:00", "equity_usd": 9900.3377, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -101.2177, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T21:36:32+00:00", "equity_usd": 9890.4317, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -111.1237, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T21:51:56+00:00", "equity_usd": 9884.3933, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -117.162, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T22:07:22+00:00", "equity_usd": 9895.1509, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -106.4044, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T22:22:48+00:00", "equity_usd": 9908.7447, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -92.8106, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T22:38:12+00:00", "equity_usd": 9906.1356, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -95.4197, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T22:53:40+00:00", "equity_usd": 9894.727, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -106.8284, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T23:09:06+00:00", "equity_usd": 9878.1122, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -123.4431, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T23:24:31+00:00", "equity_usd": 9894.5965, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -106.9588, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T23:39:57+00:00", "equity_usd": 9907.195, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -94.3604, "eth_donchian": 6.5579}}
+{"ts": "2026-07-13T23:55:22+00:00", "equity_usd": 9902.0336, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -99.5218, "eth_donchian": 6.5579}}
+{"ts": "2026-07-14T00:10:48+00:00", "equity_usd": 9887.6056, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -73.8562, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T00:26:14+00:00", "equity_usd": 9899.9371, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -61.5247, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T00:41:40+00:00", "equity_usd": 9892.2246, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -69.2372, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T00:57:06+00:00", "equity_usd": 9884.5653, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -76.8965, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T01:12:33+00:00", "equity_usd": 9913.5779, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -47.8838, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T01:27:59+00:00", "equity_usd": 9907.0323, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -54.4294, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T01:43:26+00:00", "equity_usd": 9910.7031, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -50.7586, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T01:58:52+00:00", "equity_usd": 9906.8825, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -54.5792, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T02:14:19+00:00", "equity_usd": 9912.4763, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -48.9854, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T02:29:44+00:00", "equity_usd": 9908.0771, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -53.3846, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T02:45:11+00:00", "equity_usd": 9918.8505, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -42.6113, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T03:00:36+00:00", "equity_usd": 9912.9088, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -48.553, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T03:16:00+00:00", "equity_usd": 9894.7769, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -66.6849, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T03:31:23+00:00", "equity_usd": 9903.9062, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -57.5555, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T03:46:47+00:00", "equity_usd": 9903.9715, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -57.4903, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T04:02:11+00:00", "equity_usd": 9916.3984, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -45.0633, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T04:17:34+00:00", "equity_usd": 9915.3838, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -46.078, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T04:32:58+00:00", "equity_usd": 9925.1134, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -36.3483, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T04:48:22+00:00", "equity_usd": 9932.8018, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -28.66, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T05:03:48+00:00", "equity_usd": 9937.2154, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -24.2463, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T05:19:12+00:00", "equity_usd": 9946.7494, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -14.7123, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T05:34:35+00:00", "equity_usd": 9948.9056, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -12.5562, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T05:50:00+00:00", "equity_usd": 9938.27, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -23.1918, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T06:05:24+00:00", "equity_usd": 9936.2213, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -25.2404, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T06:20:48+00:00", "equity_usd": 9925.4698, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -35.992, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T06:36:12+00:00", "equity_usd": 9930.4004, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -31.0613, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T06:51:37+00:00", "equity_usd": 9930.5442, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -30.9176, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T07:07:02+00:00", "equity_usd": 9922.578, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -38.8837, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T07:22:27+00:00", "equity_usd": 9919.673, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -41.7887, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T07:37:52+00:00", "equity_usd": 9924.1073, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -37.3545, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T07:53:15+00:00", "equity_usd": 9916.7729, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -44.6889, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T08:08:38+00:00", "equity_usd": 9914.9525, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -46.5092, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T08:24:01+00:00", "equity_usd": 9913.3907, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -48.071, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T08:39:24+00:00", "equity_usd": 9927.4048, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -34.0569, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T08:54:47+00:00", "equity_usd": 9941.5325, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -19.9292, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T09:10:12+00:00", "equity_usd": 9933.425, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -28.0367, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T09:25:36+00:00", "equity_usd": 9931.6639, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -29.7978, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T09:41:00+00:00", "equity_usd": 9928.6442, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -32.8176, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T09:56:23+00:00", "equity_usd": 9915.3463, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -46.1154, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T10:11:47+00:00", "equity_usd": 9923.2424, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -38.2193, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T10:27:11+00:00", "equity_usd": 9933.9263, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -27.5354, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T10:42:36+00:00", "equity_usd": 9927.9254, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -33.5363, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T10:57:59+00:00", "equity_usd": 9944.7963, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -16.6655, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T11:13:23+00:00", "equity_usd": 9943.8311, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -17.6306, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T11:28:50+00:00", "equity_usd": 9942.8757, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -18.586, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T11:44:15+00:00", "equity_usd": 9951.7743, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -9.6874, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T11:59:38+00:00", "equity_usd": 9951.3202, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -10.1416, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T12:15:02+00:00", "equity_usd": 9950.2029, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": -11.2589, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T12:30:27+00:00", "equity_usd": 9962.9124, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 1.4507, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T12:45:51+00:00", "equity_usd": 10034.9338, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 73.4721, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T13:01:18+00:00", "equity_usd": 10083.9482, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 122.4865, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T13:16:42+00:00", "equity_usd": 10063.746, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 102.2842, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T13:32:06+00:00", "equity_usd": 10083.7888, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 122.327, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T13:47:31+00:00", "equity_usd": 10063.2689, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 101.8071, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T14:02:55+00:00", "equity_usd": 10069.4546, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 107.9928, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T14:18:18+00:00", "equity_usd": 10073.344, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 111.8823, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T14:33:42+00:00", "equity_usd": 10078.5199, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 117.0581, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T14:49:06+00:00", "equity_usd": 10091.9192, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 130.4574, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T15:04:29+00:00", "equity_usd": 10125.6234, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 164.1616, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T15:19:54+00:00", "equity_usd": 10114.013, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 152.5512, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T15:35:18+00:00", "equity_usd": 10149.064, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 187.6023, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T15:50:42+00:00", "equity_usd": 10183.2115, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 221.7497, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T16:06:07+00:00", "equity_usd": 10178.6468, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 217.1851, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T16:21:32+00:00", "equity_usd": 10177.4401, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 215.9784, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T16:36:56+00:00", "equity_usd": 10188.1748, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 226.713, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T16:52:20+00:00", "equity_usd": 10183.3866, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 221.9249, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T17:07:43+00:00", "equity_usd": 10176.957, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 215.4952, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T17:23:07+00:00", "equity_usd": 10161.404, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 199.9422, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T17:38:32+00:00", "equity_usd": 10151.911, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 190.4493, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T17:53:56+00:00", "equity_usd": 10151.6151, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 190.1534, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T18:09:20+00:00", "equity_usd": 10163.8427, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 202.381, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T18:24:43+00:00", "equity_usd": 10147.9274, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 186.4656, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T18:40:07+00:00", "equity_usd": 10151.3663, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 189.9045, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T18:55:30+00:00", "equity_usd": 10158.6838, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 197.222, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T19:10:54+00:00", "equity_usd": 10157.8696, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 196.4079, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T19:26:17+00:00", "equity_usd": 10163.9116, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 202.4498, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T19:41:40+00:00", "equity_usd": 10156.6653, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 195.2036, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T19:57:05+00:00", "equity_usd": 10154.2483, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 192.7866, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T20:12:29+00:00", "equity_usd": 10157.5809, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 196.1192, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T20:27:53+00:00", "equity_usd": 10144.3447, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 182.883, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T20:43:17+00:00", "equity_usd": 10142.8952, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 181.4335, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T20:58:41+00:00", "equity_usd": 10147.6556, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 186.1938, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T21:14:05+00:00", "equity_usd": 10157.8745, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 196.4127, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T21:29:27+00:00", "equity_usd": 10163.0685, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 201.6067, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T21:44:50+00:00", "equity_usd": 10168.7444, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 207.2827, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T22:00:14+00:00", "equity_usd": 10170.543, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 209.0812, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T22:15:39+00:00", "equity_usd": 10153.7652, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 192.3034, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T22:31:01+00:00", "equity_usd": 10201.1151, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 239.6533, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T22:46:26+00:00", "equity_usd": 10199.5702, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 238.1084, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T23:01:49+00:00", "equity_usd": 10192.7672, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 231.3055, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T23:17:12+00:00", "equity_usd": 10211.9862, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 250.5245, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T23:32:36+00:00", "equity_usd": 10199.6281, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 238.1664, "eth_donchian": -33.5358}}
+{"ts": "2026-07-14T23:47:59+00:00", "equity_usd": 10210.0524, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 248.5906, "eth_donchian": -33.5358}}
+{"ts": "2026-07-15T00:03:23+00:00", "equity_usd": 10368.3662, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 253.421, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T00:18:47+00:00", "equity_usd": 10353.6321, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 238.687, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T00:34:12+00:00", "equity_usd": 10349.7681, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 234.8229, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T00:49:36+00:00", "equity_usd": 10336.6949, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 221.7497, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T01:04:59+00:00", "equity_usd": 10341.8647, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 226.9196, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T01:20:25+00:00", "equity_usd": 10332.3742, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 217.4291, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T01:35:49+00:00", "equity_usd": 10342.5931, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 227.648, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T01:51:13+00:00", "equity_usd": 10329.16, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 214.2148, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T02:06:38+00:00", "equity_usd": 10323.7184, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 208.7732, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T02:22:02+00:00", "equity_usd": 10328.0245, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 213.0794, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T02:37:26+00:00", "equity_usd": 10304.782, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 189.8369, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T02:52:50+00:00", "equity_usd": 10310.1475, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 195.2024, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T03:08:14+00:00", "equity_usd": 10301.5557, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 186.6106, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T03:23:38+00:00", "equity_usd": 10318.4096, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 203.4645, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T03:39:01+00:00", "equity_usd": 10316.5712, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 201.626, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T03:54:25+00:00", "equity_usd": 10326.9471, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 212.0019, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T04:09:49+00:00", "equity_usd": 10337.9306, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 222.9854, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T04:25:13+00:00", "equity_usd": 10342.0375, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 227.0923, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T04:40:38+00:00", "equity_usd": 10334.3057, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 219.3605, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T04:56:02+00:00", "equity_usd": 10339.5685, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 224.6234, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T05:11:27+00:00", "equity_usd": 10332.3742, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 217.4291, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T05:26:51+00:00", "equity_usd": 10317.3938, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 202.4486, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T05:42:14+00:00", "equity_usd": 10320.7759, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 205.8308, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T05:57:36+00:00", "equity_usd": 10327.3699, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 212.4247, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T06:13:00+00:00", "equity_usd": 10356.2968, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 241.3516, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T06:28:24+00:00", "equity_usd": 10368.3698, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 253.4247, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T06:43:47+00:00", "equity_usd": 10361.2577, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 246.3125, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T06:59:11+00:00", "equity_usd": 10367.6439, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 252.6987, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T07:14:36+00:00", "equity_usd": 10340.5868, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 225.6416, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T07:29:59+00:00", "equity_usd": 10306.2496, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 191.3045, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T07:45:23+00:00", "equity_usd": 10315.9467, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 201.0016, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T08:00:48+00:00", "equity_usd": 10308.6183, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 193.6732, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T08:16:12+00:00", "equity_usd": 10313.2869, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 198.3417, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T08:31:36+00:00", "equity_usd": 10320.4316, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 205.4865, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T08:46:58+00:00", "equity_usd": 10331.4151, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 216.47, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T09:02:22+00:00", "equity_usd": 10335.0316, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 220.0865, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T09:17:47+00:00", "equity_usd": 10343.7261, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 228.781, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T09:33:11+00:00", "equity_usd": 10342.8951, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 227.9499, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T09:48:34+00:00", "equity_usd": 10328.7722, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 213.8271, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T10:03:57+00:00", "equity_usd": 10323.414, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 208.4688, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T10:19:23+00:00", "equity_usd": 10338.4125, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 223.4674, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T10:34:46+00:00", "equity_usd": 10319.1078, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 204.1626, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T10:50:10+00:00", "equity_usd": 10322.711, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 207.7658, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T11:05:34+00:00", "equity_usd": 10322.3474, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 207.4022, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T11:20:59+00:00", "equity_usd": 10330.4234, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 215.4783, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T11:36:24+00:00", "equity_usd": 10319.7117, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 204.7666, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T11:51:48+00:00", "equity_usd": 10326.4688, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 211.5236, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T12:07:12+00:00", "equity_usd": 10330.7001, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 215.7549, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T12:22:36+00:00", "equity_usd": 10330.7508, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 215.8056, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T12:38:01+00:00", "equity_usd": 10325.43, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 210.4848, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T12:53:25+00:00", "equity_usd": 10337.445, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 222.4999, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T13:08:49+00:00", "equity_usd": 10382.8635, "balance_usd": 9994.9975, "open_positions": 2, "unrealized_by_strategy": {"btc_ak_macd_4h": 267.9183, "eth_donchian": 119.9476}}
+{"ts": "2026-07-15T13:24:13+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T13:39:37+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T13:55:02+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T14:10:27+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T14:25:51+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T14:41:16+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T14:56:39+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T15:12:06+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T15:27:29+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T15:42:54+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T15:58:17+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T16:13:42+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T16:29:07+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T16:44:30+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T16:59:55+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T17:15:20+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T17:30:43+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T17:46:07+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T18:01:32+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T18:16:55+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T18:32:20+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T18:47:43+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T19:03:07+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T19:18:31+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T19:33:53+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T19:49:18+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T20:04:43+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T20:20:06+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T20:35:29+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T20:50:53+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T21:06:19+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T21:21:43+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T21:37:06+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T21:52:28+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T22:07:52+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T22:23:17+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T22:38:40+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T22:54:04+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T23:09:27+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T23:24:51+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T23:40:15+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-15T23:55:38+00:00", "equity_usd": 10410.9935, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 119.9476}}
+{"ts": "2026-07-16T00:11:02+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T00:26:26+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T00:41:52+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T00:57:16+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T01:12:39+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T01:28:03+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T01:43:27+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T01:58:51+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T02:14:16+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T02:29:40+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T02:45:04+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T03:00:28+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T03:15:53+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T03:31:16+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T03:46:41+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T04:02:05+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T04:17:29+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T04:32:53+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T04:48:16+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T05:03:40+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T05:19:04+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T05:34:27+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T05:49:51+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T06:05:15+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T06:20:39+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T06:36:02+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T06:51:26+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T07:06:49+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T07:22:14+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T07:37:39+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T07:53:02+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T08:08:24+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T08:23:48+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T08:39:13+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T08:54:38+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T09:10:03+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T09:25:28+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T09:40:52+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T09:56:14+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T10:11:38+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T10:27:04+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T10:42:29+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T10:57:53+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T11:13:19+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T11:28:43+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T11:44:06+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T11:59:30+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T12:14:54+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T12:30:17+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T12:45:41+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T13:01:05+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T13:16:30+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T13:31:54+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T13:47:19+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T14:02:43+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T14:18:05+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T14:33:29+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T14:48:53+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T15:04:16+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T15:19:39+00:00", "equity_usd": 10445.6356, "balance_usd": 10291.0459, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 154.5897}}
+{"ts": "2026-07-16T15:35:03+00:00", "equity_usd": 10440.2593, "balance_usd": 10285.6696, "open_positions": 2, "unrealized_by_strategy": {"eth_donchian": 154.5897, "btc_utbot_m15_h1": 0.0}}
+{"ts": "2026-07-16T15:50:34+00:00", "equity_usd": 10424.2014, "balance_usd": 10285.6696, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -16.0579, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T16:06:05+00:00", "equity_usd": 10417.8773, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_utbot_m15_h1": -19.9442, "eth_donchian": 154.5897, "btc_ha_trend_4h": 0.0}}
+{"ts": "2026-07-16T16:21:35+00:00", "equity_usd": 10371.389, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -14.5217, "btc_utbot_m15_h1": -51.9107, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T16:37:09+00:00", "equity_usd": 10379.5881, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -11.9605, "btc_utbot_m15_h1": -46.2728, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T16:52:38+00:00", "equity_usd": 10339.5453, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -24.4689, "btc_utbot_m15_h1": -73.8073, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T17:08:07+00:00", "equity_usd": 10364.6324, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -16.6323, "btc_utbot_m15_h1": -56.5568, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T17:23:36+00:00", "equity_usd": 10287.9287, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -40.5926, "btc_utbot_m15_h1": -109.3002, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T17:39:05+00:00", "equity_usd": 10300.5591, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -36.6472, "btc_utbot_m15_h1": -100.6152, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T17:54:36+00:00", "equity_usd": 10283.0995, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -42.1011, "btc_utbot_m15_h1": -112.6209, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T18:10:07+00:00", "equity_usd": 10264.5326, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -47.9009, "btc_utbot_m15_h1": -125.3879, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T18:25:40+00:00", "equity_usd": 10294.2729, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -38.6109, "btc_utbot_m15_h1": -104.9378, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T18:41:09+00:00", "equity_usd": 10301.1621, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -36.4588, "btc_utbot_m15_h1": -100.2005, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T18:56:40+00:00", "equity_usd": 10284.542, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -41.6505, "btc_utbot_m15_h1": -111.629, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T19:12:11+00:00", "equity_usd": 10307.2241, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -34.5652, "btc_utbot_m15_h1": -96.0322, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T19:27:44+00:00", "equity_usd": 10301.4299, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -36.3752, "btc_utbot_m15_h1": -100.0164, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T19:43:13+00:00", "equity_usd": 10310.9654, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -33.3965, "btc_utbot_m15_h1": -93.4596, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T19:58:45+00:00", "equity_usd": 10297.0952, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -37.7292, "btc_utbot_m15_h1": -102.9971, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T20:14:18+00:00", "equity_usd": 10313.4548, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -32.6189, "btc_utbot_m15_h1": -91.7478, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T20:29:49+00:00", "equity_usd": 10292.7483, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -39.0871, "btc_utbot_m15_h1": -105.9861, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T20:45:20+00:00", "equity_usd": 10283.0971, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -42.1019, "btc_utbot_m15_h1": -112.6226, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T21:00:51+00:00", "equity_usd": 10275.4455, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -44.492, "btc_utbot_m15_h1": -117.884, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T21:16:21+00:00", "equity_usd": 10291.4578, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -39.4902, "btc_utbot_m15_h1": -106.8735, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T21:31:53+00:00", "equity_usd": 10288.4859, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -40.4185, "btc_utbot_m15_h1": -108.917, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T21:47:24+00:00", "equity_usd": 10299.5025, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -36.9772, "btc_utbot_m15_h1": -101.3417, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T22:02:56+00:00", "equity_usd": 10286.9566, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -40.8963, "btc_utbot_m15_h1": -109.9686, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T22:18:27+00:00", "equity_usd": 10297.5125, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -37.5989, "btc_utbot_m15_h1": -102.7102, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T22:33:58+00:00", "equity_usd": 10252.7031, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -51.5962, "btc_utbot_m15_h1": -133.5222, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T22:49:31+00:00", "equity_usd": 10268.2812, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -46.73, "btc_utbot_m15_h1": -122.8103, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T23:05:01+00:00", "equity_usd": 10240.162, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -55.5137, "btc_utbot_m15_h1": -142.1458, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T23:20:35+00:00", "equity_usd": 10229.2588, "balance_usd": 10283.2318, "open_positions": 3, "unrealized_by_strategy": {"btc_ha_trend_4h": -58.9196, "btc_utbot_m15_h1": -149.6431, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T23:36:06+00:00", "equity_usd": 10202.2475, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -167.8806, "eth_donchian": 154.5897}}
+{"ts": "2026-07-16T23:51:36+00:00", "equity_usd": 10206.7525, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -163.3755, "eth_donchian": 154.5897}}
+{"ts": "2026-07-17T00:07:07+00:00", "equity_usd": 10134.2817, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -165.0027, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T00:22:37+00:00", "equity_usd": 10127.7083, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -171.5761, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T00:38:12+00:00", "equity_usd": 10129.2724, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -170.012, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T00:53:42+00:00", "equity_usd": 10127.0647, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -172.2197, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T01:09:13+00:00", "equity_usd": 10143.5373, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -155.7471, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T01:24:44+00:00", "equity_usd": 10161.1212, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -138.1632, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T01:40:15+00:00", "equity_usd": 10157.5716, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -141.7129, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T01:55:47+00:00", "equity_usd": 10117.6632, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -181.6212, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T02:11:19+00:00", "equity_usd": 10087.1812, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -212.1032, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T02:26:50+00:00", "equity_usd": 10099.1322, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -200.1523, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T02:42:21+00:00", "equity_usd": 10086.4779, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -212.8065, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T02:57:51+00:00", "equity_usd": 10072.2529, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -227.0315, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T03:13:21+00:00", "equity_usd": 10076.5257, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -222.7587, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T03:28:51+00:00", "equity_usd": 10100.0793, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -199.2051, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T03:44:21+00:00", "equity_usd": 10109.1905, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -190.0939, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T03:59:51+00:00", "equity_usd": 10099.0841, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -200.2004, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T04:15:22+00:00", "equity_usd": 10078.9209, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -220.3635, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T04:30:52+00:00", "equity_usd": 10060.1875, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -239.0969, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T04:46:23+00:00", "equity_usd": 10075.8639, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -223.4205, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T05:01:52+00:00", "equity_usd": 10077.1909, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -222.0936, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T05:17:21+00:00", "equity_usd": 10068.5706, "balance_usd": 10215.5383, "open_positions": 2, "unrealized_by_strategy": {"btc_utbot_m15_h1": -230.7138, "eth_donchian": 83.7461}}
+{"ts": "2026-07-17T05:32:52+00:00", "equity_usd": 10033.0444, "balance_usd": 9949.2983, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 83.7461}}
+{"ts": "2026-07-17T05:48:23+00:00", "equity_usd": 10033.0444, "balance_usd": 9949.2983, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 83.7461}}
+{"ts": "2026-07-17T06:03:53+00:00", "equity_usd": 10033.0444, "balance_usd": 9949.2983, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 83.7461}}
+{"ts": "2026-07-17T06:19:22+00:00", "equity_usd": 10033.0444, "balance_usd": 9949.2983, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 83.7461}}
+{"ts": "2026-07-17T06:34:54+00:00", "equity_usd": 10033.0444, "balance_usd": 9949.2983, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 83.7461}}
+{"ts": "2026-07-17T06:50:25+00:00", "equity_usd": 10033.0444, "balance_usd": 9949.2983, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 83.7461}}
+{"ts": "2026-07-17T07:05:55+00:00", "equity_usd": 10033.0444, "balance_usd": 9949.2983, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 83.7461}}
+{"ts": "2026-07-17T07:21:24+00:00", "equity_usd": 10033.0444, "balance_usd": 9949.2983, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 83.7461}}
+{"ts": "2026-07-17T07:36:54+00:00", "equity_usd": 10033.0444, "balance_usd": 9949.2983, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 83.7461}}
+{"ts": "2026-07-17T07:52:00+00:00", "equity_usd": 10033.0444, "balance_usd": 9949.2983, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 83.7461}}
+{"ts": "2026-07-17T08:07:06+00:00", "equity_usd": 10033.0444, "balance_usd": 9949.2983, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 83.7461}}
+{"ts": "2026-07-17T08:22:14+00:00", "equity_usd": 10033.0444, "balance_usd": 9949.2983, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 83.7461}}
+{"ts": "2026-07-17T08:37:20+00:00", "equity_usd": 10033.0444, "balance_usd": 9949.2983, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 83.7461}}
+{"ts": "2026-07-17T08:52:26+00:00", "equity_usd": 10033.0444, "balance_usd": 9949.2983, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 83.7461}}
+{"ts": "2026-07-17T09:07:32+00:00", "equity_usd": 10033.0444, "balance_usd": 9949.2983, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 83.7461}}
+{"ts": "2026-07-17T09:22:38+00:00", "equity_usd": 10033.0444, "balance_usd": 9949.2983, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 83.7461}}
+{"ts": "2026-07-17T09:37:44+00:00", "equity_usd": 10033.0444, "balance_usd": 9949.2983, "open_positions": 1, "unrealized_by_strategy": {"eth_donchian": 83.7461}}

@@ -1,0 +1,32 @@
+{
+  "balance_usd": 9949.298287226975,
+  "positions": {
+    "eth_donchian": {
+      "atr_risk": 152.77848316348195,
+      "entry_px": 1801.88,
+      "entry_reason": "close 1802 > 20-bar channel high 1800",
+      "exit_policy": "donchian_signal",
+      "last_monitor_candle_ts": 1784160000000,
+      "monitor_timeframe": "1d",
+      "notional_usd": 2401.725355338701,
+      "opened_ts": "2026-07-10T12:12:09+00:00",
+      "qty": 1.3328997243649414,
+      "reward_risk_ratio": null,
+      "risk_pct": 0.02,
+      "side": "long",
+      "sl_basis": "",
+      "stop_loss_price": null,
+      "strategy_id": "eth_donchian",
+      "symbol": "ETH/USDT",
+      "take_profit_price": null
+    }
+  },
+  "processed_candles": {
+    "btc_ak_macd_4h": 1784260800000,
+    "btc_ha_trend_4h": 1784260800000,
+    "btc_utbot_m15_h1": 1784279700000,
+    "eth_donchian": 1784160000000,
+    "gold_cot": 1784160000000
+  },
+  "updated_at": "2026-07-17T09:37:51+00:00"
+}

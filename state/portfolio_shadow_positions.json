@@ -1,1 +1,1 @@
-{"equity": 1.0, "pos": {}}
+{"equity": 1.0, "pos": {"donchian_eth": {"holding": true, "entry_px": 1800.45978, "risk_pct": 0.06, "atr_risk": 165.2295469773423}}}
