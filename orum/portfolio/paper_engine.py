@@ -112,6 +112,7 @@ def _parse_strategies(config: dict) -> list[StrategyConfig]:
             "utbot_mtf": "signal_or_stop",
             "donchian": "donchian_signal",
             "gold_cot": "cot_signal",
+            "ha_trend": "structural_bracket",
         }.get(engine, "strategy_signal")
         exit_policy = str(raw.get("exit_policy") or default_policy)
         default_monitor = "15m" if engine == "ak_macd" else raw.get("timeframe", "1d")
@@ -167,6 +168,10 @@ class PaperEngine:
         self._max_symbol_stop_risk_pct = float(
             self._config.get("max_symbol_stop_risk_pct", 1.0)
         )
+        # Optional notional cap (× equity). Absent/None keeps the historical
+        # behaviour byte-for-byte: pure risk-based sizing, no cap.
+        raw_leverage = self._config.get("max_leverage")
+        self._max_leverage = float(raw_leverage) if raw_leverage else None
         forecast_config = dict(self._config.get("forecast_gate") or {})
         self._forecast_enabled = forecast_config.get("enabled", False) is True
         self._forecast_history_limit = int(forecast_config.get("history_limit", 900))
@@ -469,7 +474,8 @@ class PaperEngine:
                         stop_loss_price=signal.suggested_stop,
                         take_profit_price=signal.suggested_take_profit,
                         sl_basis="strategy_suggested" if signal.suggested_stop is not None else "",
-                        reward_risk_ratio=sc.reward_risk_ratio)
+                        reward_risk_ratio=sc.reward_risk_ratio,
+                        max_leverage=self._max_leverage)
                     if fill and sc.id in account.positions and plan.get("monitor_candle") is not None:
                         account.positions[sc.id].last_monitor_candle_ts = plan["monitor_candle"].get("ts")
                     intents[sc.id] = "open" if fill else "hold"

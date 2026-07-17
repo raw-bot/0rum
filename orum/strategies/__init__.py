@@ -26,6 +26,7 @@ from orum.strategies.base import StrategyEngine
 from orum.strategies.donchian import DonchianEngine
 from orum.strategies.dummy import DummyEngine
 from orum.strategies.gold_cot import GoldCotEngine
+from orum.strategies.ha_trend import HaTrendEngine
 from orum.strategies.native_dsl import NativeDslEngine
 from orum.strategies.utbot_mtf import UtBotMtfEngine
 
@@ -36,6 +37,7 @@ _ENGINES: dict[str, type] = {
     "gold_cot": GoldCotEngine,
     "dummy": DummyEngine,
     "utbot_mtf": UtBotMtfEngine,
+    "ha_trend": HaTrendEngine,
 }
 
 

@@ -1567,6 +1567,7 @@ def build_snapshot() -> dict:
         "trade_markers": _trade_markers(trades),
         "signals": _signal_markers(ext_records, events, open_position.get("external_signal_id")),
         "worker": _paper_worker(),
+        "portfolio_config": _portfolio_config(),
         "portfolio": _portfolio(trades, goal),
         "research_portfolio": _portfolio_shadow(),
         "open_position": _open_position(open_position, heartbeat, strategy),
@@ -1682,6 +1683,145 @@ def set_reward_risk(value) -> dict:
     return {"ok": True, "reward_risk_ratio": rr}
 
 
+# --- live portfolio risk (state/portfolio.yaml, read by the paper engine at
+# the start of every cycle — run_paper_portfolio.load_config) -----------------
+PORTFOLIO_DEFAULT_PATH = Path(__file__).resolve().parents[1] / "config" / "portfolio.yaml"
+RISK_PCT_STEP = 0.0025
+
+
+def _portfolio_config() -> dict:
+    """The per-strategy risk config the paper engine ACTUALLY loads: the
+    state/portfolio.yaml runtime override when present, else the committed
+    config/portfolio.yaml fallback — same precedence as the engine."""
+    runtime = STATE_DIR / "portfolio.yaml"
+    source = runtime if runtime.exists() else PORTFOLIO_DEFAULT_PATH
+    doc = _read_yaml(source)
+    goal = _read_yaml(STATE_DIR / "goal.yaml")
+    return {
+        "source": "state/portfolio.yaml" if source == runtime else "config/portfolio.yaml",
+        "max_leverage": doc.get("max_leverage"),
+        "risk_bounds": {
+            "min": float(goal.get("risk_per_trade_min", 0.005)),
+            "max": float(goal.get("risk_per_trade_max", 0.02)),
+        },
+        "strategies": [
+            {
+                key: s.get(key)
+                for key in ("id", "engine", "symbol", "timeframe", "risk_pct",
+                            "entry_enabled", "exit_policy", "reward_risk_ratio")
+            }
+            for s in (doc.get("strategies") or [])
+        ],
+    }
+
+
+def _edit_portfolio_strategy_field(strategy_id: str, field: str, formatted: str) -> None:
+    """Targeted line edit of one strategy's field inside state/portfolio.yaml,
+    preserving comments and ordering (same approach as set_max_leverage). The
+    runtime override is materialized from config/portfolio.yaml on first edit;
+    the engine picks the new value up at its next cycle."""
+    runtime = STATE_DIR / "portfolio.yaml"
+    with _strategy_write_lock:
+        if not runtime.exists():
+            runtime.parent.mkdir(parents=True, exist_ok=True)
+            runtime.write_text(PORTFOLIO_DEFAULT_PATH.read_text())
+        lines = runtime.read_text().splitlines(keepends=True)
+        start = end = None
+        for index, line in enumerate(lines):
+            if re.match(rf"^\s*-\s+id:\s*{re.escape(strategy_id)}\s*(#.*)?$", line):
+                start = index
+            elif start is not None and re.match(r"^\s*-\s+id:", line):
+                end = index
+                break
+        if start is None:
+            raise ValueError(f"unknown strategy_id: {strategy_id!r}")
+        end = end if end is not None else len(lines)
+        for index in range(start + 1, end):
+            match = re.match(rf"^(\s*){re.escape(field)}:", lines[index])
+            if match:
+                lines[index] = f"{match.group(1)}{field}: {formatted}   # set via dashboard slider\n"
+                tmp = runtime.with_name(runtime.name + ".tmp")
+                tmp.write_text("".join(lines))
+                os.replace(tmp, runtime)  # atomic: the engine never reads a half-written file
+                return
+        raise ValueError(f"strategy {strategy_id!r} has no {field!r} key")
+
+
+def set_portfolio_leverage(value) -> dict:
+    """Persist the portfolio-wide max_leverage notional cap (× equity) into the
+    runtime portfolio override — enforced by PaperBroker.open, which only ever
+    SHRINKS position size. Clamped to [LEVERAGE_MIN, LEVERAGE_MAX], 0.5 steps."""
+    try:
+        lev = float(value)
+    except (TypeError, ValueError):
+        raise ValueError("max_leverage must be a number")
+    if math.isnan(lev) or math.isinf(lev):
+        raise ValueError("max_leverage must be finite")
+    lev = round(lev / LEVERAGE_STEP) * LEVERAGE_STEP
+    lev = max(LEVERAGE_MIN, min(LEVERAGE_MAX, lev))
+    runtime = STATE_DIR / "portfolio.yaml"
+    with _strategy_write_lock:
+        if not runtime.exists():
+            runtime.parent.mkdir(parents=True, exist_ok=True)
+            runtime.write_text(PORTFOLIO_DEFAULT_PATH.read_text())
+        lines = runtime.read_text().splitlines(keepends=True)
+        new_line = f"max_leverage: {lev:.1f}   # notional cap (× equity) — set via dashboard slider\n"
+        for index, line in enumerate(lines):
+            if re.match(r"^max_leverage:", line):
+                lines[index] = new_line
+                break
+        else:
+            for index, line in enumerate(lines):
+                if re.match(r"^strategies:", line):
+                    lines[index:index] = [new_line, "\n"]
+                    break
+            else:
+                raise ValueError("strategies key not found in portfolio.yaml")
+        tmp = runtime.with_name(runtime.name + ".tmp")
+        tmp.write_text("".join(lines))
+        os.replace(tmp, runtime)  # atomic: the engine never reads a half-written file
+    return {"ok": True, "max_leverage": lev,
+            "note": "written to state/portfolio.yaml; effective at the engine's next cycle"}
+
+
+def set_strategy_risk(strategy_id, value) -> dict:
+    """Persist a strategy's risk_pct (fraction, e.g. 0.02 = 2%) into the
+    runtime portfolio override. Clamped to goal.yaml's risk_per_trade band and
+    snapped to 0.25% steps."""
+    goal = _read_yaml(STATE_DIR / "goal.yaml")
+    lo = float(goal.get("risk_per_trade_min", 0.005))
+    hi = float(goal.get("risk_per_trade_max", 0.02))
+    try:
+        risk = float(value)
+    except (TypeError, ValueError):
+        raise ValueError("risk_pct must be a number")
+    if math.isnan(risk) or math.isinf(risk):
+        raise ValueError("risk_pct must be finite")
+    risk = round(round(risk / RISK_PCT_STEP) * RISK_PCT_STEP, 4)
+    risk = max(lo, min(hi, risk))
+    _edit_portfolio_strategy_field(str(strategy_id or ""), "risk_pct", f"{risk:.4f}".rstrip("0").rstrip("."))
+    return {"ok": True, "strategy_id": strategy_id, "risk_pct": risk,
+            "note": "written to state/portfolio.yaml; effective at the engine's next cycle"}
+
+
+def set_strategy_reward(strategy_id, value) -> dict:
+    """Persist a strategy's reward_risk_ratio (bracket TP multiple) into the
+    runtime portfolio override. Clamped to [RR_MIN, RR_MAX], 0.5 steps. Only
+    strategies that already carry a reward_risk_ratio key (bracket exits)
+    accept this."""
+    try:
+        rr = float(value)
+    except (TypeError, ValueError):
+        raise ValueError("reward_risk_ratio must be a number")
+    if math.isnan(rr) or math.isinf(rr):
+        raise ValueError("reward_risk_ratio must be finite")
+    rr = round(rr / RR_STEP) * RR_STEP
+    rr = max(RR_MIN, min(RR_MAX, rr))
+    _edit_portfolio_strategy_field(str(strategy_id or ""), "reward_risk_ratio", f"{rr:.1f}")
+    return {"ok": True, "strategy_id": strategy_id, "reward_risk_ratio": rr,
+            "note": "written to state/portfolio.yaml; effective at the engine's next cycle"}
+
+
 def origin_allowed(origin: str | None, host: str | None) -> bool:
     """Reject cross-origin browser POSTs (any web page can fire requests at
     127.0.0.1). Requests without an Origin header (curl, scripts) pass."""
@@ -1736,11 +1876,29 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802 - stdlib handler hook.
         global _last_manual_reflect
         path = urlparse(self.path).path
-        if path not in ("/api/reflect", "/api/worker/start", "/api/worker/stop", "/api/risk/leverage", "/api/risk/reward"):
+        if path not in ("/api/reflect", "/api/worker/start", "/api/worker/stop", "/api/risk/leverage", "/api/risk/reward", "/api/portfolio/risk"):
             self._send_json(404, {"error": "not found"})
             return
         if not origin_allowed(self.headers.get("Origin"), self.headers.get("Host")):
             self._send_json(403, {"ok": False, "error": "cross-origin request rejected"})
+            return
+        if path == "/api/portfolio/risk":
+            try:
+                length = int(self.headers.get("Content-Length", 0) or 0)
+                payload = json.loads(self.rfile.read(length) or b"{}") if length else {}
+                sid = payload.get("strategy_id")
+                if "max_leverage" in payload:
+                    self._send_json(200, set_portfolio_leverage(payload.get("max_leverage")))
+                elif "risk_pct" in payload:
+                    self._send_json(200, set_strategy_risk(sid, payload.get("risk_pct")))
+                elif "reward_risk_ratio" in payload:
+                    self._send_json(200, set_strategy_reward(sid, payload.get("reward_risk_ratio")))
+                else:
+                    self._send_json(400, {"ok": False, "error": "risk_pct, reward_risk_ratio or max_leverage required"})
+            except ValueError as exc:
+                self._send_json(400, {"ok": False, "error": str(exc)})
+            except Exception as exc:  # noqa: BLE001 - surfaced to the UI.
+                self._send_json(500, {"ok": False, "error": str(exc)})
             return
         if path == "/api/risk/leverage":
             try:

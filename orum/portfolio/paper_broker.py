@@ -116,6 +116,7 @@ class PaperBroker:
         take_profit_price: float | None = None,
         sl_basis: str = "",
         reward_risk_ratio: float | None = None,
+        max_leverage: float | None = None,
     ) -> dict | None:
         """Open a long for `strategy_id`. No-op (None) if it already holds, if
         the risk basis is unusable, or if inputs are non-positive."""
@@ -126,6 +127,14 @@ class PaperBroker:
         risk_usd = risk_pct * equity_for_sizing
         qty = risk_usd / atr_risk
         notional = qty * price
+        # Notional cap: with a tight stop the risk-based size implies leverage
+        # (notional > equity). The cap only ever SHRINKS qty — the SL/TP price
+        # levels are untouched, so the trade's thesis survives at lower risk.
+        leverage_capped = False
+        if max_leverage is not None and max_leverage > 0 and notional > max_leverage * equity_for_sizing:
+            qty = (max_leverage * equity_for_sizing) / price
+            notional = qty * price
+            leverage_capped = True
         fee = notional * self.fee_rt / 2
         account.balance_usd -= fee
         account.positions[strategy_id] = Position(
@@ -144,6 +153,7 @@ class PaperBroker:
             "exit_policy": exit_policy, "monitor_timeframe": monitor_timeframe,
             "stop_loss_price": stop_loss_price, "take_profit_price": take_profit_price,
             "sl_basis": sl_basis, "reward_risk_ratio": reward_risk_ratio,
+            "leverage_capped": leverage_capped,
         }
 
     def close(
