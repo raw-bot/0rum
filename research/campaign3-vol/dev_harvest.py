@@ -1,7 +1,5 @@
-"""Dev-phase options harvest per PREREG_A (00e6b17): per-symbol option-print
-exports for 2014-01-01..2020-01-15 (dev + margin). Quota-aware (5 exports/h,
-weekly/monthly byte caps), resumable, runs for days. Confirmation period is
-NOT harvested until dev passes."""
+"""Dev-phase options harvest v2 — adaptive time-splitting around the discovered
+2.5M-row export cap. Resumable via chunk files; quota-aware; runs for days."""
 import json, pathlib, time, datetime, urllib.request
 
 HERE = pathlib.Path(__file__).parent
@@ -10,8 +8,8 @@ D.mkdir(parents=True, exist_ok=True)
 KEY = pathlib.Path.home().joinpath(".config/0rum/lse.key").read_text().strip()
 BASE = "https://api.londonstrategicedge.com/vault"
 START, END = "2014-01-01", "2020-01-15"
-WEEK_CAP = 15.5e9   # stay under 16GB
-MONTH_CAP = 48e9    # stay under 50GB
+ROW_CAP = 2_500_000
+WEEK_CAP, MONTH_CAP = 15.5e9, 48e9
 
 def call(path, payload=None, timeout=120):
     data = json.dumps(payload).encode() if payload is not None else None
@@ -20,56 +18,77 @@ def call(path, payload=None, timeout=120):
         **({"Content-Type": "application/json"} if data else {})})
     return json.loads(urllib.request.urlopen(req, timeout=timeout).read())
 
-def log(*a):
-    print(datetime.datetime.now(datetime.UTC).isoformat(), *a, flush=True)
+def log(*a): print(datetime.datetime.now(datetime.UTC).isoformat(), *a, flush=True)
 
-universe = [r["symbol"] for r in json.loads((HERE / "universe_top300.json").read_bytes())]
-etfs = {"ARKK","EEM","GDX","HYG","IWM","SMH","SOXL","SOXS","SQQQ","TLT","TQQQ","XLE","XLF"}
-symbols = [s for s in universe if s not in etfs]
-log(f"harvest universe: {len(symbols)} symbols, {START}..{END}")
-
-done = {f.stem for f in D.glob("*.parquet")}
-pending = [s for s in symbols if s.replace("/", "_") not in done]
-log(f"already done: {len(done)}, pending: {len(pending)}")
-
-for sym in pending:
-    # quota check
+def wait_quota():
     while True:
         try:
             u = call("/usage")
         except Exception as e:
-            log("usage check failed, wait 5min:", e); time.sleep(300); continue
-        if u["bytes_used_week"] > WEEK_CAP:
-            log(f"weekly cap reached ({u['bytes_used_week']/1e9:.1f}GB) — sleeping 6h"); time.sleep(21600); continue
-        if u["bytes_used_month"] > MONTH_CAP:
-            log(f"monthly cap reached — sleeping 12h"); time.sleep(43200); continue
-        if u["exports_this_hour"] >= u["exports_cap_hour"]:
-            time.sleep(600); continue
-        break
+            log("usage failed, wait 5min:", e); time.sleep(300); continue
+        if u["bytes_used_week"] > WEEK_CAP: log("weekly cap — sleep 6h"); time.sleep(21600); continue
+        if u["bytes_used_month"] > MONTH_CAP: log("monthly cap — sleep 12h"); time.sleep(43200); continue
+        if u["exports_this_hour"] >= u["exports_cap_hour"]: time.sleep(600); continue
+        return
+
+def export_range(sym, a, b):
+    """Export [a,b); returns ('ok', rows) after saving, 'split' if cap hit, 'skip' on failure."""
+    fname = D / f"{sym.replace('/','_')}__{a}__{b}.parquet"
+    if fname.exists():
+        return "done"
+    wait_quota()
     try:
         job = call("/export", {"dataset": "options", "symbol": sym, "timeframe": "tick",
-                               "start": START, "end": END, "format": "parquet"})
+                               "start": a, "end": b, "format": "parquet"})
         jid = job["job_id"]
         for _ in range(600):
             info = call(f"/export/{jid}")
-            if info.get("status") == "ready":
-                break
-            if info.get("status") in ("failed", "expired"):
-                log(f"{sym}: export {info.get('status')} — skip"); info = None; break
+            st = info.get("status")
+            if st == "ready": break
+            if st in ("failed", "expired"): log(f"{sym} {a}..{b}: {st}"); return "skip"
             time.sleep(5)
-        if not info or info.get("status") != "ready":
-            continue
+        else:
+            return "skip"
+        rows = int(info.get("rows") or 0)
+        if rows >= ROW_CAP:
+            return "split"
         size = int(info.get("bytes") or 0)
-        req = urllib.request.Request(f"{BASE}/export/{jid}/download",
-                                     headers={"x-api-key": KEY, "User-Agent": "0rum-harvest"})
-        raw = urllib.request.urlopen(req, timeout=1800).read()
+        raw = urllib.request.urlopen(urllib.request.Request(
+            f"{BASE}/export/{jid}/download", headers={"x-api-key": KEY, "User-Agent": "0rum-harvest"}), timeout=1800).read()
         if len(raw) != size:
-            log(f"{sym}: incomplete download {len(raw)}/{size} — will retry next run"); continue
-        (D / f"{sym.replace('/', '_')}.parquet").write_bytes(raw)
+            log(f"{sym} {a}..{b}: incomplete dl"); return "skip"
+        fname.write_bytes(raw)
         with open(HERE / "HARVEST_MANIFEST.csv", "a") as f:
-            f.write(f"{datetime.datetime.now(datetime.UTC).isoformat()},{sym},{info.get('rows')},{size},{info.get('sha256')}\n")
-        log(f"{sym}: OK rows={info.get('rows')} size={size/1e6:.1f}MB")
+            f.write(f"{datetime.datetime.now(datetime.UTC).isoformat()},{sym},{a},{b},{rows},{size},{info.get('sha256')}\n")
+        log(f"{sym} {a}..{b}: OK rows={rows} {size/1e6:.1f}MB")
+        return "ok"
     except Exception as e:
-        log(f"{sym}: ERROR {e} — continue")
-        time.sleep(60)
+        log(f"{sym} {a}..{b}: ERROR {e}"); time.sleep(60); return "skip"
+
+def midpoint(a, b):
+    da = datetime.date.fromisoformat(a); db = datetime.date.fromisoformat(b)
+    return (da + (db - da) / 2).isoformat()
+
+def harvest_symbol(sym):
+    stack = [(START, END)]
+    while stack:
+        a, b = stack.pop()
+        r = export_range(sym, a, b)
+        if r == "split":
+            m = midpoint(a, b)
+            if m in (a, b):
+                log(f"{sym}: cannot split further {a}..{b} — skip"); continue
+            stack.append((m, b)); stack.append((a, m))
+
+universe = [r["symbol"] for r in json.loads((HERE / "universe_top300.json").read_bytes())]
+etfs = {"ARKK","EEM","GDX","HYG","IWM","SMH","SOXL","SOXS","SQQQ","TLT","TQQQ","XLE","XLF"}
+symbols = [s for s in universe if s not in etfs]
+# purge truncated v1 files (rows==cap exactly): they lack coverage
+for f in D.glob("*.parquet"):
+    if "__" not in f.stem:
+        f.unlink()
+        log(f"purged v1 file {f.name}")
+log(f"harvest v2: {len(symbols)} symbols")
+for sym in symbols:
+    harvest_symbol(sym)
 log("HARVEST COMPLETE")
