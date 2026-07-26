@@ -6,7 +6,9 @@ Document de passation pour tout modèle/session reprenant ce travail. Lu conjoin
 
 - Boucle de contradiction GPT-5.6 close (3/3) : verdict TESTABLE EN L'ÉTAT. Pré-enregistrement committé AVANT tout calcul (`00e6b17`).
 - Gate EDGAR : **PASSÉ** (13 549 événements 8-K 2.02, couverture 94 %, ~540 éligibles/an).
-- **Moisson dev EN COURS** : `dev_harvest.py` (v2, découpage adaptatif) tourne en détaché ; logs dans `dev_harvest.log`, fichiers dans `data/options_dev/`, manifeste `HARVEST_MANIFEST.csv`. Durée attendue : 2-3 semaines (quotas LSE).
+- **Moisson dev EN COURS** : `dev_harvest.py` (v4, plan de découpage pré-calculé depuis les tick counts du catalogue — plus de sondes à l'aveugle) tourne en détaché ; logs dans `dev_harvest.log`, fichiers dans `data/options_dev/{SYM}__{start}__{end}.parquet`, manifeste `HARVEST_MANIFEST.csv`. Durée attendue : quelques jours à ~2 semaines selon le quota réellement disponible.
+- **INCIDENT (2026-07-26) : la clé LSE v1 a été désactivée** après la moisson v1/v2 (sondes répétées à 2,5M lignes sur les gros symboles, rythme probablement trop agressif pour leur anti-abus). Clé remplacée par l'utilisateur. **La nouvelle clé est aussi utilisée en parallèle par un autre process de l'utilisateur (backfill d'une autre partie du code)** → des 429 de contention sont normaux et gérés par backoff exponentiel dans v4 ; ne pas paniquer dessus, mais si un **403 / "api key inactive"** apparaît (`KeyDead`, le script s'arrête avec `SystemExit(2)`), c'est un vrai incident : STOP, ne pas relancer en boucle, escalader à l'utilisateur pour une nouvelle clé et REVOIR le rythme (v4 est déjà prudent : jobs espacés, pas de sondes, mais un rythme encore plus lent peut être nécessaire si ça se reproduit).
+- Ancien manifeste v1/v2 (exports tronqués, invalidés) archivé dans `HARVEST_MANIFEST.v1v2_stale.csv.bak` — ignorer, ne pas l'utiliser.
 - Pipeline d'analyse : À CONSTRUIRE (voir §Tâches).
 
 ## RÈGLES DURES — aucune exception
@@ -45,6 +47,7 @@ Document de passation pour tout modèle/session reprenant ce travail. Lu conjoin
 - EDGAR : `acceptanceDateTime` (heure ET), JAMAIS le champ `filing date` (décalé au lendemain après 17h30 ET) ; les 13 non-mappés de l'univers sont des ETF (pas de 8-K, hors périmètre) ; ~47 % des événements sont déposés en séance → inéligibles par construction (perte de couverture documentée, pas un bug).
 - FRED : instable en HTTP/2 → `curl --http1.1`.
 - SEC : User-Agent déclaratif obligatoire, ~10 req/s max.
+- **LSE : la clé peut être désactivée par un rythme d'export trop agressif** (vécu : sondes répétées à 2,5M lignes sur SPY/gros symboles = probable trigger anti-abus, sans avertissement dans `/usage`). Toujours pré-calculer un plan de découpage depuis `ticks`/`years` du catalogue plutôt que de sonder à l'aveugle ; espacer les jobs. `403`/`"api key inactive"` = arrêt immédiat et escalade, jamais de retry en boucle.
 
 ## Données & formats (pour coder sans redécouvrir)
 

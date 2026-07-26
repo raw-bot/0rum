@@ -21,6 +21,10 @@ htmlcov/
 
 # Local historical datasets — keep large/vendor data out of git
 data/histdata/
+data/raw/
+data/replay/
+data/synthetic/
+research/*/data/
 
 # IDE
 .idea/
@@ -37,3 +41,12 @@ skills-lock.json
 
 # Docker
 *.log
+
+# Artifacts & Outputs
+results/
+var/
+dashboard-file-url.png
+.graphify_detect.json
+.graphifyignore
+.playwright-mcp/
+graphify-out/
