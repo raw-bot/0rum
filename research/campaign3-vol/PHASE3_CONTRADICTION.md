@@ -35,3 +35,19 @@ Intégration des 9 conditions dans la spec révisée :
 ## Statut
 
 Spec révisée de A transmise pour itération 2/3 via l'utilisateur. B/C concédées, non re-soumises.
+
+---
+
+# Itération 2 adjugée (2026-07-26, suite)
+
+Verdict GPT : « testable en l'état après cinq corrections », datation fatale si non corrigée. Les cinq sont ACCEPTÉES et intégrées :
+
+1. **Datation sans fuite temporelle — solution retenue : SEC EDGAR.** L'éligibilité à open+30 ne repose plus sur la chute d'IV post-annonce (renvoyée à validation_time, audit ex post) mais sur le dépôt d'un **8-K item 2.02 avec timestamp d'acceptation EDGAR** depuis le close précédent — donnée publique, gratuite, immuable par construction, disponible en temps réel à l'entrée, et **indépendante de m_e** (répond aussi à la condition 2.1 : aucun conditionnement sur la variable testée). Faisabilité sondée en session (index quotidien + API full-text OK). Gate n°1 = audit de couverture/timestamps EDGAR vs signatures de marché sur échantillon.
+2. **m_e par décomposition à deux échéances couvrant TOUTES DEUX l'événement** : v_base = (TV_long − TV_short)/(τ_long − τ_short) — le terme événementiel s'élimine dans la différence ; TV_event = TV_short − v_base×τ_short. TV_event ≤ 0 ou proche de zéro = échec de mesure → exclu et compté au gate d'insuffisance (pas de clipping conservé).
+3. **Contrôle continu du gap** : appariement caliper serré sur |gap anormal| (distance max fixée ex ante) + résidualisation spline ; les déciles deviennent descriptifs.
+4. **Variable primaire unique** : u = log(|gap_abn| / m_e) ; effet marginal de u conditionnel au gap continu ; percentiles de m_e calculés par cohorte {année × bucket de liquidité × capitalisation}. Plus aucune alternance de formulation.
+5. **Portefeuille long-only primaire = gaps positifs uniquement** ; gaps négatifs en analyse scientifique sans portefeuille (le mélange changerait le signe économique du test).
+
+Compléments acceptés : robustesse obligatoire au gap anormal β-estimé et sector-ajusté (pré-annonce seulement) ; table d'équilibre des groupes haut/bas u (prix, liquidités, momentum, short interest si disponible) ; « stabilité inter-estimateurs » définie numériquement ex ante (même quintile sur les 3 estimateurs) ; δ fixé par exigence externe (≥ 5× coûts au capital réel, règle de charte) et non par inspection ; coûts actions modélisés f(prix, ADV, vol, gap) et pas seulement 1 $/ordre ; reporting de l'échantillon effectif (semaines actives, saisons, concentration) ; formulation finale = « signal post-événement à référence ex ante », sans conclusion comportementale sur la seule prédictibilité.
+
+Statut : itération 3/3 (finale) demandée par GPT — spec corrigée transmise via l'utilisateur.
