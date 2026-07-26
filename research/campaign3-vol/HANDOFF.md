@@ -46,6 +46,15 @@ Document de passation pour tout modèle/session reprenant ce travail. Lu conjoin
 - FRED : instable en HTTP/2 → `curl --http1.1`.
 - SEC : User-Agent déclaratif obligatoire, ~10 req/s max.
 
+## Données & formats (pour coder sans redécouvrir)
+
+- **Prints d'options** (`data/options_dev/{SYM}__{start}__{end}.parquet`) : colonnes `ts` (UTC ms), `underlying`, `expiry` (YYYY-MM-DD), `opt_type` (C/P), `strike`, `price`, `size`, `exchange`, `conditions`, `osi`. Un symbole = plusieurs chunks à concaténer (les plages ne se recouvrent pas).
+- **Événements EDGAR** (`edgar_events.json`) : liste de `{"symbol": str, "acceptance": ISO-8601 heure ET}`. 13 549 entrées. L'éligibilité (prereg) se calcule depuis `acceptance`.
+- **Univers** (`universe_top300.json`) : `{symbol, ticks, first, years}` — retirer les 13 ETF listés dans `gate_edgar_results.json`.
+- **Candles actions/SPY** : endpoint synchrone LSE `GET {BASE}/candles?symbol=&timeframe=1d|1m&start=&end=&limit=5000`, header `x-api-key`, BASE=`https://api.londonstrategicedge.com/vault` — pas de quota d'export, 200 appels/min, 5 000 lignes/appel. Clé `close`/`ts`. Scripts de référence : `gate_edgar.py` (patterns SEC+LSE), `../campaign2-onchain/fetch_c1.py` et `analysis_c1.py` (pipeline complet exemple), `dev_harvest.py` (exports).
+- **Taux sans risque** : `../r1-tom/data/dtb3.csv` (FRED DTB3, déjà téléchargé).
+- Timezones : tout normaliser en UTC tz-aware dès l'ingestion (piège pandas récurrent). Heures de marché US : open 13:30 UTC (hiver 14:30) — utiliser les timestamps des candles plutôt qu'une heure codée en dur.
+
 ## Contexte des campagnes (pour calibrer le scepticisme)
 
 C1 2026-07 : turn-of-month mort post-publication ; réversion post-deleveraging négative après coûts. C2 : stablecoins — gates passés mais placebo au 36e percentile = faux positif procédural documenté, d'où la règle « placebo apparié autonome ». Le pattern qui tue les candidates : breadth insuffisante, coûts, variables fragiles, et l'écart entre « beaucoup d'événements » et « beaucoup d'information indépendante ». La candidate A est la première à survivre au circuit complet — la probabilité d'un edge net reste inconnue et le protocole existe précisément pour que le verdict, quel qu'il soit, soit fiable.
