@@ -1,0 +1,103 @@
+{
+  "meta": {
+    "prereg_commit": "1b7cb46",
+    "n_boot": 10000,
+    "seed": 42,
+    "run": "2026-07-26T10:12:22.658941+00:00"
+  },
+  "primary": {
+    "instrument": "^SP500TR",
+    "n_days": 4399,
+    "n_months": 210,
+    "mean_tom_bp": 6.97,
+    "mean_nontom_bp": 6.02,
+    "diff_bp": 0.95,
+    "ci95_bp": [
+      -6.89,
+      8.68
+    ],
+    "boot_frac_diff_le_0": 0.4111
+  },
+  "sub_2009_2017": {
+    "diff_bp": 0.9,
+    "sign_positive": true
+  },
+  "sub_2018_2026": {
+    "diff_bp": 1.0,
+    "sign_positive": true
+  },
+  "concentration": {
+    "dropped_months": [
+      "2018-02",
+      "2011-09",
+      "2009-04",
+      "2024-08"
+    ],
+    "diff_bp_after_drop": 3.12,
+    "sign_positive": true
+  },
+  "strategy_SP500TR": {
+    "exposure_share": 0.191,
+    "strategy_ann_ret": 0.0392,
+    "strategy_ann_vol": 0.0761,
+    "strategy_sharpe": 0.388,
+    "strategy_maxdd": -0.1379,
+    "scaledBH_ann_ret": 0.0378,
+    "scaledBH_ann_vol": 0.0343,
+    "scaledBH_sharpe": 0.818,
+    "scaledBH_maxdd": -0.0708,
+    "gross_advantage_ann": 0.0014,
+    "cash_ann": 0.0097
+  },
+  "strategy_EXW1": {
+    "exposure_share": 0.1891,
+    "strategy_ann_ret": 0.0108,
+    "strategy_ann_vol": 0.0933,
+    "strategy_sharpe": 0.063,
+    "strategy_maxdd": -0.3107,
+    "scaledBH_ann_ret": 0.0222,
+    "scaledBH_ann_vol": 0.0385,
+    "scaledBH_sharpe": 0.447,
+    "scaledBH_maxdd": -0.0853,
+    "gross_advantage_ann": -0.0114,
+    "cash_ann": 0.005
+  },
+  "random_block": {
+    "tom_mean_bp": 6.97,
+    "sim_median_bp": 6.05,
+    "percentile_of_tom": 61.3
+  },
+  "net_at_5000": {
+    "cost_drag_SP_ann": 0.0156,
+    "net_advantage_SP500TR_ann": -0.0142,
+    "cost_drag_EXW_ann": 0.018,
+    "net_advantage_EXW1_ann": -0.0294
+  },
+  "net_at_20000": {
+    "cost_drag_SP_ann": 0.0156,
+    "net_advantage_SP500TR_ann": -0.0142,
+    "cost_drag_EXW_ann": 0.018,
+    "net_advantage_EXW1_ann": -0.0294
+  },
+  "control_ISF": {
+    "diff_bp": 2.52,
+    "sign_positive": true
+  },
+  "control_TOPIX1306": {
+    "diff_bp": 94.57,
+    "sign_positive": true
+  },
+  "descriptive": {
+    "sp500tr_1988_2008_diff_bp": 8.01,
+    "variant_Tm4_Tp3_diff_bp": 4.49,
+    "stoxx50e_price_diff_bp": -2.37,
+    "tom_share_of_total_ret_descriptive": 0.215
+  },
+  "invalidation_criteria_triggered": {
+    "i_diff_le_0": false,
+    "ii_subperiod_sign_broken": false,
+    "iii_net_adv_lt_1pct_at_20k": true,
+    "iv_sign_lost_after_drop4": false
+  },
+  "VERDICT": "REJECT"
+}
