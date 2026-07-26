@@ -1,0 +1,56 @@
+{
+  "meta": {
+    "prereg_commit": "00e6b17",
+    "run": "2026-07-26T16:26:29.182273+00:00"
+  },
+  "universe": {
+    "catalog_options": 3186,
+    "ge8y": 1949,
+    "top300": 300
+  },
+  "cik_mapped": 287,
+  "unmapped": [
+    "ARKK",
+    "EEM",
+    "GDX",
+    "HYG",
+    "IWM",
+    "SMH",
+    "SOXL",
+    "SOXS",
+    "SQQQ",
+    "TLT",
+    "TQQQ",
+    "XLE",
+    "XLF"
+  ],
+  "events_total_2014plus": 13549,
+  "events_by_year": {
+    "2014": 947,
+    "2015": 985,
+    "2016": 1018,
+    "2017": 1029,
+    "2018": 1058,
+    "2019": 1056,
+    "2020": 1131,
+    "2021": 1109,
+    "2022": 1122,
+    "2023": 1132,
+    "2024": 1145,
+    "2025": 1149,
+    "2026": 668
+  },
+  "amc_bmo_mid": {
+    "amc_after16": 7072,
+    "bmo_before9": 104,
+    "intraday": 6373
+  },
+  "events_per_company_year": 3.78,
+  "dev_events_per_year_avg": 1016.0,
+  "gate_thresholds": {
+    "coverage_min_frac": 0.6,
+    "dev_events_min_per_year": 300
+  },
+  "gate_coverage_frac": 0.94,
+  "GATE": "PASS"
+}
