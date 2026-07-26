@@ -1,2 +1,2 @@
-run_ts,data_through,n_assets,fb_usd_bn,g30,z,prev_position,position,changed
-2026-07-26T13:05:54.854400+00:00,2026-07-26,89,283.08,-0.00754,-1.243,cash,cash,False
+run_ts,code_commit,data_sha256,data_through,n_assets,fb_usd_bn,g30,z,btc_price_kraken,prev_position,position,changed,fwd_ret_1w,errors
+2026-07-26T13:25:29.703500+00:00,e8e000d,d3d69257db913185,2026-07-26,89,283.08,-0.00754,-1.243,64447.6,cash,cash,False,,
