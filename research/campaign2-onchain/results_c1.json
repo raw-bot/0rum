@@ -1,0 +1,82 @@
+{
+  "meta": {
+    "prereg_commit": "849b06a",
+    "run": "2026-07-26T12:51:21.230107+00:00",
+    "seed": 42
+  },
+  "data": {
+    "n_assets": 89,
+    "fb_first": "2017-11-29",
+    "fb_last": "2026-07-26",
+    "fb_now_bn": 283.1,
+    "usdt_usdc_share_now": 0.911
+  },
+  "dev_selection": {
+    "signal": {
+      "z_in": 0.25,
+      "z_out": -0.75,
+      "dev_ann": 0.408,
+      "exposure": 0.263
+    },
+    "null_momentum": {
+      "z_in": 0.75,
+      "z_out": -0.25,
+      "dev_ann": 0.8556,
+      "exposure": 0.325
+    }
+  },
+  "dev_regression": {
+    "coef_S_weekly": 0.00536,
+    "t_naive": 0.35,
+    "n_weeks": 183,
+    "note": "t naive (overlap-free weekly), decision par signe du coef"
+  },
+  "results": {
+    "confirmation": {
+      "signal_ann": 0.2944,
+      "null_ann": 0.1605,
+      "advantage_vs_null_ann": 0.1339,
+      "signal_exposure": 0.501,
+      "null_exposure": 0.298,
+      "signal_switches": 2,
+      "null_switches": 14
+    },
+    "scaledBH_ann": 0.2224,
+    "subperiod_adv": {
+      "sub1": 0.0735,
+      "sub2": 0.1823
+    },
+    "placebo_percentile": 36.2,
+    "leaveout": {
+      "peaks": [
+        "2024-12-01",
+        "2024-03-15",
+        "2024-04-24"
+      ],
+      "advantage_after": 0.1424
+    },
+    "ex_usdt": {
+      "ann": 0.2608,
+      "adv_vs_null": 0.1003
+    },
+    "ex_usdc": {
+      "ann": 0.3206,
+      "adv_vs_null": 0.1601
+    },
+    "eth_control_adv": 0.0251,
+    "switch_audit": {
+      "n_switches": 2,
+      "anomalies": []
+    }
+  },
+  "criteria_triggered": {
+    "a_coef_S_not_positive": false,
+    "b_adv_lt_1pct": false,
+    "c_subperiod_fail": false,
+    "d_leaveout_fail": false,
+    "e_concentration_fail": false,
+    "h_audit_fail": false,
+    "i_placebo_and_small": false
+  },
+  "VERDICT": "GO"
+}
