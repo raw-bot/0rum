@@ -393,12 +393,15 @@ function renderStats(s) {
 function renderTop(s) {
   const gg = s.guardrail || {};
   const gMap = { normal: "ok", caution: "warn", review: "warn", kill: "bad" };
+  const cr = s.champion_reaudit || {};
+  const crMap = { conforming: "ok", drift_detected: "bad", insufficient_data: "warn", not_yet_audited: "" };
   const src = s.signal_source || "native";
   const chips = [
     `<span class="chip info"><span class="k">asset</span><b>${esc(s.asset)}</b></span>`,
     `<span class="chip"><span class="k">mode</span><b>${esc(s.mode || "paper")}</b></span>`,
     `<span class="chip ${src === "tradingview_external" ? "info" : ""}"><span class="k">signals</span><b>${src === "tradingview_external" ? "TV EXTERNAL" : "NATIVE"}</b></span>`,
     `<span class="chip ${gMap[gg.status] || ""}"><span class="k">guardrail</span><b>${esc(gg.label || gg.status || "—")}</b></span>`,
+    `<span class="chip ${crMap[cr.status] || ""}" title="${esc(cr.detail || "")}"><span class="k">champion</span><b>${esc(cr.label || "—")}</b></span>`,
   ];
   // Market watch chips (goal.watch_assets): price + window change per asset,
   // runtime asset excluded (already shown as the first chip). Display-only.

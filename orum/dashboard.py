@@ -223,6 +223,10 @@ def _llm_timeline_item(record: Mapping[str, object]) -> dict:
     }
 
 
+MODEL_ERROR_DECAY_WINDOW = 10
+MODEL_ERROR_DECAY_THRESHOLD = 2
+
+
 def _llm_lab_state(state_dir: Path, *, now: datetime | None = None) -> dict:
     now_utc = (now or datetime.now(UTC)).astimezone(UTC)
     runtime_record = _read_optional_json(state_dir / "llm_runtime_status.json")
@@ -360,10 +364,24 @@ def _llm_lab_state(state_dir: Path, *, now: datetime | None = None) -> dict:
             recorded = None
         if recorded is None or now_utc - recorded.astimezone(UTC) > timedelta(hours=2):
             alerts.append({"kind": "stale_evidence", "level": "warning", "message": "L'opinion LLM date de plus de deux heures."})
-    for item in timeline:
-        if item.get("status") == "model_error" or item.get("error"):
-            alerts.append({"kind": "model_error", "level": "error", "message": str(item.get("error") or "Erreur modèle")[:300]})
-            break
+    recent_cycles = decision_records[-MODEL_ERROR_DECAY_WINDOW:]
+    error_cycles = [
+        item for item in recent_cycles
+        if item.get("status") == "model_error" or item.get("error")
+    ]
+    if error_cycles:
+        latest_error = _llm_operator_error(error_cycles[-1].get("error")) or "Erreur modèle"
+        if len(error_cycles) >= MODEL_ERROR_DECAY_THRESHOLD:
+            # A single healthy cycle must not hide a recurring instability (decay
+            # blindness): this stays up until enough clean cycles roll the errors
+            # out of the window, not just until the very next cycle succeeds.
+            alerts.append({
+                "kind": "model_error_recurring",
+                "level": "error",
+                "message": f"{len(error_cycles)}/{len(recent_cycles)} derniers cycles en erreur : {latest_error}",
+            })
+        elif runtime["last_result"] == "cycle_error":
+            alerts.append({"kind": "model_error", "level": "error", "message": latest_error})
     rejected = next((item for item in timeline if item.get("status") == "rejected"), None)
     if rejected:
         alerts.append({"kind": "rejection", "level": "warning", "message": "Décision paper rejetée : " + ", ".join(map(str, rejected.get("reasons") or []))})
@@ -612,6 +630,25 @@ def _guardrail_status(drawdown: float, goal: dict) -> dict:
     if drawdown >= soft:
         return {"status": "caution", "label": "Soft drawdown", "detail": "Risk reduction zone"}
     return {"status": "normal", "label": "Paper mode", "detail": "Guardrails clear"}
+
+
+_CHAMPION_REAUDIT_LABELS = {
+    "conforming": ("Champion OK", "Ré-audit périodique conforme à son propre dossier"),
+    "drift_detected": ("Champion : dérive", "Ré-audit périodique en dessous de son propre dossier"),
+    "insufficient_data": ("Champion : preuve insuffisante", "Pas assez de trades depuis le dernier ré-audit"),
+}
+
+
+def _champion_reaudit_status(state_dir: Path) -> dict:
+    """ADR-011: reads the standalone `scripts/champion_reaudit.py` output, if
+    any. Never triggers or blocks anything -- an operator-facing chip only,
+    mirroring `_guardrail_status`."""
+    report = _read_optional_json(state_dir / "champion_reaudit_status.json")
+    verdict = report.get("verdict")
+    if verdict not in _CHAMPION_REAUDIT_LABELS:
+        return {"status": "not_yet_audited", "label": "Champion : jamais audité", "detail": "Lancer scripts/champion_reaudit.py", "audited_at": None}
+    label, detail = _CHAMPION_REAUDIT_LABELS[verdict]
+    return {"status": verdict, "label": label, "detail": detail, "audited_at": report.get("audited_at")}
 
 
 def _candles_from_trades(trades: list[dict]) -> list[dict]:
@@ -1593,6 +1630,7 @@ def build_snapshot() -> dict:
         "hypotheses": hypotheses[-8:][::-1],
         "history_versions": [path.name for path in history],
         "guardrail": _guardrail_status(drawdown, goal),
+        "champion_reaudit": _champion_reaudit_status(STATE_DIR),
         "reflection": {
             "every": reflection_every,
             "progress": progress,

@@ -129,6 +129,20 @@ class DashboardStateTests(unittest.TestCase):
         self.assertAlmostEqual(snapshot["portfolio"]["balance_usd"], 9950.0, places=2)
         self.assertAlmostEqual(snapshot["portfolio"]["pnl_usd"], -50.0, places=2)
         self.assertIn(snapshot["guardrail"]["status"], {"normal", "caution", "review", "kill"})
+        # No champion_reaudit_status.json written in this fixture (ADR-011).
+        self.assertEqual(snapshot["champion_reaudit"]["status"], "not_yet_audited")
+
+    def test_champion_reaudit_status_surfaces_drift_from_the_reaudit_script(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp)
+            (state / "champion_reaudit_status.json").write_text(
+                json.dumps({"verdict": "drift_detected", "audited_at": "2026-08-26T00:00:00+00:00"})
+            )
+
+            status = dashboard._champion_reaudit_status(state)
+
+        self.assertEqual(status["status"], "drift_detected")
+        self.assertEqual(status["audited_at"], "2026-08-26T00:00:00+00:00")
 
     def test_snapshot_flags_stale_paper_engine(self):
         # The worker card now reflects the paper engine's freshness

@@ -240,6 +240,48 @@ def test_llm_lab_exposes_only_bounded_runtime_status(tmp_path):
     assert "must-not-escape" not in json.dumps(state)
 
 
+def test_llm_dashboard_raises_transient_model_error_on_current_cycle_failure(tmp_path):
+    (tmp_path / "llm_runtime_status.json").write_text(
+        json.dumps({"enabled": True, "last_result": "cycle_error", "last_error": ""}),
+        encoding="utf-8",
+    )
+    _write_jsonl(
+        tmp_path / "llm_decisions.jsonl",
+        [{"kind": "proposed_decision", "status": "model_error", "recorded_at": NOW.isoformat(), "error": "timeout"}],
+    )
+
+    state = dashboard._llm_lab_state(tmp_path, now=NOW)
+
+    kinds = [alert["kind"] for alert in state["alerts"]]
+    assert "model_error" in kinds
+    assert "model_error_recurring" not in kinds
+
+
+def test_llm_dashboard_raises_recurring_model_error_despite_a_healthy_last_cycle(tmp_path):
+    # Regression test for the decay-blindness bug: intermittent failures (every
+    # other cycle) must stay visible even though the very last cycle succeeded.
+    (tmp_path / "llm_runtime_status.json").write_text(
+        json.dumps({"enabled": True, "last_result": "ok", "last_error": ""}),
+        encoding="utf-8",
+    )
+    _write_jsonl(
+        tmp_path / "llm_decisions.jsonl",
+        [
+            {"kind": "proposed_decision", "status": "model_error", "recorded_at": NOW.isoformat(), "error": "OpenRouter HTTP 429: rate limit exceeded"},
+            {"kind": "proposed_decision", "status": "accepted", "recorded_at": NOW.isoformat()},
+            {"kind": "proposed_decision", "status": "model_error", "recorded_at": NOW.isoformat(), "error": "OpenRouter HTTP 429: rate limit exceeded"},
+            {"kind": "proposed_decision", "status": "accepted", "recorded_at": NOW.isoformat()},
+        ],
+    )
+
+    state = dashboard._llm_lab_state(tmp_path, now=NOW)
+
+    recurring = next(alert for alert in state["alerts"] if alert["kind"] == "model_error_recurring")
+    assert recurring["level"] == "error"
+    assert "2/4" in recurring["message"]
+    assert not any(alert["kind"] == "model_error" for alert in state["alerts"])
+
+
 def test_llm_timeline_presents_language_rejection_in_french(tmp_path):
     _write_jsonl(
         tmp_path / "llm_decisions.jsonl",
