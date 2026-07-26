@@ -1,0 +1,227 @@
+{
+  "grid_top20": [
+    {
+      "cell": "ret=(60, 'fix-0.04') vol=10x oi=30m@q0.01",
+      "n_clusters": 59,
+      "mean_net2h_bp": -2.9,
+      "delta_bp": 97.1,
+      "unmatched": 31,
+      "delta_2020_21": 153.4,
+      "delta_2022_23": -109.0,
+      "top3_share_of_pnl": -12.87
+    },
+    {
+      "cell": "ret=(30, 'fix-0.04') vol=3x oi=60m@q0.05",
+      "n_clusters": 57,
+      "mean_net2h_bp": -24.4,
+      "delta_bp": 69.7,
+      "unmatched": 34,
+      "delta_2020_21": 102.8,
+      "delta_2022_23": -188.1,
+      "top3_share_of_pnl": -1.29
+    },
+    {
+      "cell": "ret=(60, 'fix-0.04') vol=10x oi=30m@q0.025",
+      "n_clusters": 68,
+      "mean_net2h_bp": -23.2,
+      "delta_bp": 66.8,
+      "unmatched": 40,
+      "delta_2020_21": 53.2,
+      "delta_2022_23": 155.4,
+      "top3_share_of_pnl": -1.37
+    },
+    {
+      "cell": "ret=(30, 'fix-0.04') vol=10x oi=60m@q0.025",
+      "n_clusters": 41,
+      "mean_net2h_bp": -23.6,
+      "delta_bp": 64.0,
+      "unmatched": 26,
+      "delta_2020_21": 187.7,
+      "delta_2022_23": 267.2,
+      "top3_share_of_pnl": -1.85
+    },
+    {
+      "cell": "ret=(30, 'fix-0.04') vol=10x oi=30m@q0.01",
+      "n_clusters": 45,
+      "mean_net2h_bp": 4.0,
+      "delta_bp": 61.3,
+      "unmatched": 29,
+      "delta_2020_21": -25.3,
+      "delta_2022_23": -105.6,
+      "top3_share_of_pnl": 12.02
+    },
+    {
+      "cell": "ret=(60, 'fix-0.04') vol=3x oi=60m@q0.05",
+      "n_clusters": 88,
+      "mean_net2h_bp": -37.5,
+      "delta_bp": 61.3,
+      "unmatched": 47,
+      "delta_2020_21": 21.8,
+      "delta_2022_23": -49.8,
+      "top3_share_of_pnl": -0.45
+    },
+    {
+      "cell": "ret=(30, 'fix-0.03') vol=10x oi=60m@q0.01",
+      "n_clusters": 50,
+      "mean_net2h_bp": -71.3,
+      "delta_bp": 59.0,
+      "unmatched": 16,
+      "delta_2020_21": 33.9,
+      "delta_2022_23": 75.9,
+      "top3_share_of_pnl": -0.52
+    },
+    {
+      "cell": "ret=(60, 'fix-0.04') vol=10x oi=60m@q0.01",
+      "n_clusters": 46,
+      "mean_net2h_bp": -39.7,
+      "delta_bp": 56.5,
+      "unmatched": 27,
+      "delta_2020_21": 17.0,
+      "delta_2022_23": 299.0,
+      "top3_share_of_pnl": -0.91
+    },
+    {
+      "cell": "ret=(15, 'fix-0.02') vol=10x oi=30m@q0.01",
+      "n_clusters": 100,
+      "mean_net2h_bp": -24.6,
+      "delta_bp": 48.2,
+      "unmatched": 25,
+      "delta_2020_21": 150.1,
+      "delta_2022_23": 0.1,
+      "top3_share_of_pnl": -0.95
+    },
+    {
+      "cell": "ret=(60, 'fix-0.04') vol=5x oi=60m@q0.025",
+      "n_clusters": 72,
+      "mean_net2h_bp": -51.8,
+      "delta_bp": 45.7,
+      "unmatched": 35,
+      "delta_2020_21": 26.9,
+      "delta_2022_23": 17.3,
+      "top3_share_of_pnl": -0.38
+    },
+    {
+      "cell": "ret=(60, 'fix-0.04') vol=5x oi=30m@q0.05",
+      "n_clusters": 90,
+      "mean_net2h_bp": -49.0,
+      "delta_bp": 38.8,
+      "unmatched": 47,
+      "delta_2020_21": 52.7,
+      "delta_2022_23": -18.7,
+      "top3_share_of_pnl": -0.42
+    },
+    {
+      "cell": "ret=(15, 'fix-0.04') vol=3x oi=60m@q0.025",
+      "n_clusters": 29,
+      "mean_net2h_bp": -11.0,
+      "delta_bp": 36.4,
+      "unmatched": 22,
+      "delta_2020_21": -194.6,
+      "delta_2022_23": 141.4,
+      "top3_share_of_pnl": -6.12
+    },
+    {
+      "cell": "ret=(15, 'fix-0.04') vol=5x oi=60m@q0.025",
+      "n_clusters": 29,
+      "mean_net2h_bp": -11.0,
+      "delta_bp": 36.4,
+      "unmatched": 22,
+      "delta_2020_21": -194.6,
+      "delta_2022_23": 141.4,
+      "top3_share_of_pnl": -6.12
+    },
+    {
+      "cell": "ret=(30, 'p0.005') vol=10x oi=30m@q0.01",
+      "n_clusters": 159,
+      "mean_net2h_bp": -55.4,
+      "delta_bp": 35.7,
+      "unmatched": 30,
+      "delta_2020_21": -112.6,
+      "delta_2022_23": 35.9,
+      "top3_share_of_pnl": -0.19
+    },
+    {
+      "cell": "ret=(15, 'fix-0.03') vol=5x oi=60m@q0.05",
+      "n_clusters": 70,
+      "mean_net2h_bp": -12.7,
+      "delta_bp": 35.6,
+      "unmatched": 36,
+      "delta_2020_21": -46.1,
+      "delta_2022_23": -9.7,
+      "top3_share_of_pnl": -2.18
+    },
+    {
+      "cell": "ret=(15, 'fix-0.03') vol=5x oi=30m@q0.025",
+      "n_clusters": 66,
+      "mean_net2h_bp": -24.2,
+      "delta_bp": 34.4,
+      "unmatched": 31,
+      "delta_2020_21": -63.9,
+      "delta_2022_23": -29.9,
+      "top3_share_of_pnl": -1.5
+    },
+    {
+      "cell": "ret=(15, 'fix-0.03') vol=3x oi=30m@q0.05",
+      "n_clusters": 76,
+      "mean_net2h_bp": -27.8,
+      "delta_bp": 33.5,
+      "unmatched": 42,
+      "delta_2020_21": -7.3,
+      "delta_2022_23": 35.4,
+      "top3_share_of_pnl": -1.02
+    },
+    {
+      "cell": "ret=(30, 'fix-0.04') vol=3x oi=60m@q0.01",
+      "n_clusters": 44,
+      "mean_net2h_bp": -47.8,
+      "delta_bp": 33.5,
+      "unmatched": 22,
+      "delta_2020_21": 36.1,
+      "delta_2022_23": -51.0,
+      "top3_share_of_pnl": -0.91
+    },
+    {
+      "cell": "ret=(30, 'p0.005') vol=5x oi=60m@q0.025",
+      "n_clusters": 241,
+      "mean_net2h_bp": -41.7,
+      "delta_bp": 30.4,
+      "unmatched": 41,
+      "delta_2020_21": -33.3,
+      "delta_2022_23": 29.3,
+      "top3_share_of_pnl": -0.21
+    },
+    {
+      "cell": "ret=(30, 'fix-0.02') vol=3x oi=60m@q0.01",
+      "n_clusters": 121,
+      "mean_net2h_bp": -62.7,
+      "delta_bp": 29.5,
+      "unmatched": 11,
+      "delta_2020_21": 72.0,
+      "delta_2022_23": 22.4,
+      "top3_share_of_pnl": -0.23
+    }
+  ],
+  "n_cells_evaluated": 270,
+  "best_cell": {
+    "cell": "ret=(60, 'fix-0.04') vol=10x oi=30m@q0.01",
+    "n_clusters": 59,
+    "mean_net2h_bp": -2.9,
+    "delta_bp": 97.1,
+    "unmatched": 31,
+    "delta_2020_21": 153.4,
+    "delta_2022_23": -109.0,
+    "top3_share_of_pnl": -12.87
+  },
+  "abandon_criteria": {
+    "1_n_lt_25": false,
+    "2_mean_net_le_0": true,
+    "3_delta_lt_10bp": false,
+    "4_concentrated": false,
+    "5_delta_sign_unstable": true
+  },
+  "VERDICT_DEV": "ABANDON",
+  "meta": {
+    "plan_commit": "28f0b04",
+    "run": "2026-07-26T11:41:18.225200+00:00"
+  }
+}
