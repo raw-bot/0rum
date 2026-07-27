@@ -77,6 +77,7 @@ def worker_status() -> dict:
             "pid": pid,
             "running": bool(pid is not None and dash._pid_alive(pid)),
             "pid_file": "state/worker.pid",
+            "note": "retired mono-asset worker (com.0rum.engine); superseded by com.0rum.paper on 2026-07-12, expected to stay not-running",
         },
         "paper_engine": dash._paper_worker(),
         "worker_heartbeat": {
@@ -86,7 +87,7 @@ def worker_status() -> dict:
             "stale": _is_stale(_age_seconds(heartbeat.get("ts"))),
             "guardrail": heartbeat.get("guardrail"),
             "price_source": heartbeat.get("price_source"),
-            "note": "mono-asset worker heartbeat; the unified paper engine above is the live health signal",
+            "note": "frozen snapshot from the retired mono-asset worker (last wrote 2026-07-19); it no longer runs, this will never update again — the unified paper engine above (paper_engine) is the live health signal",
         },
         "watcher": watcher or None,
     }
@@ -191,8 +192,11 @@ def current_signal_state() -> dict:
         "age_seconds": age,
         "stale": _is_stale(age),
         "stale_warning": (
-            "heartbeat is stale: the worker is not running, this snapshot describes "
-            "its LAST loop, not the present" if _is_stale(age) else None
+            "heartbeat is stale: this snapshot describes the retired mono-asset worker's "
+            "LAST loop, not the present. Superseded by the unified paper portfolio "
+            "(com.0rum.paper) on 2026-07-12; it will never update again — for the live "
+            "multi-strategy signal state see state/paper.out or the paper_engine field "
+            "on get_worker_status" if _is_stale(age) else None
         ),
         "asset": heartbeat.get("asset"),
         "decision_action": heartbeat.get("decision_action"),
@@ -203,7 +207,7 @@ def current_signal_state() -> dict:
         "market_regime": heartbeat.get("market_regime"),
         "rsi": heartbeat.get("rsi"),
         "last_price": heartbeat.get("last_price"),
-        "note": "snapshot of the worker's last loop iteration (overwritten each loop)",
+        "note": "snapshot of the retired mono-asset worker's last loop iteration; frozen since 2026-07-19, not the current multi-strategy engine",
     }
 
 
