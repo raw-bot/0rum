@@ -1,4 +1,4 @@
-version: '04'
+version: '05'
 dsl_version: 1
 entry:
   logic: AND
@@ -11,6 +11,10 @@ entry:
   - indicator: regime
     operator: '!='
     value_str: unfavorable
+  - indicator: rsi
+    params:
+      period: 14
+    operator: rising
 exit:
   logic: OR
   conditions:
@@ -24,29 +28,18 @@ risk:
   take_profit_pct: 3.0
   max_hold_candles: 120
   position_size_r: 2.0
-  reward_risk_ratio: 1.5      # TP = entry +/- rr*risk - set via dashboard slider
-  max_leverage: 2.0           # notional cap (× equity) — set via dashboard slider
-  # SSL band trail (exit_mode="bracket" only). Cuts the trade when a CLOSED 15m bar
-  # closes back through the baseline ∓ k*ATR band — the "red line" exit that the
-  # deep frozen stop never gave. Computed on closed 15m bars only (forming bar
-  # dropped), so a 1m wick never decides the thesis. The frozen structural stop +
-  # TP stay enforced on 1m as the catastrophe/target. enabled: false -> frozen bracket.
+  reward_risk_ratio: 1.5
+  max_leverage: 2.0
   trail:
     enabled: true
-    atr_mult: 1.0             # k: band buffer in ATRs (hysteresis). 0.2 = dot color; wider = fewer whipsaws
-    base_len: 30             # baseline EMA length (match the AK MACD baseline)
-    atr_len: 14              # continuation ATR length
-    invalidate: true         # close on a CONFIRMED 15m close back through the band
-    ratchet: false           # profit-only one-way stop-tightening toward the band: only tightens
-                             # once the trade is IN PROFIT (never narrows an underwater stop). OFF
-                             # pending backtest; the 1m-whipsaw bug is fixed but keep it off until proven.
+    atr_mult: 1.0
+    base_len: 30
+    atr_len: 14
+    invalidate: true
+    ratchet: false
 direction: long
-
-# AK MACD LONG entry confirmation (anti false-bounce). Overrides the AkMacdParams
-# defaults; read once at producer start (no hot reload). Out-of-range/non-int
-# values are ignored in favour of the code default.
 ak_macd:
-  confirmation_bars: 2        # require macd[t] > macd[t-1] > macd[t-2]
-  candidate_window_bars: 2    # confirm within W closed bars after the flip_up
-  regime_filter: true         # block LONG when rolling-return regime is unfavorable
-  require_candle_direction: true  # entry bar must close in trade direction (green=long / red=short)
+  confirmation_bars: 2
+  candidate_window_bars: 2
+  regime_filter: true
+  require_candle_direction: true

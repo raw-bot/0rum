@@ -1,22 +1,32 @@
 {
-  "ts": "2026-07-15T06:30:04.574501+00:00",
+  "ts": "2026-08-03T17:01:19.200321+00:00",
   "status": "ALERT",
-  "lab_buys_900bars": 10,
-  "producer_bars": 395,
-  "producer_buys": 6,
+  "lab_buys_900bars": 8,
+  "producer_bars": 776,
+  "producer_buys": 13,
   "window_utc": [
     "2026-06-30T16:00:00+00:00",
-    "2026-07-13T20:30:00+00:00"
+    "2026-08-03T05:00:00+00:00"
   ],
   "problems": [
     "BUY labo absent du producteur: 2026-07-09 12:00",
+    "BUY labo absent du producteur: 2026-07-20 12:00",
     "BUY producteur absent du labo: 2026-07-10 01:45",
     "BUY producteur absent du labo: 2026-07-11 12:00",
     "BUY producteur absent du labo: 2026-07-11 13:30",
     "BUY producteur absent du labo: 2026-07-11 20:30",
     "BUY producteur absent du labo: 2026-07-12 14:45",
     "BUY producteur absent du labo: 2026-07-12 19:00",
+    "BUY producteur absent du labo: 2026-07-30 08:30",
+    "BUY producteur absent du labo: 2026-07-30 19:15",
+    "BUY producteur absent du labo: 2026-07-30 22:15",
+    "BUY producteur absent du labo: 2026-08-01 06:30",
+    "BUY producteur absent du labo: 2026-08-01 12:00",
+    "BUY producteur absent du labo: 2026-08-01 14:45",
+    "BUY producteur absent du labo: 2026-08-02 00:00",
     "trou producteur: 07-08 04:00 -> 07-09 17:45",
-    "trou producteur: 07-13 08:00 -> 07-13 20:00"
+    "trou producteur: 07-13 08:00 -> 07-13 20:00",
+    "trou producteur: 07-13 20:30 -> 07-19 09:45",
+    "trou producteur: 07-19 11:00 -> 07-30 07:30"
   ]
 }

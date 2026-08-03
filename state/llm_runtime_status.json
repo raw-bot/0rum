@@ -1,10 +1,10 @@
 {
   "enabled": true,
   "interval_minutes": 60,
-  "last_cycle_completed_at": "2026-07-17T09:43:37.953836+00:00",
-  "last_cycle_started_at": "2026-07-17T09:37:54.801876+00:00",
+  "last_cycle_completed_at": "2026-08-03T18:08:09.314357+00:00",
+  "last_cycle_started_at": "2026-08-03T18:04:38.861864+00:00",
   "last_error": "",
   "last_result": "ok",
-  "model": "deepseek/deepseek-v4-pro",
+  "model": "nvidia/nemotron-3-ultra-550b-a55b",
   "running": false
 }

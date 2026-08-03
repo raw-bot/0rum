@@ -1,1 +1,1 @@
-{"equity": 1.0, "pos": {"donchian_eth": {"holding": true, "entry_px": 1800.45978, "risk_pct": 0.06, "atr_risk": 165.2295469773423}}}
+{"equity": 0.7483881168619179, "pos": {"donchian_eth": {"holding": false}, "donchian_btc": {"holding": false}, "ema_cross_eth": {"holding": false}, "ema_cross_btc": {"holding": true, "entry_px": 63808.348229999996, "risk_pct": 0.06, "atr_risk": 1331.199999999997, "stop_loss_price": 62445.26}}}

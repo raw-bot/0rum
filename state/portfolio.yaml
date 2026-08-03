@@ -7,6 +7,11 @@ starting_balance_usd: 10000.0
 candles_limit: 300            # bars fetched per strategy per cycle
 max_total_stop_risk_pct: 0.05
 max_symbol_stop_risk_pct: 0.03
+reentry_policy: topup
+merit_order:
+  - btc_utbot_m15_h1
+  - btc_ak_macd_4h
+min_topup_fraction: 0.0
 
 # Paper-only calibrated forecast gate. It affects NEW entries only after the
 # fixed walk-forward quality lock passes; otherwise the baseline size is kept.
@@ -29,14 +34,28 @@ strategies:
     exit_policy: structural_bracket
     monitor_timeframe: "15m"
     reward_risk_ratio: 2.0   # set via dashboard slider
+    dynamic_exit:
+      mode: execute          # paper-only dynamic exits; no broker orders
+      version: ak_mfe_ssl_v1
+      activation_r: 1.5      # official R = frozen entry atr_risk (ADR-005)
+      giveback_r: 1.0
+      floor_r: 0.25
+      ema_len: 30
+      atr_len: 14
+      ssl_atr_mult: 1.0
+      close_on_ssl_invalidation: true
+      adaptive_target: true
+      target_review_buffer_r: 0.5
+      target_step_r: 1.0
+      target_strength_min: 3
     params:
-      allow_short: false     # validated H4 policy is long-only
+      allow_short: true      # paper-only short experiment; long-only champion baseline is unchanged.
 
   - id: btc_utbot_m15_h1
     engine: utbot_mtf
     symbol: BTC/USDT
     timeframe: "15m"
-    risk_pct: 0.0075   # set via dashboard slider
+    risk_pct: 0.01   # set via dashboard slider
     entry_enabled: true
     exit_policy: signal_or_stop
     monitor_timeframe: "15m"
@@ -47,16 +66,73 @@ strategies:
       sell_atr_period: 20
       trend_ema_period: 200
 
+  - id: btc_ema_cross
+    engine: ema_cross
+    symbol: BTC/USDT
+    timeframe: "1h"
+    risk_pct: 0.005
+    entry_enabled: true
+    exit_policy: signal_or_stop
+    monitor_timeframe: "15m"
+    dynamic_exit:
+      mode: execute
+      version: mfe_ratchet_v1
+      activation_r: 1.0
+      giveback_r: 1.5
+      floor_r: 0.0
+      close_on_ssl_invalidation: false
+      adaptive_target: false
+    params: &ema_cross_paper_params
+      fast_period: 9
+      slow_period: 21
+      confirm_bars: 3
+      adx_period: 14
+      adx_threshold: 20.0
+      swing_lookback: 8
+      allow_short: true
+      require_adx_rising: true
+      slope_lookback: 3
+      min_ema_gap_atr: 0.20
+      min_slow_slope_atr: 0.05
+      short_reward_risk: 2.0
+
+  - id: eth_ema_cross
+    engine: ema_cross
+    symbol: ETH/USDT
+    timeframe: "1h"
+    risk_pct: 0.005
+    entry_enabled: true
+    exit_policy: signal_or_stop
+    monitor_timeframe: "15m"
+    dynamic_exit:
+      mode: execute
+      version: mfe_ratchet_v1
+      activation_r: 1.0
+      giveback_r: 1.5
+      floor_r: 0.0
+      close_on_ssl_invalidation: false
+      adaptive_target: false
+    params: *ema_cross_paper_params
+
   - id: btc_ha_trend_4h
     engine: ha_trend
     symbol: BTC/USDT
     timeframe: "4h"
     risk_pct: 0.01           # 1% comme le backtest TradingView (2026-07-16)
-    entry_enabled: false     # 2026-07-17 : valeur marginale mesurée négative (replay duo vs trio :
-                             # −13,5 k$ à DD égal — il occupait le cap BTC et affamait AK).
-                             # Sorties protectrices actives ; témoin HA = re-runs iso_ha du harnais.
+    entry_enabled: true      # 2026-07-25 : activation paper explicite des cinq sleeves.
     exit_policy: structural_bracket
     monitor_timeframe: "15m"
+    dynamic_exit:
+      mode: execute
+      version: mfe_ratchet_v1
+      activation_r: 1.0
+      giveback_r: 0.5
+      floor_r: 0.1
+      ema_len: 20
+      adaptive_target: true
+      target_review_buffer_r: 0.5
+      target_step_r: 1.0
+      target_strength_min: 3
     params:
       ema_len: 20
       slope_len: 5
@@ -70,9 +146,9 @@ strategies:
     symbol: ETH/USDT
     timeframe: "1d"
     risk_pct: 0.02
-    entry_enabled: false      # legacy exit-only during EUR-universe migration
+    entry_enabled: true
     exit_policy: donchian_signal
-    monitor_timeframe: "1d"
+    monitor_timeframe: "1h"
     params:
       entry_n: 20
       exit_n: 10
@@ -82,7 +158,18 @@ strategies:
     symbol: PAXG/USDT
     timeframe: "1d"
     risk_pct: 0.02
-    entry_enabled: false      # no open gold trade; freeze new legacy entries
+    entry_enabled: true
     exit_policy: cot_signal
-    monitor_timeframe: "1d"
+    monitor_timeframe: "1h"
     params: {}               # reads state/cot_gate.json (written by scripts/update_cot_gate.py)
+
+  - id: nvda_opening_range
+    engine: opening_range
+    symbol: NVDA
+    timeframe: "5m"
+    risk_pct: 0.0025          # paper expérimental uniquement
+    entry_enabled: true
+    exit_policy: structural_bracket
+    monitor_timeframe: "5m"
+    params:
+      min_range_atr_ratio: 0.25
