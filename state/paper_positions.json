@@ -3,13 +3,13 @@
   "positions": {},
   "processed_candles": {
     "btc_ak_macd_4h": 1785758400000,
-    "btc_ema_cross": 1785776400000,
+    "btc_ema_cross": 1785780000000,
     "btc_ha_trend_4h": 1785758400000,
-    "btc_utbot_m15_h1": 1785781800000,
+    "btc_utbot_m15_h1": 1785783600000,
     "eth_donchian": 1785628800000,
-    "eth_ema_cross": 1785776400000,
+    "eth_ema_cross": 1785780000000,
     "gold_cot": 1785628800000,
-    "nvda_opening_range": 1785782400000
+    "nvda_opening_range": 1785784200000
   },
-  "updated_at": "2026-08-03T18:46:36+00:00"
+  "updated_at": "2026-08-03T19:16:59+00:00"
 }
