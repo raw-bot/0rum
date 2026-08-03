@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import yaml  # noqa: E402
 
 from data_layer import fetch_klines  # noqa: E402
+from orum.adapters.us_equity import fetch_us_equity_candles  # noqa: E402
 from orum.paths import STATE_DIR  # noqa: E402
 from orum.portfolio.paper_engine import PaperEngine  # noqa: E402
 
@@ -86,13 +87,19 @@ def binance_provider(symbol: str, timeframe: str, limit: int) -> list[dict]:
     return [row for row in normalized if row["ts"] + interval_ms <= now_ms][-limit:]
 
 
+def paper_market_provider(symbol: str, timeframe: str, limit: int) -> list[dict]:
+    if symbol.upper() == "NVDA":
+        return fetch_us_equity_candles(symbol, timeframe, limit)
+    return binance_provider(symbol, timeframe, limit)
+
+
 def load_config(path: Path | None = None) -> dict:
     candidate = path or PORTFOLIO_PATH
     source = candidate if candidate.exists() else DEFAULT_PORTFOLIO_PATH
     return yaml.safe_load(source.read_text()) or {}
 
 
-def build_engine(provider=binance_provider) -> PaperEngine:
+def build_engine(provider=paper_market_provider) -> PaperEngine:
     return PaperEngine(load_config(), candle_provider=provider)
 
 

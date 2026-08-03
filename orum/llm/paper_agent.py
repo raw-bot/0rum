@@ -12,9 +12,13 @@ from orum.llm.keychain import read_generic_password
 from orum.paths import LLM_RUNTIME_STATUS_PATH
 
 
-MODEL = "deepseek/deepseek-v4-pro"
+MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
 INTERVAL_MINUTES = 60
-PAPER_ARGS = ["--mode", "paper_autonomous", "--once", "--confirm-paper"]
+PAPER_ARGS = [
+    "--mode", "paper_autonomous", "--once", "--confirm-paper",
+    "--provider", "nvidia", "--model", MODEL,
+    "--request-timeout-seconds", "300",
+]
 
 
 def _default_run_once(argv: list[str], *, environ: Mapping[str, str]) -> int:
@@ -46,7 +50,7 @@ def _status(
 def run_paper_cycle(
     *,
     status_path: Path = LLM_RUNTIME_STATUS_PATH,
-    key_loader: Callable[[], str] = read_generic_password,
+    key_loader: Callable[[], str] = lambda: read_generic_password(service="0rum-nvidia"),
     run_once: Callable[..., int] = _default_run_once,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
 ) -> int:
@@ -74,12 +78,12 @@ def run_paper_cycle(
                 started_at=started_at,
                 completed_at=completed_at,
                 result="configuration_error",
-                error="OpenRouter credential unavailable",
+                error="NVIDIA credential unavailable",
             ),
         )
         return 2
 
-    environment = {"OPENROUTER_API_KEY": api_key}
+    environment = {"NVIDIA_API_KEY": api_key}
     try:
         exit_code = run_once(list(PAPER_ARGS), environ=environment)
     except Exception:
@@ -105,7 +109,7 @@ def main(
     *,
     environ: Mapping[str, str] | None = None,
     status_path: Path = LLM_RUNTIME_STATUS_PATH,
-    key_loader: Callable[[], str] = read_generic_password,
+    key_loader: Callable[[], str] = lambda: read_generic_password(service="0rum-nvidia"),
     run_once: Callable[..., int] = _default_run_once,
 ) -> int:
     del argv

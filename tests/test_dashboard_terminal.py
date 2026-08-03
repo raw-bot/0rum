@@ -84,10 +84,39 @@ class DashboardTerminalContractTests(unittest.TestCase):
         for card_id in ("market-btc-card", "market-btc-utbot-card", "market-eth-card", "market-paxg-card"):
             self.assertIn(f'id="{card_id}"', html)
         self.assertIn('data-toggle-asset="BTC/USDT::btc_utbot_m15_h1"', html)
-        self.assertEqual(html.count('class="card market-terminal-card"'), 4)
+        market_cards = re.findall(
+            r'<section class="card market-terminal-card" id="market-[^"]+-card" data-asset=',
+            html,
+        )
+        self.assertEqual(len(market_cards), 4)
         self.assertNotIn('id="price-card"', html)
         self.assertNotIn("renderProChart(s); renderPrice(s)", js)
         self.assertNotIn("renderPosition(s); renderMarkets(s)", js)
+        self.assertIn("LONG ONLY", js)
+
+    def test_operational_chart_renders_audited_paper_fills(self):
+        js = (ROOT / "orum/static/dashboard.js").read_text()
+
+        self.assertIn(
+            "const realEvents = (sig.real_markers || []).concat(llmMarketEvents(s, asset));",
+            js,
+        )
+        self.assertIn(
+            "renderTimelineEvents(realEvents, pairDisplayEvents(realEvents), candles, eventScale)",
+            js,
+        )
+        self.assertIn('if (asset !== "BTC/USDT") return [];', js)
+        self.assertNotIn("modelEvents.concat(realEvents)", js)
+
+    def test_terminal_rendering_is_short_and_tranche_aware(self):
+        js = (ROOT / "orum/static/dashboard.js").read_text()
+
+        self.assertIn("event.position_id || side", js)
+        self.assertIn("position_id: event.position_id", js)
+        self.assertIn('const direction = (tranche.side || "long") === "short" ? -1 : 1;', js)
+        self.assertIn('kind === "sl" ? side === "short"', js)
+        self.assertIn('dynamicRoute && positionSide !== "short"', js)
+        self.assertIn('structural_bracket: "bracket structurel SL/TP"', js)
 
     def test_layout_presets_are_compact_accessible_and_persistent(self):
         html = (ROOT / "orum/static/dashboard.html").read_text()
@@ -103,7 +132,8 @@ class DashboardTerminalContractTests(unittest.TestCase):
         ):
             self.assertIn(f'data-layout-preset="{preset}"', html)
             self.assertIn(f'aria-label="{label}"', html)
-        self.assertEqual(html.count('class="layout-preset-btn"'), 3)
+        self.assertEqual(html.count('data-layout-preset='), 3)
+        self.assertIn('id="layout-save-btn"', html)
         self.assertIn(".layout-preset-btn", css)
         self.assertIn(":focus-visible", css)
         self.assertIn("DASHBOARD_LAYOUT_PRESETS", js)
@@ -116,17 +146,20 @@ class DashboardTerminalContractTests(unittest.TestCase):
         html = (ROOT / "orum/static/dashboard.html").read_text()
         js = (ROOT / "orum/static/dashboard.js").read_text()
         grid_ids = re.findall(r'gs-id="([^"]+)"', html)
-        self.assertEqual(len(grid_ids), 13)
+        self.assertTrue(grid_ids)
+        self.assertEqual(len(grid_ids), len(set(grid_ids)))
         for grid_id in grid_ids:
             self.assertGreaterEqual(js.count(f'["{grid_id}",'), 3)
 
-    def test_layout_controller_rejects_partial_state_and_degrades_safely(self):
+    def test_layout_controller_accepts_partial_state_and_degrades_safely(self):
         css = (ROOT / "orum/static/dashboard.css").read_text()
         js = (ROOT / "orum/static/dashboard.js").read_text()
 
-        self.assertIn("DASHBOARD_LAYOUT_IDS", js)
         self.assertIn("isValidDashboardLayout", js)
-        self.assertIn("seen.size === DASHBOARD_LAYOUT_IDS.length", js)
+        self.assertNotIn("seen.size === DASHBOARD_LAYOUT_IDS.length", js)
+        self.assertIn("seen.has(item.id)", js)
+        self.assertIn("values.every(Number.isInteger)", js)
+        self.assertIn("x + w <= 12", js)
         self.assertIn("safeStorageGet", js)
         self.assertIn("safeStorageSet", js)
         self.assertIn("safeStorageRemove", js)
@@ -152,6 +185,33 @@ class DashboardTerminalContractTests(unittest.TestCase):
         self.assertEqual(markers[0]["strategy_id"], "btc_utbot_m15_h1")
         self.assertEqual(markers[0]["label"], "IN L")
 
+    def test_closed_trades_pair_topup_fills_by_position_id(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp)
+            fills = [
+                {"ts": "2026-07-12T10:00:00+00:00", "strategy_id": "ut",
+                 "position_id": "ut", "symbol": "BTC/USDT", "action": "open"},
+                {"ts": "2026-07-12T10:15:00+00:00", "strategy_id": "ut",
+                 "position_id": "ut::t2", "symbol": "BTC/USDT", "action": "open"},
+                {"ts": "2026-07-12T11:00:00+00:00", "strategy_id": "ut",
+                 "position_id": "ut", "symbol": "BTC/USDT", "action": "close",
+                 "entry_px": 100, "price": 105, "qty": 1, "realized_pnl_usd": 5},
+                {"ts": "2026-07-12T11:15:00+00:00", "strategy_id": "ut",
+                 "position_id": "ut::t2", "symbol": "BTC/USDT", "action": "close",
+                 "entry_px": 102, "price": 106, "qty": 1, "realized_pnl_usd": 4},
+            ]
+            (state / "paper_fills.jsonl").write_text(
+                "\n".join(json.dumps(row) for row in fills) + "\n"
+            )
+            with patch.object(dashboard, "STATE_DIR", state):
+                trades = dashboard._paper_closed_trades()
+
+        self.assertEqual([trade["opened_at"] for trade in trades], [
+            "2026-07-12T10:00:00+00:00",
+            "2026-07-12T10:15:00+00:00",
+        ])
+        self.assertEqual([trade["position_id"] for trade in trades], ["ut", "ut::t2"])
+
     def test_real_exit_marker_uses_persisted_reason_not_pnl_sign(self):
         with tempfile.TemporaryDirectory() as tmp:
             state = Path(tmp)
@@ -168,120 +228,6 @@ class DashboardTerminalContractTests(unittest.TestCase):
                 markers = dashboard._paper_fill_markers("BTC/USDT")
 
         self.assertEqual([marker["label"] for marker in markers], ["SL", "OUT"])
-
-    def test_market_forecast_lookup_is_strictly_strategy_scoped_and_has_history(self):
-        reconstructed = [{
-            "origin_ts": "2026-07-12T06:00:00+00:00",
-            "target_ts": "2026-07-13T06:00:00+00:00",
-            "origin_price": 59_000,
-            "predicted_price": 60_100,
-            "actual_price": 60_000,
-            "median_return": 0.018644,
-            "median_error": -0.001695,
-            "source": "walk_forward",
-        }]
-        forecast_state = {
-            "assets": {"BTC/USDT": {"strategy_id": "btc_utbot_m15_h1", "active": True}},
-            "strategies": {"btc_utbot_m15_h1": {
-                "strategy_id": "btc_utbot_m15_h1", "active": True,
-                "history_24h": reconstructed,
-            }},
-        }
-        history = {
-            "record_type": "prediction", "strategy_id": "btc_utbot_m15_h1",
-            "symbol": "BTC/USDT", "bucket_ts": "2026-07-13T06:00:00+00:00",
-            "origin_ts": "2026-07-13T06:00:00+00:00", "origin_price": 60_000,
-            "horizons": {"6": {"p50": .01}, "12": {"p50": .02}, "24": {"p50": .03}},
-        }
-        with tempfile.TemporaryDirectory() as tmp:
-            state = Path(tmp)
-            (state / "forecast_gate.json").write_text(json.dumps(forecast_state))
-            (state / "forecast_history.jsonl").write_text(json.dumps(history) + "\n")
-            with patch.object(dashboard, "STATE_DIR", state), \
-                 patch.object(dashboard, "_binance_klines", return_value=_candles(60_000)), \
-                 patch.object(dashboard, "_ak_macd_markers", return_value=[]), \
-                 patch.object(dashboard, "_utbot_mtf_markers", return_value=[]), \
-                 patch.object(dashboard, "_donchian_markers", return_value=[]), \
-                 patch.object(dashboard, "_gold_cot_markers", return_value=[]):
-                signals = dashboard._market_signals({"asset": "BTC/USDT"})
-
-        self.assertEqual(signals["BTC/USDT"]["calibrated_forecast"], {})
-        utbot = signals["BTC/USDT::btc_utbot_m15_h1"]
-        self.assertTrue(utbot["calibrated_forecast"]["active"])
-        self.assertEqual(len(utbot["forecast_history"]), 1)
-        self.assertEqual(utbot["forecast_history"][0]["origin_price"], 60_000)
-        self.assertEqual(utbot["forecast_history_24h"], reconstructed)
-        self.assertEqual(signals["BTC/USDT"]["forecast_history_24h"], [])
-
-    def test_market_forecast_history_keeps_the_latest_twenty_eight_predictions(self):
-        forecast_state = {
-            "strategies": {"btc_utbot_m15_h1": {"strategy_id": "btc_utbot_m15_h1", "active": True}},
-        }
-        history = []
-        for index in range(30):
-            origin = f"2026-07-{index // 4 + 1:02d}T{(index % 4) * 6:02d}:00:00+00:00"
-            history.append({
-                "record_type": "prediction", "strategy_id": "btc_utbot_m15_h1",
-                "symbol": "BTC/USDT", "bucket_ts": origin, "origin_ts": origin,
-                "origin_price": 60_000 + index,
-                "horizons": {"6": {"p50": .01}, "12": {"p50": .02}, "24": {"p50": .03}},
-            })
-        with tempfile.TemporaryDirectory() as tmp:
-            state = Path(tmp)
-            (state / "forecast_gate.json").write_text(json.dumps(forecast_state))
-            (state / "forecast_history.jsonl").write_text(
-                "\n".join(json.dumps(row) for row in history) + "\n"
-            )
-            with patch.object(dashboard, "STATE_DIR", state), \
-                 patch.object(dashboard, "_binance_klines", return_value=_candles(60_000)), \
-                 patch.object(dashboard, "_ak_macd_markers", return_value=[]), \
-                 patch.object(dashboard, "_utbot_mtf_markers", return_value=[]), \
-                 patch.object(dashboard, "_donchian_markers", return_value=[]), \
-                 patch.object(dashboard, "_gold_cot_markers", return_value=[]):
-                signals = dashboard._market_signals({"asset": "BTC/USDT"})
-
-        retained = signals["BTC/USDT::btc_utbot_m15_h1"]["forecast_history"]
-        self.assertEqual(len(retained), 28)
-        self.assertEqual(retained[0]["origin_price"], 60_002)
-
-    def test_continuous_forecast_history_is_one_target_aligned_path(self):
-        origin = 1_780_000_000_000
-        candles = [
-            {"ts": origin, "close": 100},
-            {"ts": origin + 3_600_000, "close": 99},
-            {"ts": origin + 7_200_000, "close": 103},
-        ]
-        history = [
-            {"target_ts": origin - 3_600_000, "predicted_price": 98},
-            {"target_ts": origin + 3_600_000, "predicted_price": 101},
-            {"target_ts": origin + 7_200_000, "predicted_price": 102},
-            {"target_ts": origin + 10_800_000, "predicted_price": 104},
-        ]
-
-        result = self._run_forecast_history_path(history, candles)
-
-        self.assertEqual(result, [
-            {"ts": origin + 3_600_000, "price": 101},
-            {"ts": origin + 7_200_000, "price": 102},
-        ])
-
-    def _run_forecast_history_path(self, history: list[dict], candles: list[dict]) -> list[dict]:
-        js = (ROOT / "orum/static/dashboard.js").read_text()
-        self.assertIn("function buildForecastHistoryPath", js)
-        start = js.index("function buildForecastHistoryPath")
-        end = js.index("\nfunction pairDisplayEvents", start)
-        program = (
-            js[start:end]
-            + "\nconst result = buildForecastHistoryPath("
-            + json.dumps(history)
-            + ","
-            + json.dumps(candles)
-            + "); process.stdout.write(JSON.stringify(result));"
-        )
-        completed = subprocess.run(
-            ["node", "-e", program], capture_output=True, text=True, check=True
-        )
-        return json.loads(completed.stdout)
 
     def test_utbot_markers_ignore_the_forming_m15_candle(self):
         now_ms = 1_780_001_000_000
@@ -336,12 +282,12 @@ class DashboardTerminalContractTests(unittest.TestCase):
         )
         self.assertFalse(any(marker["side"] == "short" for marker in donchian))
 
-    def test_ak_model_overlay_matches_the_operational_long_only_policy(self):
+    def test_ak_model_overlay_includes_native_paper_short_candidates(self):
         from tests.test_ak_macd_engine_parity import CANDLES
 
         markers = dashboard._ak_macd_markers(CANDLES[:120])
 
-        self.assertFalse(any(marker["side"] == "short" for marker in markers))
+        self.assertTrue(any(marker["side"] == "short" for marker in markers))
 
     def test_terminal_renderer_is_proportional_zoomable_and_semantic(self):
         css = (ROOT / "orum/static/dashboard.css").read_text()
@@ -359,9 +305,14 @@ class DashboardTerminalContractTests(unittest.TestCase):
         self.assertIn("trade-link", css)
         self.assertIn("buildScenarioFan", js)
         self.assertIn("renderTimelineEvents", js)
+        self.assertIn("llmMarketEvents", js)
+        self.assertIn('concat(llmMarketEvents(s, asset))', js)
+        self.assertIn('event.display ||', js)
+        self.assertIn('const source = event.llm ? " llm-marker" : "";', js)
+        self.assertIn(".terminal-svg .llm-marker { opacity: .35; }", css)
         self.assertIn("SCÉNARIOS · AFFICHAGE SEUL", js)
 
-    def test_terminal_supports_horizontal_pan_and_calibrated_forecast_state(self):
+    def test_terminal_supports_horizontal_pan_and_forecast_gate_is_gone(self):
         js = (ROOT / "orum/static/dashboard.js").read_text()
         css = (ROOT / "orum/static/dashboard.css").read_text()
         source = (ROOT / "orum/dashboard.py").read_text()
@@ -369,10 +320,12 @@ class DashboardTerminalContractTests(unittest.TestCase):
         self.assertIn("terminalPan", js)
         self.assertIn("bindTerminalPan", js)
         self.assertIn("pointerdown", js)
-        self.assertIn("buildCalibratedFan", js)
-        self.assertIn("calibrated_forecast", js)
         self.assertIn("cursor: grab", css)
-        self.assertIn('STATE_DIR / "forecast_gate.json"', source)
+        # The forecast gate was deleted on 2026-07-17 (chantier 3 verdict):
+        # no calibrated fan, no forecast state reads, no history overlay.
+        self.assertNotIn("buildCalibratedFan", js)
+        self.assertNotIn("calibrated_forecast", js)
+        self.assertNotIn("forecast", source)
 
     def test_old_yellow_white_audit_overlay_is_removed(self):
         html = (ROOT / "orum/static/dashboard.html").read_text()
@@ -384,19 +337,26 @@ class DashboardTerminalContractTests(unittest.TestCase):
         self.assertNotIn("forecast-audit-predicted", js + css)
         self.assertNotIn("forecast-audit-realized", js + css)
         self.assertNotIn("JAUNE 50% = PRÉVU · BLANC = RÉEL", js)
-        self.assertEqual(js.count('class="forecast-history-line"'), 1)
-        self.assertIn(".forecast-history-line", css)
-        self.assertRegex(
-            css,
-            r"\.terminal-svg \.forecast-history-line\s*\{[^}]*stroke-width:\s*1;[^}]*opacity:\s*\.5;[^}]*stroke-dasharray:\s*4 3",
-        )
-        self.assertIn("Historique prévision +24 h", js)
+        self.assertNotIn("forecast-history-line", js + css)
+        self.assertNotIn("Historique prévision +24 h", js)
         self.assertRegex(
             css,
             r"\.terminal-svg \.scenario-path\.central\s*\{[^}]*opacity:\s*\.5",
         )
-        self.assertIn('/assets/dashboard.css?v=33', html)
-        self.assertIn('/assets/dashboard.js?v=34', html)
+        self.assertRegex(html, r'/assets/dashboard\.css\?v=\d+')
+        self.assertRegex(html, r'/assets/dashboard\.js\?v=\d+')
+
+    def test_dashboard_derives_dynamic_egide_route_from_portfolio_config(self):
+        js = (ROOT / "orum/static/dashboard.js").read_text()
+
+        self.assertIn("strategyConfig.dynamic_exit", js)
+        self.assertIn("dynamic_active_target_price", js)
+        self.assertIn("runner adaptatif", js)
+        self.assertIn("ak_mfe_ssl_v1", js)
+        self.assertIn("mfe_ratchet_v1", js)
+        self.assertIn("signal_or_stop", js)
+        self.assertIn("donchian_signal", js)
+        self.assertIn("cot_signal", js)
 
     def test_event_pins_and_scenario_join_have_explicit_layers(self):
         css = (ROOT / "orum/static/dashboard.css").read_text()

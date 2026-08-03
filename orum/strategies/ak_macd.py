@@ -44,6 +44,13 @@ def _bool(cfg: dict, key: str, default: bool) -> bool:
     return value if isinstance(value, bool) else default
 
 
+def _positive_float(cfg: dict, key: str, default: float) -> float:
+    value = cfg.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return default
+    return float(value) if value > 0 else default
+
+
 class AkMacdEngine:
     name = "ak_macd"
     version = DEFAULT_STRATEGY_ID
@@ -52,6 +59,7 @@ class AkMacdEngine:
 
     def __init__(self) -> None:
         self._params = AkMacdParams()
+        self._reward_risk_ratio = 1.5
         self.warmup_period = self._params.warmup
 
     @classmethod
@@ -81,6 +89,9 @@ class AkMacdEngine:
             require_candle_direction=_bool(cfg, "require_candle_direction", defaults.require_candle_direction),
             allow_short=_bool(cfg, "allow_short", defaults.allow_short),
         )
+        self._reward_risk_ratio = _positive_float(
+            cfg, "reward_risk_ratio", 1.5
+        )
         self.warmup_period = self._params.warmup
 
     def on_candle(self, candle: dict, context: StrategyContext) -> Signal | None:
@@ -99,6 +110,7 @@ class AkMacdEngine:
                 recent_low=verdict.payload.get("recent_low"),
                 recent_high=verdict.payload.get("recent_high"),
                 direction="long" if side == Side.LONG else "short",
+                rr=self._reward_risk_ratio,
             )
             suggested_stop = bracket.stop_loss_price
             suggested_take_profit = bracket.take_profit_price

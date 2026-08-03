@@ -31,10 +31,16 @@ Promote `topup` directly into the paper engine with static merit UT Bot before
 AK MACD and no minimum grant fraction. Store every topup as an independent
 position tranche with a unique `position_id` and a stable base `strategy_id`.
 
-Size and cap new positions using the actual entry-to-stop `risk_distance` when
-a valid explicit stop exists. Use the legacy ATR distance only when the signal
-supplies no stop. Reject malformed explicit stops. Legacy positions without a
-stored `risk_distance` fall back to their persisted `atr_risk`.
+Position sizing, portfolio/thesis risk caps, and R-multiple reporting keep
+using the legacy `2 * ATR(14)` distance (`atr_risk`), unchanged from before
+this ADR. The actual entry-to-stop distance (`risk_distance`) is computed and
+persisted alongside every position, and a malformed explicit stop is still
+rejected as `invalid_stop` — but `risk_distance` itself only feeds the
+dashboard's audit display, not sizing, caps, or R. See "Alternatives
+Considered" below: the replay comparison showed +390.91% (ATR-based, kept)
+versus +118.23% (actual-stop-based), so the operator chose to keep the
+validated ATR sizing. Legacy positions without a stored `risk_distance` fall
+back to their persisted `atr_risk`.
 
 Protective levels close one tranche; a strategy `EXIT` closes every tranche of
 that strategy. No process is restarted as part of implementation.
@@ -58,16 +64,18 @@ to each signal and would not match the validated replay semantics.
 
 ### Keep ATR sizing while displaying actual stop risk
 
-Rejected because presentation would improve while the risk cap and quantity
-would remain economically wrong.
+Originally rejected, then explicitly selected by the operator after comparing
+the corrected replay (+118.23%) with the historical ATR replay (+390.91%).
 
 ## Consequences
 
 - Paper exposure can increase through repeated qualified signals until the
   configured symbol or portfolio budget is exhausted.
-- Corrected sizing changes the numerical replay results; legacy topup returns
-  cannot be presented as the corrected policy's expected performance.
-- State and fills gain tranche identity and actual-risk audit fields.
+- Sizing and cap math are unchanged from the pre-ADR-005 behavior (still
+  ATR-based); no replay results were invalidated by this change.
+- State and fills gain tranche identity and actual-risk audit fields
+  (`risk_distance`, `stop_risk_usd`) for dashboard display only — they do not
+  feed any sizing, cap, or R calculation.
 - Existing strategy attribution remains stable.
 - Old persisted positions remain readable without rewriting live state.
 - Broker-real short, margin, and execution concerns remain out of scope.

@@ -46,7 +46,7 @@ def test_llm_lab_state_is_safe_when_files_are_absent(tmp_path):
     assert state["runtime"] == {
         "enabled": False,
         "running": False,
-        "model": "deepseek/deepseek-v4-pro",
+        "model": "nvidia/nemotron-3-ultra-550b-a55b",
         "interval_minutes": 60,
         "last_cycle_started_at": None,
         "last_cycle_completed_at": None,
@@ -55,6 +55,7 @@ def test_llm_lab_state_is_safe_when_files_are_absent(tmp_path):
     }
     assert state["opinion"] == {}
     assert state["timeline"] == []
+    assert state["equity_curve"] == {"points": [], "events": []}
     assert state["accounts"]["llm_reference"]["status"] == "absent"
     assert state["comparison"]["coverage_status"] == "no_common_window"
 
@@ -176,6 +177,44 @@ def test_llm_lab_state_is_bounded_traceable_and_tolerates_malformed_tail(tmp_pat
     assert any(alert["kind"] == "rejection" for alert in state["alerts"])
 
 
+def test_llm_equity_curve_uses_realised_fill_balances_and_keeps_trade_markers(tmp_path):
+    for lane in ("llm_reference", "llm_evolving"):
+        (tmp_path / f"{lane}_account.json").write_text(json.dumps({
+            "lane": lane,
+            "starting_balance_usd": 10_000,
+            "balance_usd": 10_000,
+            "positions": {},
+            "processed_decision_ids": [],
+            "last_processed_candles": {},
+            "schema_version": 1,
+        }), encoding="utf-8")
+    _write_jsonl(tmp_path / "llm_paper_fills.jsonl", [
+        {
+            "lane": "llm_reference", "action": "open", "balance_after_usd": 9_990,
+            "candle_ts": 1_000, "decision_id": "r-1", "side": "long", "price": 100,
+            "realized_pnl_usd": 0,
+        },
+        {
+            "lane": "llm_evolving", "action": "open", "balance_after_usd": 9_995,
+            "candle_ts": 2_000, "decision_id": "e-1", "side": "short", "price": 101,
+            "realized_pnl_usd": 0,
+        },
+        {
+            "lane": "llm_reference", "action": "take_profit", "balance_after_usd": 10_050,
+            "candle_ts": 3_000, "decision_id": "r-1", "side": "long", "price": 105,
+            "realized_pnl_usd": 60,
+        },
+        {"lane": "llm_reference", "action": "stop", "balance_after_usd": "bad", "candle_ts": 4_000},
+    ])
+
+    state = dashboard._llm_lab_state(tmp_path, now=NOW)
+
+    curve = state["equity_curve"]
+    assert [point["equity_usd"] for point in curve["points"]] == [20_000, 19_990, 19_985, 20_045]
+    assert [event["action"] for event in curve["events"]] == ["open", "open", "take_profit"]
+    assert curve["events"][-1]["realized_pnl_usd"] == 60
+
+
 def test_llm_dashboard_static_surface_is_read_only_responsive_and_escapes_model_text():
     html = (ROOT / "orum/static/dashboard.html").read_text(encoding="utf-8")
     css = (ROOT / "orum/static/dashboard.css").read_text(encoding="utf-8")
@@ -197,15 +236,21 @@ def test_llm_dashboard_static_surface_is_read_only_responsive_and_escapes_model_
     assert 'id="bot-unified"' in bot_html
     assert 'id="bot-runtime"' in bot_html
     assert 'id="bot-lanes"' in bot_html
+    assert 'id="bot-equity"' not in bot_html
     assert 'id="bot-decisions"' in bot_html
     assert 'id="bot-learning"' in bot_html
-    assert "/assets/bot.js" in bot_html
+    assert "/assets/bot.js?v=3" in bot_html
     assert 'fetch("/api/state"' in bot_js
     assert "method: \"POST\"" not in bot_js
     assert "const esc = (value)" in bot_js
     assert "esc(runtime.last_error" in bot_js
     assert "esc(opinion.memo_fr" in bot_js
     assert "esc(message)" in bot_js
+    assert "function renderEquityCurve(snapshot)" not in bot_js
+    assert "renderEquityCurve(snapshot);" not in bot_js
+    assert "llm-equity-chart" not in bot_js + css
+    assert "function llmMarketEvents(snapshot, asset)" in js
+    assert 'label = display === "tp" ? "LLM TP"' in js
 
 
 def test_llm_lab_exposes_only_bounded_runtime_status(tmp_path):
@@ -238,6 +283,26 @@ def test_llm_lab_exposes_only_bounded_runtime_status(tmp_path):
         "last_error": "Limite temporaire OpenRouter (quota ou cadence)",
     }
     assert "must-not-escape" not in json.dumps(state)
+
+
+def test_llm_dashboard_does_not_raise_a_historical_model_error_after_a_success(tmp_path):
+    (tmp_path / "llm_runtime_status.json").write_text(
+        json.dumps({"enabled": True, "last_result": "ok", "last_error": ""}),
+        encoding="utf-8",
+    )
+    _write_jsonl(
+        tmp_path / "llm_market_briefs.jsonl",
+        [{
+            "kind": "market_brief",
+            "status": "model_error",
+            "recorded_at": NOW.isoformat(),
+            "error": "historical failure",
+        }],
+    )
+
+    state = dashboard._llm_lab_state(tmp_path, now=NOW)
+
+    assert not any(alert["kind"] == "model_error" for alert in state["alerts"])
 
 
 def test_llm_dashboard_raises_transient_model_error_on_current_cycle_failure(tmp_path):

@@ -27,7 +27,7 @@ from orum.llm.journal import JsonlJournal
 from orum.llm.learning import LearningProcessor
 from orum.llm.lessons import LessonBook, MarketCase
 from orum.llm.news import GdeltNewsProvider
-from orum.llm.openrouter import OpenRouterClient, OpenRouterConfigError
+from orum.llm.openrouter import NvidiaClient, OpenRouterConfigError
 from orum.llm.outcomes import OutcomeEvaluator
 from orum.llm.paper_runtime import PaperLaneExecutor
 from orum.llm.paper_simulator import LlmPaperSimulator
@@ -72,7 +72,13 @@ def _disabled(*args: object, **kwargs: object) -> Any:
     raise LlmRuntimeError("disabled LLM dependency was unexpectedly called")
 
 
-def load_llm_config(path: Path | None, mode_override: str | None) -> LlmTradingConfig:
+def load_llm_config(
+    path: Path | None,
+    mode_override: str | None,
+    provider_override: str | None = None,
+    model_override: str | None = None,
+    timeout_override: float | None = None,
+) -> LlmTradingConfig:
     raw: Mapping[str, object] = {}
     if path is not None:
         try:
@@ -92,6 +98,13 @@ def load_llm_config(path: Path | None, mode_override: str | None) -> LlmTradingC
     config = LlmTradingConfig.from_mapping(raw)
     if mode_override is not None:
         config = replace(config, mode=LlmMode(mode_override))
+    if provider_override is not None:
+        config = replace(config, provider=provider_override)
+    if model_override is not None:
+        config = replace(config, model=model_override)
+    if timeout_override is not None:
+        config = replace(config, request_timeout_seconds=timeout_override)
+    config._validate()
     return config
 
 
@@ -276,14 +289,18 @@ def build_runtime(config: LlmTradingConfig, api_key: str | None) -> LlmLabRuntim
         )
     if config.mode not in FOUNDATION_MODES:
         raise LlmRuntimeError(PAPER_MODE_ERROR)
-    if config.provider != "openrouter":
+    client_type: type[NvidiaClient]
+    if config.provider == "nvidia":
+        client_type = NvidiaClient
+    else:
         raise ConfigError(f"unsupported LLM provider: {config.provider!r}")
 
-    client = OpenRouterClient(
+    client = client_type(
         api_key=api_key,
         model=config.model,
         timeout_seconds=config.request_timeout_seconds,
         max_retries=config.max_parse_retries,
+        max_completion_tokens=config.max_completion_tokens,
     )
     brief_journal = JsonlJournal(LLM_MARKET_BRIEFS_PATH)
     lesson_book = LessonBook(JsonlJournal(LLM_LESSONS_PATH))
@@ -371,6 +388,13 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--mode", choices=[mode.value for mode in LlmMode])
     parser.add_argument("--once", action="store_true", help="run exactly one cycle")
     parser.add_argument("--config", type=Path, help="optional YAML configuration")
+    parser.add_argument("--provider", choices=("nvidia",))
+    parser.add_argument("--model", help="explicit provider model identifier")
+    parser.add_argument(
+        "--request-timeout-seconds",
+        type=float,
+        help="per-request remote LLM timeout",
+    )
     parser.add_argument(
         "--confirm-paper", action="store_true",
         help="explicitly authorize isolated paper-account mutation for this run",
@@ -415,7 +439,13 @@ def main(
         print("--once is required in foundation phase", file=sys.stderr)
         return 2
     try:
-        config = load_llm_config(args.config, args.mode)
+        config = load_llm_config(
+            args.config,
+            args.mode,
+            args.provider,
+            args.model,
+            args.request_timeout_seconds,
+        )
     except (ConfigError, ValueError) as exc:
         print(str(exc), file=sys.stderr)
         return 2
@@ -427,9 +457,10 @@ def main(
         return 2
 
     environment = os.environ if environ is None else environ
-    api_key = environment.get("OPENROUTER_API_KEY")
+    api_key_name = "NVIDIA_API_KEY" if config.provider == "nvidia" else "OPENROUTER_API_KEY"
+    api_key = environment.get(api_key_name)
     if config.mode in {LlmMode.OBSERVER, LlmMode.SHADOW, LlmMode.PAPER_AUTONOMOUS} and not api_key:
-        print("OPENROUTER_API_KEY is required for a remote LLM call", file=sys.stderr)
+        print(f"{api_key_name} is required for a remote LLM call", file=sys.stderr)
         return 2
     try:
         run_lock = _paper_run_lock() if config.mode is LlmMode.PAPER_AUTONOMOUS else nullcontext()

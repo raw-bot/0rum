@@ -39,7 +39,7 @@ last option so `/usr/bin/security` prompts instead of receiving the key on the
 command line:
 
 ```bash
-security add-generic-password -U -a "$USER" -s "0rum-openrouter" -l "0rum OpenRouter API key" -w
+security add-generic-password -U -a "$USER" -s "0rum-nvidia" -l "0rum NVIDIA API key" -w
 ```
 
 Install and operate the paper-only hourly agent with:
@@ -57,7 +57,7 @@ accounts, append-only journals or Keychain entry. If the credential itself must
 be removed, do so explicitly with:
 
 ```bash
-security delete-generic-password -a "$USER" -s "0rum-openrouter"
+security delete-generic-password -a "$USER" -s "0rum-nvidia"
 ```
 
 Never paste the key into a shell command, YAML file, plist, source file,
@@ -71,16 +71,18 @@ unreliable.
 
 ## Model and configuration
 
-The installed model is `deepseek/deepseek-v4-pro` through OpenRouter strict
-structured output. Provider fallback and silent model substitution are
-disabled. The low-level provider still receives `OPENROUTER_API_KEY` inside an
-in-memory environment mapping; the LaunchAgent plist never contains it.
+The installed model is `nvidia/nemotron-3-ultra-550b-a55b`, called directly
+against NVIDIA — not OpenRouter, since 2026-07-25, because OpenRouter kept
+returning HTTP 402/404 for this model. Provider fallback and silent model
+substitution are disabled. The low-level provider receives `NVIDIA_API_KEY`
+inside an in-memory environment mapping, read from the `0rum-nvidia` Keychain
+entry; the LaunchAgent plist never contains it.
 
 ```yaml
 llm_trading:
   mode: off
-  provider: openrouter
-  model: deepseek/deepseek-v4-pro
+  provider: nvidia
+  model: nvidia/nemotron-3-ultra-550b-a55b
   analyst_interval_minutes: 60
   decision_timeframe: 15m
   request_timeout_seconds: 60
@@ -103,7 +105,7 @@ uv run python scripts/run_llm_lab.py \
 ```
 
 The CLI mode overrides the YAML mode. A direct remote invocation requires an
-in-memory `OPENROUTER_API_KEY`; `off` returns before provider construction or
+in-memory `NVIDIA_API_KEY`; `off` returns before provider construction or
 state I/O.
 
 ## What the model decides
@@ -237,7 +239,7 @@ export 0RUM_STATE_DIR="$(mktemp -d)"
 
 Replay validates unique chronological candles, aligns each decision to an
 eligible candle close, and derives outcomes only after the fill loop. It never calls
-OpenRouter, GDELT, Binance or current news:
+NVIDIA, OpenRouter, GDELT, Binance or current news:
 
 ```bash
 uv run python scripts/replay_llm_lab.py --pretty

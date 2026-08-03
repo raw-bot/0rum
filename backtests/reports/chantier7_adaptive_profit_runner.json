@@ -1,0 +1,40 @@
+{
+  "run_id": "adaptive_profit_runner_20260723",
+  "window": {"start": "2024-01-01", "end": "2026-07-15"},
+  "validation_scope": "in_sample_exploration_forward_paper_from_2026-07-23",
+  "hashes": {
+    "market_data": "d5efff8d2d9461ad1f1ab189b01b0bdfa65cf3d3f1e72a36e3ebdcc3a4893571",
+    "portfolio_config_file": "9f8885d69e9756d991607b77af7a3e4e770966e05cea684fa80b2a3309084804",
+    "portfolio_config_normalized": "6954d3f718ef23e990a9a354ea2c103e7e17e3da0855c6ac29b61f45387a53f8",
+    "cot_csv": "b50a265d49d4a8db17e12740178bb12488bdca2d194d8ba3ba653a48920989e3"
+  },
+  "ak": {
+    "static_equity": 13801.3823,
+    "defensive_equity": 15110.3271,
+    "runner_equity": 15636.4152,
+    "runner_vs_defensive_delta": 526.0881,
+    "runner_max_dd_pct": 19.081045,
+    "target_extensions": 23,
+    "max_active_target_r": 6.271757
+  },
+  "operational_ak_ut": {
+    "static_equity": 35200.3331,
+    "defensive_equity": 42128.6650,
+    "runner_equity": 43067.0071,
+    "runner_vs_static_delta": 7866.6740,
+    "runner_vs_defensive_delta": 938.3421,
+    "static_max_dd_pct": 40.479616,
+    "runner_max_dd_pct": 40.479616
+  },
+  "ha": {
+    "static_equity": 11970.2045,
+    "defensive_equity": 12241.8556,
+    "runner_equity": 12266.4348,
+    "target_extensions": 31,
+    "max_active_target_r": 4.140973
+  },
+  "five_sleeve_interaction": {
+    "native_equity": 46937.1447,
+    "selected_runner_equity": 46372.6813
+  }
+}

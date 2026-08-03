@@ -336,8 +336,6 @@ class ProposedDecision:
         if order_type not in {"market", "limit"}:
             raise ContractError("order_type must be market or limit")
         limit_price = _optional_number(value.get("limit_price"), "limit_price", minimum=0)
-        if order_type == "limit" and (limit_price is None or limit_price == 0):
-            raise ContractError("limit_price is required for a limit order")
 
         equity_fraction = _number(value.get("equity_fraction"), "equity_fraction", minimum=0)
         requested_leverage = _number(value.get("requested_leverage"), "requested_leverage", minimum=0)
@@ -362,6 +360,12 @@ class ProposedDecision:
         if action == "hold":
             if equity_fraction != 0 or requested_leverage != 0 or stop_loss is not None or targets:
                 raise ContractError("hold must not contain size, leverage, stop_loss, or take_profits")
+            # A hold does not place an order.  Models sometimes describe a
+            # future limit idea in the memo and leak `order_type=limit` into
+            # the structured decision; canonicalize that inert metadata rather
+            # than discarding a valid no-trade decision.
+            order_type = "market"
+            limit_price = None
         elif action in {"open_long", "open_short", "add"}:
             if equity_fraction <= 0:
                 raise ContractError("equity_fraction must be positive for an entry")
@@ -369,6 +373,8 @@ class ProposedDecision:
                 raise ContractError("requested_leverage must be positive for an entry")
             if stop_loss is None or stop_loss == 0 or not targets:
                 raise ContractError("entry requires stop_loss and take_profits")
+        if action != "hold" and order_type == "limit" and (limit_price is None or limit_price == 0):
+            raise ContractError("limit_price is required for a limit order")
         if action == "open_long" and any(stop_loss >= target.price for target in targets):
             raise ContractError("open_long geometry requires stop_loss below every target")
         if action == "open_short" and any(stop_loss <= target.price for target in targets):

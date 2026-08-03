@@ -14,6 +14,7 @@ import jsonschema
 
 
 OPENROUTER_CHAT_COMPLETIONS_URL = "https://openrouter.ai/api/v1/chat/completions"
+NVIDIA_CHAT_COMPLETIONS_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 
 
 class OpenRouterError(RuntimeError):
@@ -55,6 +56,9 @@ class OpenRouterClient:
     https://openrouter.ai/docs/guides/features/structured-outputs
     """
 
+    provider_label = "OpenRouter"
+    credential_name = "OPENROUTER_API_KEY"
+
     def __init__(
         self,
         *,
@@ -62,33 +66,48 @@ class OpenRouterClient:
         model: str,
         timeout_seconds: float = 60.0,
         max_retries: int = 1,
+        max_completion_tokens: int = 4096,
         http_client: httpx.Client | None = None,
         sleeper: Callable[[float], None] = time.sleep,
     ) -> None:
         if not isinstance(api_key, str) or not api_key.strip():
-            raise OpenRouterConfigError("OPENROUTER_API_KEY is required for a remote LLM call")
+            raise OpenRouterConfigError(
+                f"{self.credential_name} is required for a remote LLM call"
+            )
         if not isinstance(model, str) or not model.strip():
-            raise OpenRouterConfigError("OpenRouter model must be non-empty")
+            raise OpenRouterConfigError(f"{self.provider_label} model must be non-empty")
         if (
             isinstance(timeout_seconds, bool)
             or not isinstance(timeout_seconds, (int, float))
             or not math.isfinite(timeout_seconds)
             or timeout_seconds <= 0
         ):
-            raise OpenRouterConfigError("OpenRouter timeout_seconds must be positive")
+            raise OpenRouterConfigError(f"{self.provider_label} timeout_seconds must be positive")
         if isinstance(max_retries, bool) or not isinstance(max_retries, int) or max_retries < 0:
-            raise OpenRouterConfigError("OpenRouter max_retries must be a non-negative integer")
+            raise OpenRouterConfigError(
+                f"{self.provider_label} max_retries must be a non-negative integer"
+            )
+        if (
+            isinstance(max_completion_tokens, bool)
+            or not isinstance(max_completion_tokens, int)
+            or max_completion_tokens <= 0
+        ):
+            raise OpenRouterConfigError(
+                f"{self.provider_label} max_completion_tokens must be a positive integer"
+            )
         self._api_key = api_key.strip()
         self.model = model.strip()
         self.timeout_seconds = float(timeout_seconds)
         self.max_retries = max_retries
+        self.max_completion_tokens = max_completion_tokens
         self._http_client = http_client or httpx.Client()
         self._sleeper = sleeper
 
     def __repr__(self) -> str:
         return (
-            f"OpenRouterClient(model={self.model!r}, "
-            f"timeout_seconds={self.timeout_seconds!r}, max_retries={self.max_retries!r})"
+            f"{type(self).__name__}(model={self.model!r}, "
+            f"timeout_seconds={self.timeout_seconds!r}, max_retries={self.max_retries!r}, "
+            f"max_completion_tokens={self.max_completion_tokens!r})"
         )
 
     def complete_json(
@@ -99,14 +118,9 @@ class OpenRouterClient:
         schema: dict[str, Any],
         schema_name: str,
     ) -> CompletionResult:
-        if not isinstance(system, str) or not system.strip():
-            raise OpenRouterConfigError("system prompt must be non-empty")
-        if not isinstance(user, str) or not user.strip():
-            raise OpenRouterConfigError("user prompt must be non-empty")
-        if not isinstance(schema, dict):
-            raise OpenRouterConfigError("schema must be an object")
-        if not isinstance(schema_name, str) or not schema_name.strip():
-            raise OpenRouterConfigError("schema_name must be non-empty")
+        self._validate_request(
+            system=system, user=user, schema=schema, schema_name=schema_name
+        )
 
         body = {
             "model": self.model,
@@ -130,6 +144,10 @@ class OpenRouterClient:
                 },
             },
             "stream": False,
+            # The current Nemotron route only advertises the OpenAI-compatible
+            # key.  `max_completion_tokens` is rejected when strict provider
+            # parameter matching is enabled, whereas `max_tokens` is accepted.
+            "max_tokens": self.max_completion_tokens,
         }
         headers = {
             "Authorization": f"Bearer {self._api_key}",
@@ -150,14 +168,14 @@ class OpenRouterClient:
                 )
             except httpx.TransportError as exc:
                 last_error = OpenRouterResponseError(
-                    f"OpenRouter transport failure: {type(exc).__name__}"
+                    f"{self.provider_label} transport failure: {type(exc).__name__}"
                 )
                 retryable = True
             else:
                 if response.status_code >= 400:
                     message = self._safe_error_message(response)
                     last_error = OpenRouterResponseError(
-                        f"OpenRouter HTTP {response.status_code}: {message}"
+                        f"{self.provider_label} HTTP {response.status_code}: {message}"
                     )
                     retryable = response.status_code == 429 or response.status_code >= 500
                 else:
@@ -169,14 +187,33 @@ class OpenRouterClient:
                         )
                     except OpenRouterResponseError as exc:
                         last_error = exc
-                        retryable = not str(exc).startswith("OpenRouter model mismatch")
+                        retryable = not str(exc).startswith(
+                            f"{self.provider_label} model mismatch"
+                        )
 
             if not retryable or attempt >= self.max_retries:
                 assert last_error is not None
                 raise last_error
             self._sleeper(self._retry_delay(response, attempt))
 
-        raise OpenRouterResponseError("OpenRouter retry loop ended unexpectedly")
+        raise OpenRouterResponseError(f"{self.provider_label} retry loop ended unexpectedly")
+
+    @staticmethod
+    def _validate_request(
+        *,
+        system: str,
+        user: str,
+        schema: dict[str, Any],
+        schema_name: str,
+    ) -> None:
+        if not isinstance(system, str) or not system.strip():
+            raise OpenRouterConfigError("system prompt must be non-empty")
+        if not isinstance(user, str) or not user.strip():
+            raise OpenRouterConfigError("user prompt must be non-empty")
+        if not isinstance(schema, dict):
+            raise OpenRouterConfigError("schema must be an object")
+        if not isinstance(schema_name, str) or not schema_name.strip():
+            raise OpenRouterConfigError("schema_name must be non-empty")
 
     def _decode_result(
         self,
@@ -188,34 +225,52 @@ class OpenRouterClient:
         try:
             envelope = response.json()
         except (json.JSONDecodeError, ValueError) as exc:
-            raise OpenRouterResponseError("OpenRouter returned a non-JSON envelope") from exc
+            raise OpenRouterResponseError(
+                f"{self.provider_label} returned a non-JSON envelope"
+            ) from exc
         if not isinstance(envelope, Mapping):
-            raise OpenRouterResponseError("OpenRouter returned a non-object envelope")
+            raise OpenRouterResponseError(f"{self.provider_label} returned a non-object envelope")
         if envelope.get("error"):
-            raise OpenRouterResponseError("OpenRouter returned an in-band provider error")
+            raise OpenRouterResponseError(
+                f"{self.provider_label} returned an in-band provider error"
+            )
 
         actual_model = envelope.get("model")
         if actual_model != self.model:
             raise OpenRouterResponseError(
-                f"OpenRouter model mismatch: requested {self.model!r}, received {actual_model!r}"
+                f"{self.provider_label} model mismatch: requested {self.model!r}, "
+                f"received {actual_model!r}"
             )
         try:
             content = envelope["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
-            raise OpenRouterResponseError("OpenRouter response has no assistant content") from exc
+            raise OpenRouterResponseError(
+                f"{self.provider_label} response has no assistant content"
+            ) from exc
         if not isinstance(content, str) or not content.strip():
-            raise OpenRouterResponseError("OpenRouter returned empty assistant content")
+            raise OpenRouterResponseError(
+                f"{self.provider_label} returned empty assistant content"
+            )
         try:
             payload = json.loads(content)
         except json.JSONDecodeError as exc:
-            raise OpenRouterResponseError("OpenRouter assistant content is not valid JSON") from exc
+            raise OpenRouterResponseError(
+                f"{self.provider_label} assistant content is not valid JSON"
+            ) from exc
+        # Nemotron occasionally wraps its otherwise structured response in a
+        # one-item JSON array.  Unwrap only that unambiguous transport quirk;
+        # the exact object is still validated against the requested schema.
+        if isinstance(payload, list) and len(payload) == 1:
+            payload = payload[0]
         if not isinstance(payload, dict):
-            raise OpenRouterResponseError("OpenRouter assistant content must be a JSON object")
+            raise OpenRouterResponseError(
+                f"{self.provider_label} assistant content must be a JSON object"
+            )
         try:
             jsonschema.validate(instance=payload, schema=schema)
         except jsonschema.ValidationError as exc:
             raise OpenRouterResponseError(
-                f"OpenRouter assistant content failed schema validation: {exc.message}"
+                f"{self.provider_label} assistant content failed schema validation: {exc.message}"
             ) from exc
 
         usage = envelope.get("usage")
@@ -253,3 +308,101 @@ class OpenRouterClient:
                     if 0 <= delay <= 60:
                         return delay
         return min(0.25 * (2**attempt), 5.0)
+
+
+class NvidiaClient(OpenRouterClient):
+    """Direct NVIDIA NIM adapter for the pinned Nemotron paper model.
+
+    NVIDIA supports JSON mode, while the caller remains responsible for the
+    schema validation performed by :class:`OpenRouterClient`.
+    """
+
+    provider_label = "NVIDIA"
+    credential_name = "NVIDIA_API_KEY"
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+
+    def complete_json(
+        self,
+        *,
+        system: str,
+        user: str,
+        schema: dict[str, Any],
+        schema_name: str,
+    ) -> CompletionResult:
+        self._validate_request(
+            system=system, user=user, schema=schema, schema_name=schema_name
+        )
+
+        structured_system = (
+            f"{system}\n\n"
+            "Réponds exclusivement par un seul objet JSON, sans Markdown ni texte "
+            "hors JSON. Tous les champs requis du contrat suivant doivent être "
+            "présents et respecter exactement leurs types et contraintes :\n"
+            f"{json.dumps(schema, ensure_ascii=False, sort_keys=True, separators=(',', ':'))}"
+        )
+
+        body = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": structured_system},
+                {"role": "user", "content": user},
+            ],
+            "response_format": {"type": "json_object"},
+            # The dashboard/journals need a validated decision object, not the
+            # model's private reasoning stream.  The Mephul interactive agent
+            # can keep thinking enabled independently.
+            "chat_template_kwargs": {"enable_thinking": False},
+            "stream": False,
+            "temperature": 0,
+            "max_tokens": self.max_completion_tokens,
+        }
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+        }
+        started = time.perf_counter()
+        last_error: OpenRouterResponseError | None = None
+
+        for attempt in range(self.max_retries + 1):
+            response: httpx.Response | None = None
+            retryable = False
+            try:
+                response = self._http_client.post(
+                    NVIDIA_CHAT_COMPLETIONS_URL,
+                    headers=headers,
+                    json=body,
+                    timeout=self.timeout_seconds,
+                )
+            except httpx.TransportError as exc:
+                last_error = OpenRouterResponseError(
+                    f"{self.provider_label} transport failure: {type(exc).__name__}"
+                )
+                retryable = True
+            else:
+                if response.status_code >= 400:
+                    message = self._safe_error_message(response)
+                    last_error = OpenRouterResponseError(
+                        f"{self.provider_label} HTTP {response.status_code}: {message}"
+                    )
+                    retryable = response.status_code == 429 or response.status_code >= 500
+                else:
+                    try:
+                        return self._decode_result(
+                            response=response,
+                            schema=schema,
+                            latency_ms=(time.perf_counter() - started) * 1000,
+                        )
+                    except OpenRouterResponseError as exc:
+                        last_error = exc
+                        retryable = not str(exc).startswith(
+                            f"{self.provider_label} model mismatch"
+                        )
+
+            if not retryable or attempt >= self.max_retries:
+                assert last_error is not None
+                raise last_error
+            self._sleeper(self._retry_delay(response, attempt))
+
+        raise OpenRouterResponseError(f"{self.provider_label} retry loop ended unexpectedly")

@@ -4,6 +4,7 @@ SL-first collisions, and non-self-referential indicator checks."""
 
 import json
 import math
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from scripts.replay_harness.single_replay import (
     generate_candidates,
     run_replay,
 )
+from scripts.replay_harness.reprice import load_trades, reprice
 from scripts.replay_harness.timeline import (
     INTERVAL_MS,
     SnapshotProvider,
@@ -88,6 +90,82 @@ class TimelineTests(unittest.TestCase):
         self.assertEqual(ts["decision_available_time"], T0 + H4)
         self.assertGreaterEqual(ts["cycle_observed_time"], ts["decision_available_time"])
         self.assertEqual(ts["cycle_observed_time"] % 900_000, 0)
+
+    def test_reprice_pairs_tranches_by_position_id(self):
+        fills = [
+            {"ts": "2026-01-01T00:00:00+00:00", "strategy_id": "ut",
+             "position_id": "ut", "action": "open", "price": 100.0,
+             "stop_loss_price": 90.0, "take_profit_price": None,
+             "atr_risk": 5.0, "risk_distance": 10.0, "risk_pct": 0.02},
+            {"ts": "2026-01-01T00:15:00+00:00", "strategy_id": "ut",
+             "position_id": "ut::t2", "action": "open", "price": 110.0,
+             "stop_loss_price": 90.0, "take_profit_price": None,
+             "atr_risk": 6.0, "risk_distance": 20.0, "risk_pct": 0.01},
+            {"ts": "2026-01-01T01:00:00+00:00", "strategy_id": "ut",
+             "position_id": "ut", "action": "close", "price": 120.0,
+             "reason": "signal"},
+            {"ts": "2026-01-01T01:00:00+00:00", "strategy_id": "ut",
+             "position_id": "ut::t2", "action": "close", "price": 120.0,
+             "reason": "signal"},
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = Path(tmp)
+            (ledger / "fills.jsonl").write_text(
+                "\n".join(json.dumps(fill) for fill in fills) + "\n"
+            )
+            trades = load_trades(ledger)
+
+        self.assertEqual({trade["position_id"] for trade in trades}, {"ut", "ut::t2"})
+        self.assertEqual({trade["sid"] for trade in trades}, {"ut"})
+        self.assertEqual({trade["risk_distance"] for trade in trades}, {10.0, 20.0})
+
+    def test_reprice_preserves_legacy_atr_sizing(self):
+        provider = SnapshotProvider()
+        provider.series[("BTC/USDT", "15m")] = [
+            {"ts": T0, "open": 100.0, "high": 100.0, "low": 100.0,
+             "close": 100.0, "volume": 1.0},
+            {"ts": T0 + M15, "open": 110.0, "high": 110.0, "low": 110.0,
+             "close": 110.0, "volume": 1.0},
+        ]
+        trades = [{
+            "sid": "ut", "position_id": "ut", "open_ts": T0,
+            "legacy_entry": 100.0, "stop": None, "tp": None,
+            "atr_risk": 10.0, "risk_distance": 20.0, "risk_pct": 0.02,
+            "close_ts": T0 + M15, "close_reason": "signal",
+            "legacy_exit": 110.0,
+        }]
+
+        result = reprice(
+            trades, provider, symbol="BTC/USDT", slippage_bps=0.0,
+            max_leverage=None, starting_balance=10_000.0,
+        )
+
+        self.assertEqual(result["n_trades"], 1)
+        self.assertAlmostEqual(result["net_return_pct"], 1.98, places=2)
+
+    def test_reprice_short_uses_directional_slippage_pnl_and_mark_to_market(self):
+        provider = SnapshotProvider()
+        provider.series[("BTC/USDT", "15m")] = [
+            {"ts": T0, "open": 100.0, "high": 101.0, "low": 99.0,
+             "close": 100.0, "volume": 1.0},
+            {"ts": T0 + M15, "open": 90.0, "high": 91.0, "low": 89.0,
+             "close": 90.0, "volume": 1.0},
+        ]
+        trades = [{
+            "sid": "ak", "position_id": "ak", "side": "short", "open_ts": T0,
+            "legacy_entry": 100.0, "stop": 110.0, "tp": 80.0,
+            "atr_risk": 10.0, "risk_distance": 10.0, "risk_pct": 0.02,
+            "close_ts": T0 + M15, "close_reason": "signal",
+            "legacy_exit": 90.0,
+        }]
+
+        result = reprice(
+            trades, provider, symbol="BTC/USDT", slippage_bps=0.0,
+            max_leverage=None, starting_balance=10_000.0,
+        )
+
+        self.assertEqual(result["n_trades"], 1)
+        self.assertAlmostEqual(result["net_return_pct"], 1.98, places=2)
 
     def test_cycle_grid(self):
         grid = cycle_times(T0 + 1, T0 + 3_600_000)
@@ -198,21 +276,6 @@ class ReplayTests(unittest.TestCase):
             self.assertAlmostEqual(accepted[0]["sizing_basis"], basis, places=9, msg=sizing)
             self.assertAlmostEqual(accepted[0]["qty"],
                                    cfg.risk_pct * cfg.starting_balance / basis, places=9)
-
-
-class ForecastMemoTests(unittest.TestCase):
-    def test_cache_key_distinguishes_aligned_series(self):
-        """Two assets share length and timestamps (same hour grid, same
-        history cap) — the memo must key on content, not shape."""
-        from scripts.replay_harness.runtime_replay import _memoized_forecast
-        calls = []
-        wrapped = _memoized_forecast(lambda candles, **kw: calls.append(1) or len(calls))
-        btc = [{"ts": T0 + i * 3_600_000, "close": 60_000.0 + i} for i in range(900)]
-        eth = [{"ts": T0 + i * 3_600_000, "close": 3_000.0 + i} for i in range(900)]
-        self.assertEqual(wrapped(btc), 1)
-        self.assertEqual(wrapped(eth), 2, "aligned ETH series must not reuse BTC's result")
-        self.assertEqual(wrapped(btc), 1, "identical window must still hit the cache")
-        self.assertEqual(len(calls), 2)
 
 
 class IndicatorCrossChecks(unittest.TestCase):

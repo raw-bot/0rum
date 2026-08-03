@@ -71,6 +71,96 @@ def donchian_state(bars):
             last, hi20, lo10)
 
 
+def _ema_series(xs, n):
+    a = 2 / (n + 1)
+    out = [xs[0]]
+    for x in xs[1:]:
+        out.append(a * x + (1 - a) * out[-1])
+    return out
+
+
+def _rma_series(xs, n):
+    a = 1 / n
+    out = [xs[0]]
+    for x in xs[1:]:
+        out.append(a * x + (1 - a) * out[-1])
+    return out
+
+
+def _adx14(h, l, c):
+    n = len(c)
+    tr, pdm, mdm = [h[0] - l[0]], [0.0], [0.0]
+    for i in range(1, n):
+        up, dn = h[i] - h[i - 1], l[i - 1] - l[i]
+        pdm.append(up if (up > dn and up > 0) else 0.0)
+        mdm.append(dn if (dn > up and dn > 0) else 0.0)
+        tr.append(max(h[i] - l[i], abs(h[i] - c[i - 1]), abs(l[i] - c[i - 1])))
+    tr_r, p_r, m_r = _rma_series(tr, 14), _rma_series(pdm, 14), _rma_series(mdm, 14)
+    pdi = [100 * p_r[i] / tr_r[i] if tr_r[i] else 0.0 for i in range(n)]
+    mdi = [100 * m_r[i] / tr_r[i] if tr_r[i] else 0.0 for i in range(n)]
+    dx = [100 * abs(pdi[i] - mdi[i]) / (pdi[i] + mdi[i]) if (pdi[i] + mdi[i]) else 0.0 for i in range(n)]
+    return _rma_series(dx, 14)
+
+
+EMA_CROSS_ADX_TH = 20.0
+EMA_CROSS_CONFIRM = 3   # entry needs EMA9>EMA21 held for 3 consecutive closed hours
+EMA_CROSS_SWING = 8     # stop = min(EMA21, lowest low of the last 8h), frozen at entry
+
+
+def ema_cross_state(bars, position):
+    """EMA9/EMA21 crossover on hourly bars, long-only. Validated 2026-07-28
+    against ETH/USDT: raw crossovers alone lose money (win rate ~27%,
+    PF<1 over a year) -- this needs BOTH a confirmed, trend-strength-gated
+    entry AND a frozen stop, or it just whipsaws in chop.
+
+    Entry : EMA9 has closed above EMA21 for EMA_CROSS_CONFIRM consecutive
+            hours (not just this one -- kills same-hour flip-flops like the
+            13/14/15 cluster from the 09-28/07 study) AND ADX(14) > 20 (kills
+            the low-trend-strength false starts).
+    Exit  : the frozen stop (set once at entry, never moved) is touched, OR
+            EMA9 closes back below EMA21 -- acted on IMMEDIATELY, no
+            confirmation delay (waiting on the exit side only bleeds
+            profit/lets losses run, confirmed on the 25-27/07 ETH trade).
+    No fixed take-profit: letting a confirmed reverse cross be the exit
+    signal is what lets a winner ride through chop instead of capping it
+    at an arbitrary R-multiple.
+
+    `bars` ascending, last bar may still be forming -> index -2 is the last
+    CLOSED candle, matching `donchian_state`'s own convention.
+    """
+    c = [b["close"] for b in bars]
+    h = [b["high"] for b in bars]
+    l = [b["low"] for b in bars]
+    ema9 = _ema_series(c, 9)
+    ema21 = _ema_series(c, 21)
+    adx = _adx14(h, l, c)
+    i = len(bars) - 2
+    price = c[i]
+    bar_ts = bars[i]["time"]  # the actual candle this decision is about -- NOT the poll
+    # wall-clock time, which can be up to ~59 min later and would otherwise
+    # mis-place the chart marker on a later candle than the one that triggered it.
+
+    if position and position.get("holding"):
+        stop = position["stop_loss_price"]
+        raw_down = ema9[i] < ema21[i] and ema9[i - 1] >= ema21[i - 1]
+        if l[i] <= stop:
+            return {"action": "exit", "price": stop, "reason": "stop", "bar_ts": bar_ts}
+        if raw_down:
+            return {"action": "exit", "price": price, "reason": "cross", "bar_ts": bar_ts}
+        return {"action": "hold", "price": price, "ema9": ema9[i], "ema21": ema21[i], "adx": adx[i], "bar_ts": bar_ts}
+
+    if i - EMA_CROSS_CONFIRM < 0:
+        return {"action": "flat", "price": price, "adx": adx[i], "bar_ts": bar_ts}
+    held = all(ema9[i - k] > ema21[i - k] for k in range(EMA_CROSS_CONFIRM))
+    was_below = ema9[i - EMA_CROSS_CONFIRM] <= ema21[i - EMA_CROSS_CONFIRM]
+    if held and was_below and adx[i] > EMA_CROSS_ADX_TH:
+        recent_low = min(l[max(0, i - EMA_CROSS_SWING + 1):i + 1])
+        stop = min(ema21[i], recent_low)
+        if stop < price:
+            return {"action": "enter", "price": price, "stop_loss_price": stop, "adx": adx[i], "bar_ts": bar_ts}
+    return {"action": "flat", "price": price, "adx": adx[i], "bar_ts": bar_ts}
+
+
 def load_positions():
     if os.path.exists(STATE):
         with open(STATE) as f:
@@ -92,9 +182,12 @@ def log(rec):
 FEE_RT = 0.001
 
 
-def _enter(st, eng, px, sc, risk, atr_risk, extra):
-    st["pos"][eng] = {"holding": True, "entry_px": px * (1 + FEE_RT / 2),
-                      "risk_pct": risk, "atr_risk": atr_risk}
+def _enter(st, eng, px, sc, risk, atr_risk, extra, extra_state=None):
+    pos = {"holding": True, "entry_px": px * (1 + FEE_RT / 2),
+           "risk_pct": risk, "atr_risk": atr_risk}
+    if extra_state:
+        pos.update(extra_state)
+    st["pos"][eng] = pos
     rec = {"engine": eng, "action": "enter", "score": sc, "risk_pct": risk,
            "price": px, "equity": round(st["equity"], 4), "kill": KILL}
     rec.update(extra)
@@ -135,6 +228,28 @@ def poll_once():
         else:
             log({"engine": eng, "action": "flat", "price": px, "score": sc,
                  "hi20": hi, "dist_entry_pct": round(100 * (hi / px - 1), 2)})
+
+    for eng, sym in [("ema_cross_btc", "BTCUSDT"), ("ema_cross_eth", "ETHUSDT")]:
+        bars = fetch_klines(sym, "1h", 300, cache=False)
+        pos = st["pos"].get(eng)
+        holding = bool(pos and pos.get("holding"))
+        result = ema_cross_state(bars, pos if holding else None)
+        sc, _ = score_now(bars[:-1])
+        if result["action"] == "enter":
+            risk_distance = result["price"] - result["stop_loss_price"]
+            _enter(st, eng, result["price"], sc, KELLY_RISK, risk_distance,
+                   {"stop_loss_price": round(result["stop_loss_price"], 2),
+                    "adx": round(result.get("adx", 0), 1), "policy": POLICY,
+                    "bar_ts": result["bar_ts"]},
+                   extra_state={"stop_loss_price": result["stop_loss_price"]})
+        elif result["action"] == "exit" and holding:
+            _exit(st, eng, result["price"], {"reason": result["reason"], "bar_ts": result["bar_ts"]})
+        elif holding:
+            log({"engine": eng, "action": "hold", "price": result["price"], "score": sc,
+                 "ema9": round(result.get("ema9", 0), 2), "ema21": round(result.get("ema21", 0), 2)})
+        else:
+            log({"engine": eng, "action": "flat", "price": result["price"], "score": sc,
+                 "adx": round(result.get("adx", 0), 1)})
 
     cot = fetch_cot(range(2006, 2027), "GOLD - COMMODITY EXCHANGE")
     idx = cot_index([r["comm_net"] for r in cot], 156)

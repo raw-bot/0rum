@@ -8,6 +8,14 @@ Accepted
 
 2026-07-13
 
+> Update 2026-07-25: the live `paper_autonomous` cycle
+> (`orum/llm/paper_agent.py`) now calls NVIDIA directly (`NvidiaClient`,
+> Keychain entry `0rum-nvidia`, `NVIDIA_API_KEY`) instead of routing the
+> pinned model through OpenRouter — OpenRouter kept returning HTTP 402
+> (insufficient credits) and 404 (no endpoint) for this model. `nvidia` is
+> now the only supported provider (default and sole CLI choice); OpenRouter
+> can no longer be selected.
+
 ## Context
 
 The project originally intended to let an LLM participate directly in trading
@@ -30,8 +38,9 @@ Install five named laboratory modes. `off`, `observer`, `shadow` and
 per-invocation `--confirm-paper`. `paper_assisted` fails closed until the native
 strategy defines a tested field-ownership and merge contract.
 
-Pin `deepseek/deepseek-v4-pro` through OpenRouter strict structured outputs,
-with no silent model/provider fallback. Let the model propose direction,
+Pin `nvidia/nemotron-3-ultra-550b-a55b` with strict structured outputs and no
+silent model/provider fallback (originally routed through OpenRouter; see the
+2026-07-25 note above). Let the model propose direction,
 equity fraction, leverage, order intent, stop, targets, trailing/time exit and
 French rationale. Validate response schema, provenance and mechanics locally.
 Market actions can reach only an isolated simulator; limit intents are visibly

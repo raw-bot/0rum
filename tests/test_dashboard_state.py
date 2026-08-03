@@ -147,7 +147,7 @@ class DashboardStateTests(unittest.TestCase):
     def test_snapshot_flags_stale_paper_engine(self):
         # The worker card now reflects the paper engine's freshness
         # (paper_equity.jsonl), not the retired mono-asset heartbeat. A cycle
-        # from 2026-06-01 is far past the 2h budget -> presumed down.
+        # from 2026-06-01 is far past the 45-minute budget -> presumed down.
         import tempfile
         from unittest.mock import patch as _patch
 
@@ -163,7 +163,7 @@ class DashboardStateTests(unittest.TestCase):
 
         self.assertTrue(snapshot["worker"]["stale"])
         self.assertFalse(snapshot["worker"]["running"])
-        self.assertGreater(snapshot["worker"]["heartbeat_age_seconds"], 7200)
+        self.assertGreater(snapshot["worker"]["heartbeat_age_seconds"], 2700)
 
     def test_unified_position_exit_metadata_and_legacy_history_stay_separate(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -199,3 +199,43 @@ class DashboardStateTests(unittest.TestCase):
         self.assertEqual(snapshot["legacy_audit"]["net_pnl_usd_7d"], 10.0)
         self.assertFalse(snapshot["legacy_audit"]["authoritative"])
         self.assertTrue(snapshot["legacy_audit"]["process_running"])
+
+    def test_paper_state_groups_tranches_by_stable_strategy_and_actual_risk(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state = Path(tmp)
+            (state / "paper_positions.json").write_text(json.dumps({
+                "balance_usd": 10_000.0,
+                "positions": {
+                    "btc_utbot_m15_h1": {
+                        "strategy_id": "btc_utbot_m15_h1",
+                        "position_id": "btc_utbot_m15_h1",
+                        "symbol": "BTC/USDT", "side": "long", "qty": 1.0,
+                        "entry_px": 100.0, "notional_usd": 100.0,
+                        "risk_pct": 0.02, "atr_risk": 4.0,
+                        "risk_distance": 10.0, "stop_loss_price": 90.0,
+                    },
+                    "btc_utbot_m15_h1::t2": {
+                        "strategy_id": "btc_utbot_m15_h1",
+                        "position_id": "btc_utbot_m15_h1::t2",
+                        "symbol": "BTC/USDT", "side": "long", "qty": 2.0,
+                        "entry_px": 110.0, "notional_usd": 220.0,
+                        "risk_pct": 0.01, "atr_risk": 5.0,
+                        "risk_distance": 20.0, "stop_loss_price": 90.0,
+                    },
+                },
+            }))
+            with patch.object(dashboard, "STATE_DIR", state):
+                paper = dashboard._paper_state({"starting_balance_usd": 10_000.0})
+
+        self.assertEqual(paper["open_count"], 2)
+        self.assertEqual(len(paper["open_positions"]), 1)
+        position = paper["open_positions"][0]
+        self.assertEqual(position["strategy_id"], "btc_utbot_m15_h1")
+        self.assertEqual(position["tranche_count"], 2)
+        self.assertEqual(position["notional_usd"], 320.0)
+        self.assertEqual(position["stop_risk_usd"], 50.0)
+        self.assertAlmostEqual(position["entry_px"], 320.0 / 3.0)
+        self.assertEqual(
+            {tranche["position_id"] for tranche in position["tranches"]},
+            {"btc_utbot_m15_h1", "btc_utbot_m15_h1::t2"},
+        )

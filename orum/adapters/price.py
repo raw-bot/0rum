@@ -8,10 +8,10 @@ from orum.dsl import CANDLE_BUFFER
 
 _KLINES_URL = "https://api.binance.com/api/v3/klines"
 
-# Cache for the dedicated 15m window (see recent_15m_candles).
-_tf15_lock = threading.Lock()
-_tf15_cache: dict = {"ts": 0.0, "candles": [], "asset": None}
-_TF15_TTL_SECONDS = 60.0
+# Cache for the dedicated timeframe window (see recent_closed_candles).
+_tf_lock = threading.Lock()
+_tf_cache: dict = {"ts": 0.0, "candles": [], "asset": None, "interval": None}
+_TF_TTL_SECONDS = 60.0
 
 
 def _binance_symbol(asset: str) -> str:
@@ -57,23 +57,23 @@ def _candles_from_klines(rows: list) -> list[dict]:
     ]
 
 
-def recent_15m_candles(asset: str = "BTC/USDT", *, limit: int = 120) -> list[dict]:
-    """Cached Binance 15m CLOSED klines for indicators that need the 15m timeframe.
+def recent_closed_candles(asset: str = "BTC/USDT", interval: str = "15m", *, limit: int = 120) -> list[dict]:
+    """Cached Binance CLOSED klines for indicators that need a specific timeframe.
 
     The worker's own market feed is 1m and only CANDLE_BUFFER bars deep
-    (~13 fifteen-minute bars) — far too short for an EMA30 on 15m. The SSL trail
-    needs the SAME 15m baseline the chart and the signal brain use, so it pulls a
-    dedicated 15m window here. The in-progress (forming) bar is DROPPED — like the
+    — far too short for indicators operating on larger timeframes. The SSL trail
+    needs the SAME baseline the chart and the signal brain use, so it pulls a
+    dedicated window here. The in-progress (forming) bar is DROPPED — like the
     producer — so the band and the "red line" only ever reflect CLOSED bars, never
-    a mid-bar 1m flicker. Cached for _TF15_TTL_SECONDS (the loop polls every ~60s).
+    a mid-bar 1m flicker. Cached for _TF_TTL_SECONDS (the loop polls every ~60s).
     Returns [] on any failure, so the caller SKIPS the trail rather than computing
     the band on the wrong (1m) timeframe."""
     now = time.time()
-    with _tf15_lock:
-        cache = _tf15_cache
-        if cache["candles"] and cache["asset"] == asset and (now - cache["ts"]) < _TF15_TTL_SECONDS:
+    with _tf_lock:
+        cache = _tf_cache
+        if cache["candles"] and cache["asset"] == asset and cache["interval"] == interval and (now - cache["ts"]) < _TF_TTL_SECONDS:
             return cache["candles"]
-    params = {"symbol": _binance_symbol(asset), "interval": "15m", "limit": limit}
+    params = {"symbol": _binance_symbol(asset), "interval": interval, "limit": limit}
     try:
         with httpx.Client(timeout=8) as client:
             response = client.get(_KLINES_URL, params=params)
@@ -82,8 +82,8 @@ def recent_15m_candles(asset: str = "BTC/USDT", *, limit: int = 120) -> list[dic
     except (httpx.HTTPError, OSError, ValueError):
         return []
     if candles:
-        with _tf15_lock:
-            _tf15_cache.update(ts=now, candles=candles, asset=asset)
+        with _tf_lock:
+            _tf_cache.update(ts=now, candles=candles, asset=asset, interval=interval)
     return candles
 
 

@@ -31,9 +31,6 @@ COT_GATE_PATH = STATE_DIR / "cot_gate.json"
 PAPER_FILLS_PATH = STATE_DIR / "paper_fills.jsonl"
 PAPER_POSITIONS_PATH = STATE_DIR / "paper_positions.json"
 PAPER_EQUITY_PATH = STATE_DIR / "paper_equity.jsonl"
-FORECAST_GATE_PATH = STATE_DIR / "forecast_gate.json"
-FORECAST_AUDIT_PATH = STATE_DIR / "forecast_audit.jsonl"
-FORECAST_HISTORY_PATH = STATE_DIR / "forecast_history.jsonl"
 
 # Append-only LLM laboratory journals. These remain under the same redirectable
 # state root so tests and ad-hoc experiments cannot write into live bot state.

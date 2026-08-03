@@ -1,0 +1,31 @@
+{
+  "run_id": "universal_dynamic_exit_final_20260722",
+  "window": {"start": "2024-01-01", "end": "2026-07-15"},
+  "validation_scope": "in_sample_exploration_forward_paper_from_2026-07-22",
+  "hashes": {
+    "market_data": "d5efff8d2d9461ad1f1ab189b01b0bdfa65cf3d3f1e72a36e3ebdcc3a4893571",
+    "portfolio_config_file": "da440f4221b81d3bb16ff1fae1d3a77ff93093ee590eeafe36790919b22c063d",
+    "portfolio_config_normalized": "780b0ac15c08567a139a45fd0563e951fefaebeed5df73bf1457d4952401d9a9",
+    "cot_csv": "b50a265d49d4a8db17e12740178bb12488bdca2d194d8ba3ba653a48920989e3"
+  },
+  "per_strategy": {
+    "btc_ak_macd_4h": {"baseline_equity": 13801.3823, "dynamic_equity": 15110.3271, "equity_delta": 1308.9448, "baseline_max_dd_pct": 22.222777, "dynamic_max_dd_pct": 18.312874, "dynamic_closes": 26},
+    "btc_utbot_m15_h1": {"baseline_equity": 37733.3059, "dynamic_equity": 14535.1040, "equity_delta": -23198.2019, "baseline_max_dd_pct": 33.275080, "dynamic_max_dd_pct": 37.646753, "dynamic_closes": 61},
+    "btc_ha_trend_4h": {"baseline_equity": 11970.2045, "dynamic_equity": 12241.8556, "equity_delta": 271.6511, "baseline_max_dd_pct": 24.869408, "dynamic_max_dd_pct": 13.178557, "dynamic_closes": 88},
+    "eth_donchian": {"baseline_equity": 11688.8848, "dynamic_equity": 11255.0992, "equity_delta": -433.7856, "baseline_max_dd_pct": 20.111906, "dynamic_max_dd_pct": 18.778231, "dynamic_closes": 33},
+    "gold_cot": {"baseline_equity": 15818.2739, "dynamic_equity": 15664.1343, "equity_delta": -154.1396, "baseline_max_dd_pct": 6.709429, "dynamic_max_dd_pct": 7.124304, "dynamic_closes": 1}
+  },
+  "operational_ak_ut": {
+    "baseline_equity": 35200.3331,
+    "selected_dynamic_equity": 42128.6650,
+    "equity_delta": 6928.3319,
+    "baseline_max_dd_pct": 40.479616,
+    "selected_dynamic_max_dd_pct": 40.479616,
+    "dynamic_closes": 26
+  },
+  "five_sleeve_interaction": {
+    "baseline_equity": 46937.1447,
+    "selected_ak_ha_equity": 46433.8937,
+    "all_dynamic_equity": 24037.3000
+  }
+}

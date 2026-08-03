@@ -222,7 +222,8 @@ class ExternalOrchestrator:
         # position ever being created.
         sizing = None
         if bracket is not None:
-            equity = compound_balance(history, self.goal)
+            # Use goal's starting balance to match native sizing. 
+            equity = float(self.goal.get("starting_balance_usd", 10000.0))
             risk_pct = risk_value(strategy, "position_size_r", 0.5) / 100.0
             sizing = bracket_sizing(
                 account_equity=equity, risk_pct=risk_pct,
@@ -253,7 +254,12 @@ class ExternalOrchestrator:
             regime=None,
             entry_summary=f"external {signal.event} from {signal.strategy}",
         )
-        position["external_signal_id"] = signal.dedup_hash()
+        # Override native signal_id with the external dedup hash
+        position["signal_id"] = signal.dedup_hash()
+        # Force correct direction from the external signal (overrides native strategy direction)
+        position["direction"] = "short" if signal.event == "SELL_CANDIDATE" else "long"
+        # Preserve original signal timeframe for downstream trailing stops
+        position["timeframe"] = signal.timeframe
         # Stamp the strategy's bar size so _held_candles counts external candles,
         # not 1m candles. The allowlist already vetted this timeframe.
         interval_ms = timeframe_to_ms(signal.timeframe)
@@ -263,7 +269,6 @@ class ExternalOrchestrator:
         if bracket is not None and sizing is not None:
             # Sizing (incl. any safety cap) was computed and accepted above.
             position.update({
-                "direction": bracket.direction,
                 "exit_mode": "bracket",
                 "entry_price": bracket.entry_price,
                 "stop_loss_price": bracket.stop_loss_price,

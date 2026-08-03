@@ -62,11 +62,14 @@ Intégrité : 0 trade skippé, repricing propre aux 4 niveaux. L'avantage
 persiste partout mais fond avec le slippage (les top-ups d'UTBot y sont les
 plus sensibles, cohérent avec sa fragilité connue).
 
-## Décisions à trancher (utilisateur — rien n'est appliqué en prod)
+## Décisions (mise à jour 2026-07-17)
 
-1. **Règle de ré-entrée** : `hold` (statu quo, désormais explicite) ou
-   `topup` (pyramidage borné par le budget de thèse : +50 pts legacy,
-   +15 à +43 pts en fills réalistes, +2,2-2,6 pts DD).
+1. **Règle de ré-entrée — TRANCHÉE par l'utilisateur : `topup`, harnais
+   seulement.** Le pyramidage borné par le budget de thèse est la politique
+   cible validée (mérite UTBot > AK, plancher 0), mais RIEN n'est porté en
+   prod : la prod reste sur le guichet actuel (pas de pyramidage), l'arbitre
+   reste un mode de replay. Toute promotion en prod resterait une décision
+   explicite ultérieure avec commit dédié.
 2. **Plancher de top-up** : les tranches poussière existent (min 0,40 $ de
    risque) mais ne coûtent rien en simulation : le plancher 0,25
    (`duo_arb_topup_f25`) fait MOINS bien que le topup pur sur rendement

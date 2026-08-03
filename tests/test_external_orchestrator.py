@@ -124,7 +124,7 @@ class ExecutionTests(OrchestratorTestBase):
         self.assertEqual(outcome.detail, "opened")
         self.assertIsNotNone(state.position)
         self.assertEqual(state.position["entry_price"], 100.0)
-        self.assertIn("external_signal_id", state.position)
+        self.assertIn("signal_id", state.position)
         self.assertIn("external_signal_executed", self.log.kinds())
 
     def test_opened_position_carries_strategy_candle_interval(self):

@@ -37,7 +37,7 @@ class TestSslBandHelpers(unittest.TestCase):
 
 
 def _feed(last_close=100.0):
-    """A 15m CLOSED-bar series (what price.recent_15m_candles returns): 39 flat
+    """A 15m CLOSED-bar series (what price.recent_closed_candles returns): 39 flat
     bars (EMA30=100, ATR14=2 -> band_lo=98) plus a last closed bar at `last_close`."""
     bars = [{"ts": i, "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1.0} for i in range(39)]
     bars.append({"ts": 39, "open": 100.0, "high": max(101.0, last_close),
@@ -47,7 +47,7 @@ def _feed(last_close=100.0):
 
 def _close(position, strategy, market, *, feed=None):
     """close_position_if_needed with the 15m feed stubbed (closed bars)."""
-    with patch("orum.adapters.price.recent_15m_candles", return_value=feed if feed is not None else _feed()):
+    with patch("orum.adapters.price.recent_closed_candles", return_value=feed if feed is not None else _feed()):
         return close_position_if_needed(position, strategy, market, rsi=None)
 # Default: invalidation on, ratchet OFF (the shipped config after the 1m-whipsaw fix).
 _TRAIL_STRATEGY = {
@@ -132,7 +132,7 @@ class TestTrailInCloseLoop(unittest.TestCase):
         # Empty 15m feed (network down) must NOT fall back to the 1m timeframe:
         # the trail is skipped and the frozen bracket stop is left untouched.
         pos = _bracket_position("long", stop=95.0)
-        with patch("orum.adapters.price.recent_15m_candles", return_value=[]):
+        with patch("orum.adapters.price.recent_closed_candles", return_value=[]):
             out = close_position_if_needed(pos, _TRAIL_STRATEGY, _market(100.0), rsi=None)
         self.assertIsNone(out)
         self.assertEqual(pos["stop_loss_price"], 95.0)  # untouched -> no wrong-timeframe band

@@ -131,12 +131,12 @@ def cmd_runtime(args) -> int:
         if args.arbiter == "off":
             outcome = run_runtime_replay(config, provider, run_dir=run_dir,
                                          start_ms=_ms(args.start), end_ms=_ms(args.end),
-                                         event_log=log, gate=args.gate)
+                                         event_log=log)
         else:
             from scripts.replay_harness.arbiter import run_arbiter_replay
             outcome = run_arbiter_replay(config, provider, run_dir=run_dir,
                                          start_ms=_ms(args.start), end_ms=_ms(args.end),
-                                         event_log=log, gate=args.gate,
+                                         event_log=log,
                                          reentry_policy=args.arbiter,
                                          merit_order=merit_order,
                                          min_topup_fraction=args.min_topup_fraction)
@@ -268,8 +268,6 @@ def main() -> int:
     p.add_argument("--start", default="2026-01-01")
     p.add_argument("--end", default="2026-07-15")
     p.add_argument("--portfolio-config", default=str(REPO_ROOT / "state" / "portfolio.yaml"))
-    p.add_argument("--gate", choices=["exact", "fast"], default="exact",
-                   help="fast = vectorized gate (decision parity tested), enables multi-year windows")
     p.add_argument("--arbiter", choices=["off", "hold", "topup"], default="off",
                    help="thesis-budget auction variant: hold = no pyramiding, "
                         "topup = re-entry funds the remaining thesis budget as a new tranche")

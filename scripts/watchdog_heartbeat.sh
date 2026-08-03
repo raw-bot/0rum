@@ -1,7 +1,7 @@
 #!/bin/bash
 # 0rum WATCHDOG — pure bash on purpose: it must keep working even if uv/python
 # breaks. Checks the vital signs every 5 min (launchd com.0rum.watchdog):
-#   1. paper_equity.jsonl fresher than 2 h (paper portfolio runs hourly)
+#   1. paper_equity.jsonl fresher than 45 min (paper portfolio runs every 15 min)
 #   2. com.0rum.paper launchd job last exit == 0
 #   3. > 2 GB free disk
 # (Pre-2026-07-08 it watched the retired mono-asset worker + AK producer.)
@@ -18,7 +18,7 @@ age_of() { # seconds since mtime, or huge if missing
 }
 
 PAPER_AGE=$(age_of "$STATE/paper_equity.jsonl")
-[ "$PAPER_AGE" -gt 7200 ] && FAILS+=("paper_equity.jsonl vieux de ${PAPER_AGE}s (>7200)")
+[ "$PAPER_AGE" -gt 2700 ] && FAILS+=("paper_equity.jsonl vieux de ${PAPER_AGE}s (>2700)")
 
 PAPER_STATUS=$(launchctl list 2>/dev/null | awk '$3=="com.0rum.paper"{print $2}')
 if [ -n "${PAPER_STATUS:-}" ] && [ "$PAPER_STATUS" != "0" ] && [ "$PAPER_STATUS" != "-" ]; then

@@ -24,11 +24,8 @@ from orum.accounting import account_returns, compound_balance
 from orum.adapters.price import _binance_symbol
 from orum.dsl.migrate import risk_value
 from orum.llm.comparison import compare_lanes
+from orum.opening_range import opening_range_snapshot
 from orum.paths import STATE_DIR
-from orum.portfolio.forecast_history import (
-    compose_forecast_history,
-    merge_forecast_history_24h,
-)
 from orum.score import score
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -165,6 +162,83 @@ def _llm_account_state(path: Path, lane: str) -> dict:
     }
 
 
+def _llm_equity_curve(fill_records: list[dict], accounts: Mapping[str, Mapping[str, object]]) -> dict:
+    """Build a bounded realised-equity series from the append-only paper-fill ledger.
+
+    The ledger records balance after each fill, not mark-to-market equity, so this
+    deliberately exposes realised cash only. That keeps the dashboard truthful
+    while a position is open and avoids inventing historical prices.
+    """
+    lanes = ("llm_reference", "llm_evolving")
+    balances: dict[str, float] = {}
+    for lane in lanes:
+        account = accounts.get(lane, {})
+        try:
+            starting = float(account.get("starting_balance_usd"))
+        except (AttributeError, TypeError, ValueError, OverflowError):
+            starting = 0.0
+        if math.isfinite(starting) and starting > 0:
+            balances[lane] = starting
+    if not balances:
+        return {"points": [], "events": []}
+
+    rows: list[dict] = []
+    for record in fill_records:
+        lane = record.get("lane")
+        action = record.get("action")
+        if lane not in balances or not isinstance(action, str):
+            continue
+        try:
+            balance_after = float(record.get("balance_after_usd"))
+            candle_ts = int(record.get("candle_ts"))
+        except (TypeError, ValueError, OverflowError):
+            continue
+        if not math.isfinite(balance_after) or candle_ts < 0:
+            continue
+        rows.append({
+            "lane": lane,
+            "action": action,
+            "balance_after_usd": balance_after,
+            "candle_ts": candle_ts,
+            "created_at": record.get("created_at") if isinstance(record.get("created_at"), str) else None,
+            "decision_id": record.get("decision_id") if isinstance(record.get("decision_id"), str) else None,
+            "side": record.get("side") if isinstance(record.get("side"), str) else None,
+            "price": _llm_optional_number(record.get("price")),
+            "realized_pnl_usd": _llm_optional_number(record.get("realized_pnl_usd")),
+        })
+    rows.sort(key=lambda item: (item["candle_ts"], item["created_at"] or "", item["lane"]))
+    if not rows:
+        return {"points": [], "events": []}
+
+    points = [{
+        "index": 0,
+        "candle_ts": rows[0]["candle_ts"],
+        "equity_usd": sum(balances.values()),
+    }]
+    events = []
+    for index, row in enumerate(rows, start=1):
+        balances[row["lane"]] = row["balance_after_usd"]
+        points.append({
+            "index": index,
+            "candle_ts": row["candle_ts"],
+            "equity_usd": sum(balances.values()),
+        })
+        events.append({
+            **row,
+            "index": index,
+            "equity_usd": points[-1]["equity_usd"],
+        })
+    return {"points": points, "events": events}
+
+
+def _llm_optional_number(value: object) -> float | None:
+    try:
+        result = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return result if math.isfinite(result) else None
+
+
 def _bounded_list(value: object, *, limit: int) -> list:
     return list(value[:limit]) if isinstance(value, (list, tuple)) else []
 
@@ -233,7 +307,7 @@ def _llm_lab_state(state_dir: Path, *, now: datetime | None = None) -> dict:
     runtime = {
         "enabled": False,
         "running": False,
-        "model": "deepseek/deepseek-v4-pro",
+        "model": "nvidia/nemotron-3-ultra-550b-a55b",
         "interval_minutes": 60,
         "last_cycle_started_at": None,
         "last_cycle_completed_at": None,
@@ -261,7 +335,7 @@ def _llm_lab_state(state_dir: Path, *, now: datetime | None = None) -> dict:
         runtime["last_error"] = _llm_operator_error(runtime_record.get("last_error"))
     brief_records = _read_jsonl_tail(state_dir / "llm_market_briefs.jsonl", limit=10)
     decision_records = _read_jsonl_tail(state_dir / "llm_decisions.jsonl", limit=60)
-    fill_records = _read_jsonl_tail(state_dir / "llm_paper_fills.jsonl", limit=30)
+    fill_records = _read_jsonl_tail(state_dir / "llm_paper_fills.jsonl", limit=160)
     outcome_records = _read_jsonl_tail(state_dir / "llm_outcomes.jsonl", limit=40)
     postmortem_records = _read_jsonl_tail(state_dir / "llm_postmortems.jsonl", limit=20)
     lesson_records = _read_jsonl_tail(state_dir / "llm_lessons.jsonl", limit=100)
@@ -270,6 +344,13 @@ def _llm_lab_state(state_dir: Path, *, now: datetime | None = None) -> dict:
         item for item in brief_records
         if item.get("status") == "valid" and isinstance(item.get("brief"), Mapping)
     ]
+    if runtime["last_result"] == "cycle_error":
+        latest_brief_error = next(
+            (item.get("error") for item in reversed(brief_records) if item.get("error")),
+            None,
+        )
+        if latest_brief_error:
+            runtime["last_error"] = _llm_operator_error(latest_brief_error)
     latest_brief = valid_briefs[-1] if valid_briefs else {}
     brief = latest_brief.get("brief") if isinstance(latest_brief.get("brief"), Mapping) else {}
     opinion = {} if not brief else {
@@ -333,7 +414,6 @@ def _llm_lab_state(state_dir: Path, *, now: datetime | None = None) -> dict:
         key=lambda item: str(item.get("updated_at") or item.get("created_at") or ""),
         reverse=True,
     )[:20]
-    comparison = compare_lanes(outcomes)
     accounts = {
         "llm_reference": _llm_account_state(
             state_dir / "llm_reference_account.json", "llm_reference"
@@ -342,6 +422,8 @@ def _llm_lab_state(state_dir: Path, *, now: datetime | None = None) -> dict:
             state_dir / "llm_evolving_account.json", "llm_evolving"
         ),
     }
+    equity_curve = _llm_equity_curve(fill_records, accounts)
+    comparison = compare_lanes(outcomes)
 
     alerts: list[dict] = []
     for lane, account in accounts.items():
@@ -420,6 +502,7 @@ def _llm_lab_state(state_dir: Path, *, now: datetime | None = None) -> dict:
         "opinion": opinion,
         "timeline": timeline,
         "accounts": accounts,
+        "equity_curve": equity_curve,
         "outcomes": outcomes,
         "postmortems": postmortems,
         "lessons": lessons,
@@ -457,14 +540,94 @@ def _paper_state(goal: dict) -> dict:
     fills = _read_jsonl(STATE_DIR / "paper_fills.jsonl")
     balance = float(account.get("balance_usd", starting))
     equity = float(equity_recs[-1]["equity_usd"]) if equity_recs else balance
-    positions = [
-        {"strategy_id": sid, **{k: p.get(k) for k in
-         ("symbol", "side", "qty", "entry_px", "notional_usd", "risk_pct",
-          "opened_ts", "entry_reason", "exit_policy", "monitor_timeframe",
-          "stop_loss_price", "take_profit_price", "sl_basis",
-          "reward_risk_ratio")}}
-        for sid, p in (account.get("positions") or {}).items()
-    ]
+    tranches: list[dict] = []
+    for position_id, raw in (account.get("positions") or {}).items():
+        strategy_id = raw.get("strategy_id") or position_id.split("::t", 1)[0]
+        risk_distance = float(
+            raw.get("risk_distance", raw.get("atr_risk", 0.0)) or 0.0
+        )
+        qty = float(raw.get("qty", 0.0) or 0.0)
+        dynamic_exit = raw.get("dynamic_exit") or {}
+        dynamic_policy = dynamic_exit.get("policy") or {}
+        tranches.append({
+            "strategy_id": strategy_id,
+            "position_id": raw.get("position_id") or position_id,
+            **{key: raw.get(key) for key in (
+                "symbol", "side", "entry_px", "opened_ts", "entry_reason",
+                "exit_policy", "monitor_timeframe", "stop_loss_price",
+                "take_profit_price", "sl_basis", "reward_risk_ratio",
+            )},
+            "qty": qty,
+            "notional_usd": float(raw.get("notional_usd", 0.0) or 0.0),
+            "risk_pct": float(raw.get("risk_pct", 0.0) or 0.0),
+            "atr_risk": float(raw.get("atr_risk", 0.0) or 0.0),
+            "risk_distance": risk_distance,
+            "stop_risk_usd": qty * risk_distance,
+            "dynamic_exit_mode": dynamic_policy.get("mode"),
+            "dynamic_exit_version": dynamic_policy.get("version"),
+            "dynamic_stop_price": dynamic_exit.get("dynamic_stop_price"),
+            "dynamic_mfe_r": dynamic_exit.get("mfe_r"),
+            "dynamic_exit_armed": bool(dynamic_exit.get("armed", False)),
+            "dynamic_active_target_price": dynamic_exit.get(
+                "active_target_price"
+            ),
+            "dynamic_active_target_r": dynamic_exit.get("active_target_r"),
+            "dynamic_target_extensions": int(
+                dynamic_exit.get("target_extensions", 0) or 0
+            ),
+            "dynamic_target_strength_score": int(
+                dynamic_exit.get("target_strength_score", 0) or 0
+            ),
+            "dynamic_last_target_extension_ts": dynamic_exit.get(
+                "last_target_extension_ts"
+            ),
+            "dynamic_hypothetical_closed": bool(
+                dynamic_exit.get("hypothetical_closed", False)
+            ),
+            "dynamic_hypothetical_exit_ts": dynamic_exit.get(
+                "hypothetical_exit_ts"
+            ),
+            "dynamic_hypothetical_exit_reason": dynamic_exit.get(
+                "hypothetical_exit_reason"
+            ),
+            "dynamic_hypothetical_exit_price": dynamic_exit.get(
+                "hypothetical_exit_price"
+            ),
+        })
+
+    grouped: dict[str, list[dict]] = {}
+    for tranche in tranches:
+        grouped.setdefault(tranche["strategy_id"], []).append(tranche)
+    positions: list[dict] = []
+    for strategy_id, strategy_tranches in grouped.items():
+        first = strategy_tranches[0]
+        qty = sum(tranche["qty"] for tranche in strategy_tranches)
+        entry_value = sum(
+            tranche["qty"] * float(tranche.get("entry_px", 0.0) or 0.0)
+            for tranche in strategy_tranches
+        )
+        stop_levels = {tranche.get("stop_loss_price") for tranche in strategy_tranches}
+        take_levels = {tranche.get("take_profit_price") for tranche in strategy_tranches}
+        opened = [tranche.get("opened_ts") for tranche in strategy_tranches
+                  if tranche.get("opened_ts")]
+        positions.append({
+            **first,
+            "strategy_id": strategy_id,
+            "qty": qty,
+            "entry_px": entry_value / qty if qty else 0.0,
+            "notional_usd": sum(
+                tranche["notional_usd"] for tranche in strategy_tranches
+            ),
+            "risk_pct": sum(tranche["risk_pct"] for tranche in strategy_tranches),
+            "stop_risk_usd": sum(
+                tranche["stop_risk_usd"] for tranche in strategy_tranches
+            ),
+            "stop_loss_price": next(iter(stop_levels)) if len(stop_levels) == 1 else None,
+            "take_profit_price": next(iter(take_levels)) if len(take_levels) == 1 else None,
+            "opened_ts": min(opened) if opened else None,
+            "tranche_count": len(strategy_tranches),
+            "tranches": strategy_tranches,
+        })
     return {
         "starting_balance_usd": starting,
         "balance_usd": balance,
@@ -472,7 +635,8 @@ def _paper_state(goal: dict) -> dict:
         "pnl_usd": equity - starting,
         "pnl_pct": (equity / starting - 1.0) if starting else 0.0,
         "open_positions": positions,
-        "open_count": len(positions),
+        "open_count": len(tranches),
+        "open_strategy_count": len(positions),
         "fills": fills[-30:][::-1],
         "equity_curve": [
             {"index": i, "ts": r.get("ts"), "equity": (float(r.get("equity_usd", starting)) / starting)}
@@ -490,11 +654,12 @@ def _paper_closed_trades() -> list[dict]:
     consumer already keys off net_pnl_usd / entry_price / exit_price / ts, so
     no downstream helper changes — only the source does."""
     out: list[dict] = []
-    open_ts: dict[str, str] = {}  # strategy_id -> its open fill ts, to date each trade's entry
+    open_ts: dict[str, str] = {}
     for f in _read_jsonl(STATE_DIR / "paper_fills.jsonl"):
         sid = f.get("strategy_id")
+        position_id = f.get("position_id", sid)
         if f.get("action") == "open":
-            open_ts[sid] = f.get("ts")
+            open_ts[position_id] = f.get("ts")
             continue
         if f.get("action") != "close":
             continue
@@ -505,9 +670,10 @@ def _paper_closed_trades() -> list[dict]:
         closed_dt = _parse_ts(f.get("ts"))
         out.append({
             "ts": f.get("ts"),
-            "opened_at": open_ts.pop(sid, f.get("ts")),  # entry time (matched open), for chart placement
+            "opened_at": open_ts.pop(position_id, f.get("ts")),
             "candle_ts": int(closed_dt.timestamp() * 1000) if closed_dt else None,  # exit time in ms
             "strategy_id": sid,
+            "position_id": position_id,
             "asset": f.get("symbol"),
             "side": f.get("side", "long"),
             "direction": f.get("side", "long"),
@@ -541,12 +707,14 @@ def _paper_fill_markers(symbol: str, strategy_id: str | None = None) -> list[dic
         if f.get("action") == "open":
             direction = "S" if f.get("side") == "short" else "L"
             out.append({"ts": ms, "price": f.get("price"), "kind": "entry", "side": f.get("side", "long"),
-                        "label": f"IN {direction}", "strategy_id": f.get("strategy_id"), "real": True})
+                        "label": f"IN {direction}", "strategy_id": f.get("strategy_id"),
+                        "position_id": f.get("position_id", f.get("strategy_id")), "real": True})
         elif f.get("action") == "close":
             reason = str(f.get("reason") or "").lower()
             label = "SL" if reason == "stop_loss" else "TP" if reason == "take_profit" else "OUT"
             out.append({"ts": ms, "price": f.get("price"), "kind": "exit", "side": f.get("side", "long"),
-                        "label": label, "strategy_id": f.get("strategy_id"), "real": True,
+                        "label": label, "strategy_id": f.get("strategy_id"),
+                        "position_id": f.get("position_id", f.get("strategy_id")), "real": True,
                         "reason": f.get("reason", "")})
     return out
 
@@ -1027,28 +1195,24 @@ def _paper_logs() -> list[dict]:
 
 
 def _paper_worker() -> dict:
-    """Health of the paper engine (launchd com.0rum.paper, hourly), keyed off the
-    freshness of paper_equity.jsonl. Replaces the retired mono-asset worker's
-    heartbeat/pid liveness. >2h without a cycle = presumed down."""
+    """Health of the 15-minute launchd paper engine, keyed off its equity journal.
+
+    Three missed cycles make the worker stale.  This replaces the retired
+    mono-asset worker's heartbeat/pid liveness.
+    """
     recs = _read_jsonl(STATE_DIR / "paper_equity.jsonl")
     last = _parse_ts(recs[-1].get("ts")) if recs else None
     age = (datetime.now(UTC) - last).total_seconds() if last else None
-    stale = age is None or age > 7200
+    stale = age is None or age > 2700
     return {"heartbeat_age_seconds": age, "stale": stale, "running": not stale,
-            "pid": None, "mode": "paper_hourly"}
+            "pid": None, "mode": "paper_15m"}
 
 
-# --- trading engine process control -----------------------------------------
-# The dashboard is always-on (launchd) and acts as the remote: this Start/Stop
-# toggle launches/stops the whole TRADING ENGINE — worker + watcher + AK MACD
-# bridge — via scripts/run_engine.sh, in its OWN detached session. Because the
-# engine is a separate process group, stop_worker()'s killpg tears down the
-# engine without ever touching the dashboard. The worker owns state/worker.pid
-# (run.py), so "is the engine running?" stays a single source of truth.
+# --- retired engine process control -----------------------------------------
+# The dashboard may still stop the retired engine as a safety measure, but it
+# must never be able to start it again. The unified com.0rum.paper service is
+# the only authoritative runtime.
 WORKER_PID_PATH = STATE_DIR / "worker.pid"
-WORKER_LOG_PATH = STATE_DIR / "worker.log"
-ENGINE_SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "run_engine.sh"
-ENGINE_LOG_PATH = STATE_DIR / "run_engine.out"
 
 
 def _worker_pid() -> int | None:
@@ -1077,28 +1241,12 @@ def worker_running() -> bool:
 
 
 def start_worker() -> dict:
-    """Start the whole trading engine (worker + watcher + bridge) detached."""
-    if worker_running():
-        return {"ok": True, "running": True, "pid": _worker_pid(), "detail": "engine already running"}
-    root = Path(__file__).resolve().parents[1]
-    WORKER_PID_PATH.parent.mkdir(parents=True, exist_ok=True)
-    log = open(ENGINE_LOG_PATH, "a")  # noqa: SIM115 - kept open for the child's lifetime
-    # Live paper execution, and make sure `uv` is on PATH even under launchd
-    # (which does not inherit a login shell PATH).
-    env = {**os.environ, "AK_MACD_LIVE": "1"}
-    env["PATH"] = os.path.expanduser("~/.local/bin") + ":/opt/homebrew/bin:/usr/local/bin:" + env.get("PATH", "/usr/bin:/bin")
-    proc = subprocess.Popen(
-        ["/bin/bash", str(ENGINE_SCRIPT)],
-        cwd=root,
-        stdout=log,
-        stderr=log,
-        env=env,
-        start_new_session=True,  # detached, own group: survives + killable without hitting the dashboard
-    )
-    # The worker overwrites this with its own pid on boot; both share the engine's
-    # process group, so stop_worker()'s killpg tears down the whole engine either way.
-    WORKER_PID_PATH.write_text(str(proc.pid))
-    return {"ok": True, "running": True, "pid": proc.pid, "detail": "engine started"}
+    """Refuse to revive the retired continuous engine."""
+    return {
+        "ok": False,
+        "running": worker_running(),
+        "detail": "legacy engine retired; com.0rum.paper is authoritative",
+    }
 
 
 def stop_worker() -> dict:
@@ -1174,6 +1322,94 @@ def _portfolio_shadow() -> dict:
     }
 
 
+def _llm_fade_shadow() -> dict:
+    """Panel for scripts/llm_fade_shadow.py -- the OPPOSITE side of every closed
+    LLM trading-lab decision, zero capital. Read-only consumer of its own
+    append-only journal; never touches the LLM lab or the native portfolio."""
+    recs = _read_jsonl(STATE_DIR / "llm_fade_shadow.jsonl")
+    state = _read_optional_json(STATE_DIR / "llm_fade_shadow_state.json")
+    equity_by_lane = (state or {}).get("equity", {})
+    lanes: dict[str, dict] = {}
+    for r in recs:
+        lane = r.get("lane")
+        if not lane:
+            continue
+        bucket = lanes.setdefault(lane, {"trades": [], "equity_curve": []})
+        bucket["trades"].append(r)
+        bucket["equity_curve"].append({"ts": r.get("ts"), "equity": r.get("equity"), "price": r.get("exit_price")})
+
+    result: dict[str, dict] = {}
+    for lane, bucket in lanes.items():
+        trades = bucket["trades"]
+        wins = [t for t in trades if float(t.get("opposite_return") or 0) > 0]
+        result[lane] = {
+            "equity": equity_by_lane.get(lane, 1.0),
+            "trade_count": len(trades),
+            "win_rate": (len(wins) / len(trades)) if trades else 0.0,
+            "equity_curve": bucket["equity_curve"],
+            "trades": trades[-20:][::-1],
+        }
+    last_ts = _parse_ts(recs[-1].get("ts")) if recs else None
+    age = (datetime.now(UTC) - last_ts).total_seconds() if last_ts else None
+    return {
+        "lanes": result,
+        "poll_age_seconds": age,
+        "note": "Fade shadow (scripts/llm_fade_shadow.py) — inverse des décisions du labo LLM, observation seule, aucun capital réel.",
+    }
+
+
+def _shadow_engine_markers(recs: list[dict], engine: str) -> list[dict]:
+    """Entry/exit markers for one scripts/portfolio_shadow.py engine, chart-ready.
+    Distinct from `_paper_fill_markers`: this is SIMULATED shadow data (no real
+    capital) -- keep it on its own chart (`_shadow_terminal`), never merged into
+    a real-money terminal's `real_markers` where it could be mistaken for an
+    executed position."""
+    out: list[dict] = []
+    for r in recs:
+        if r.get("engine") != engine or r.get("action") not in ("enter", "exit"):
+            continue
+        price = r.get("price")
+        if price is None:
+            continue
+        bar_ts = r.get("bar_ts")
+        if bar_ts is not None:
+            ts_ms = int(bar_ts) * 1000  # exact candle this decision was about
+        else:
+            # Older log lines (before bar_ts was recorded) only have the poll's
+            # wall-clock time, which can be up to ~59 min after the candle it
+            # decided on -- reconstruct the candle by flooring to the hour and
+            # stepping back one, matching ema_cross_state's `i = len(bars)-2`.
+            poll_ts = _parse_ts(r.get("ts"))
+            if poll_ts is None:
+                continue
+            hour_floor = poll_ts.replace(minute=0, second=0, microsecond=0)
+            ts_ms = int((hour_floor - timedelta(hours=1)).timestamp() * 1000)
+        entry = r["action"] == "enter"
+        out.append({
+            "ts": ts_ms,
+            "price": float(price),
+            "kind": "entry" if entry else "exit",
+            "label": "SHADOW IN" if entry else f"SHADOW {str(r.get('reason', 'OUT')).upper()}",
+        })
+    return out
+
+
+def _shadow_terminal() -> dict:
+    """Price + EMA9/EMA21 chart data for the ema_cross_btc / ema_cross_eth shadow
+    engines (scripts/portfolio_shadow.py) -- a separate payload from
+    `_market_signals` on purpose, since that one carries REAL paper fills."""
+    recs = _read_jsonl(STATE_DIR / "portfolio_shadow.jsonl")
+    out: dict[str, dict] = {}
+    for engine, asset in [("ema_cross_btc", "BTC/USDT"), ("ema_cross_eth", "ETH/USDT")]:
+        out[engine] = {
+            "asset": asset,
+            "candles": _binance_klines(asset, "1h", 500),
+            "shadow_markers": _shadow_engine_markers(recs, engine),
+            "note": "Shadow (scripts/portfolio_shadow.py) — observation seule, aucun capital réel.",
+        }
+    return out
+
+
 def _markets(goal: dict) -> list[dict]:
     """Display-only market watch panel: the runtime asset first, then every asset
     listed in goal.watch_assets. Feeds the top-bar market chips; never touches
@@ -1239,8 +1475,8 @@ def _binance_klines(asset: str, interval: str, limit: int = 300) -> list[dict]:
 
 def _ak_macd_markers(candles: list[dict]) -> list[dict]:
     """AK MACD entry markers via the REAL brain, so the chart matches the bot.
-    allow_short=True here is DISPLAY-ONLY (shows potential shorts); the live bot
-    stays long-only. Exits are bracket/runner-managed, not chartable signals."""
+    The native paper AK sleeve is bidirectional; exits remain bracket/runner-
+    managed and are represented by audited fill markers instead."""
     try:
         from orum.external.ak_macd import (  # local import: keep dashboard import-safe
             AkMacdParams, compute_state, _flip_up, _flip_down,
@@ -1248,7 +1484,7 @@ def _ak_macd_markers(candles: list[dict]) -> list[dict]:
             _other_long_conditions, _other_short_conditions, _regime_at)
     except Exception:  # noqa: BLE001
         return []
-    p = AkMacdParams(allow_short=False, regime_filter=True)
+    p = AkMacdParams(allow_short=True, regime_filter=True)
     if len(candles) < p.warmup:
         return []
     st = compute_state(candles, p)
@@ -1408,9 +1644,6 @@ def _market_signals(goal: dict) -> dict:
             return c["data"]
     runtime = goal.get("asset", "BTC/USDT")
     out: dict[str, dict] = {}
-    forecast_state = _read_optional_json(STATE_DIR / "forecast_gate.json")
-    forecast_strategies = forecast_state.get("strategies") or {}
-    forecast_history_records = _read_jsonl(STATE_DIR / "forecast_history.jsonl")
 
     def _shown(display_candles, markers, n=160):
         display_candles = display_candles[-n:]
@@ -1443,8 +1676,6 @@ def _market_signals(goal: dict) -> dict:
         )
         candles, markers = _shown(display, marker_fn(native, marker_context), n=n)
         real_markers = _paper_fill_markers(asset, strategy_id=strategy_id)
-        calibrated = forecast_strategies.get(strategy_id) or {}
-        active = calibrated.get("active") is True
         return {
             "asset": asset,
             "engine": engine,
@@ -1456,30 +1687,14 @@ def _market_signals(goal: dict) -> dict:
             "markers": markers,
             "real_markers": real_markers,
             "trades": _pair_trades(markers),
-            "calibrated_forecast": calibrated,
-            "forecast_history": compose_forecast_history(
-                forecast_history_records, strategy_id=strategy_id
-            )[-28:],
-            "forecast_history_24h": merge_forecast_history_24h(
-                calibrated.get("history_24h") or [],
-                forecast_history_records,
-                strategy_id=strategy_id,
-            ),
-            "scenario_mode": "calibrated_active" if active else "calibrated_locked" if calibrated else "display_only",
-            "scenario_note": (
-                "Prévision walk-forward qualifiée : filtre et taille adaptative actifs sur les nouvelles entrées paper."
-                if active else
-                "Prévision calibrée visible mais verrouillée : la stratégie conserve sa décision et sa taille d'origine."
-                if calibrated else
-                "Éventail de stress visuel, non probabiliste, jamais utilisé par le moteur."
-            ),
+            "scenario_mode": "display_only",
+            "scenario_note": "Éventail de stress visuel, non probabiliste, jamais utilisé par le moteur.",
             "note": note,
         }
 
     def _error_payload(
         asset, engine, native_timeframe, exc, *, strategy_id, display_timeframe="1h"
     ):
-        calibrated = forecast_strategies.get(strategy_id) or {}
         return {
             "asset": asset,
             "engine": engine,
@@ -1491,15 +1706,6 @@ def _market_signals(goal: dict) -> dict:
             "markers": [],
             "real_markers": [],
             "trades": [],
-            "calibrated_forecast": calibrated,
-            "forecast_history": compose_forecast_history(
-                forecast_history_records, strategy_id=strategy_id
-            )[-28:],
-            "forecast_history_24h": merge_forecast_history_24h(
-                calibrated.get("history_24h") or [],
-                forecast_history_records,
-                strategy_id=strategy_id,
-            ),
             "scenario_mode": "display_only",
             "scenario_note": "Éventail indisponible sans bougies ; aucune incidence moteur.",
             "note": f"erreur: {exc}",
@@ -1607,6 +1813,8 @@ def build_snapshot() -> dict:
         "portfolio_config": _portfolio_config(),
         "portfolio": _portfolio(trades, goal),
         "research_portfolio": _portfolio_shadow(),
+        "shadow_terminal": _shadow_terminal(),
+        "llm_fade_shadow": _llm_fade_shadow(),
         "open_position": _open_position(open_position, heartbeat, strategy),
         "last_price": float(heartbeat.get("last_price", 0.0) or (trades[-1].get("exit_price", 0.0) if trades else 0.0)),
         "candles": _candles_from_trades(trades),
@@ -1746,7 +1954,8 @@ def _portfolio_config() -> dict:
             {
                 key: s.get(key)
                 for key in ("id", "engine", "symbol", "timeframe", "risk_pct",
-                            "entry_enabled", "exit_policy", "reward_risk_ratio")
+                            "entry_enabled", "exit_policy", "monitor_timeframe",
+                            "reward_risk_ratio", "dynamic_exit")
             }
             for s in (doc.get("strategies") or [])
         ],
@@ -1893,16 +2102,24 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._send(200, (STATIC_DIR / "dashboard.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/bot":
                 self._send(200, (STATIC_DIR / "bot.html").read_bytes(), "text/html; charset=utf-8")
+            elif path == "/opening-range":
+                self._send(200, (STATIC_DIR / "opening_range.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/assets/dashboard.css":
                 self._send(200, (STATIC_DIR / "dashboard.css").read_bytes(), "text/css; charset=utf-8")
+            elif path == "/assets/opening-range.css":
+                self._send(200, (STATIC_DIR / "opening_range.css").read_bytes(), "text/css; charset=utf-8")
             elif path == "/assets/dashboard.js":
                 self._send(200, (STATIC_DIR / "dashboard.js").read_bytes(), "application/javascript")
             elif path == "/assets/bot.js":
                 self._send(200, (STATIC_DIR / "bot.js").read_bytes(), "application/javascript")
+            elif path == "/assets/opening-range.js":
+                self._send(200, (STATIC_DIR / "opening_range.js").read_bytes(), "application/javascript")
             elif path == "/assets/fonts/Montserrat-VariableFont_wght.ttf":
                 self._send(200, (STATIC_DIR / "fonts/Montserrat-VariableFont_wght.ttf").read_bytes(), "font/ttf")
             elif path == "/api/state":
                 self._send_json(200, build_snapshot())
+            elif path == "/api/opening-range":
+                self._send_json(200, opening_range_snapshot())
             else:
                 self._send_json(404, {"error": "not found"})
         except Exception as exc:  # noqa: BLE001 - a partial state read must not kill the connection silently.
@@ -1959,10 +2176,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._send_json(500, {"ok": False, "error": str(exc)})
             return
         if path == "/api/worker/start":
-            try:
-                self._send_json(200, start_worker())
-            except Exception as exc:  # noqa: BLE001 - surfaced to the UI.
-                self._send_json(500, {"ok": False, "error": str(exc)})
+            self._send_json(410, start_worker())
             return
         if path == "/api/worker/stop":
             try:
@@ -2001,7 +2215,16 @@ def _bind_address() -> tuple[str, int]:
 
 def main() -> None:
     host, port = _bind_address()
-    server = ThreadingHTTPServer((host, port), DashboardHandler)
+    try:
+        server = ThreadingHTTPServer((host, port), DashboardHandler)
+    except OSError as exc:
+        print(
+            f"cannot bind dashboard to {host}:{port}: {exc}. Another instance is "
+            "likely already running — check `launchctl list | grep 0rum.dashboard` "
+            "before starting one manually.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1) from exc
     print(f"0rum dashboard running at http://{host}:{port}", flush=True)
     server.serve_forever()
 

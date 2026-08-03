@@ -12,6 +12,7 @@ from orum.llm.contracts import Evidence, MarketBrief
 from orum.llm.prompts import (
     PROPOSED_DECISION_SCHEMA,
     TRADER_PROMPT_VERSION,
+    build_analyst_prompt,
     build_trader_prompt,
 )
 
@@ -144,6 +145,16 @@ def test_trader_prompt_exposes_only_the_active_lane_account_as_authoritative():
     assert "evolving-short" not in prompt.user
     assert "seul active_lane_account" in prompt.system.lower()
     assert "ignore toute position" in prompt.system.lower()
+    assert '["ev-1"]' in prompt.system
+    assert "brief et du snapshot" in prompt.system
+    assert "lesson_ids peut être vide" in prompt.system
+
+
+def test_analyst_prompt_lists_the_only_permitted_evidence_ids():
+    prompt = build_analyst_prompt(_snapshot())
+
+    assert '["ev-1"]' in prompt.system
+    assert "Le champ evidence_ids peut être vide" in prompt.system
 
 
 def _brief(**overrides):

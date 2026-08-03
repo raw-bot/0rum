@@ -3,8 +3,11 @@ import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
-from orum.portfolio.paper_engine import PaperEngine
+from orum.portfolio.paper_broker import Account, Position
+from orum.portfolio.paper_engine import PaperEngine, _entry_risk_distance
+from orum.portfolio.position_manager import DynamicExitPolicy, DynamicExitState
 from orum.strategies import register_engine
 from orum.strategies.base import Side, Signal
 
@@ -37,9 +40,6 @@ class PaperEngineTests(unittest.TestCase):
         self.positions_path = d / "paper_positions.json"
         self.fills_path = d / "paper_fills.jsonl"
         self.equity_path = d / "paper_equity.jsonl"
-        self.forecast_state_path = d / "forecast_gate.json"
-        self.forecast_audit_path = d / "forecast_audit.jsonl"
-        self.forecast_history_path = d / "forecast_history.jsonl"
         self.gate_path = d / "cot_gate.json"
         self.market: dict[str, list[dict]] = {}
         self.raise_for: set[str] = set()
@@ -68,21 +68,6 @@ class PaperEngineTests(unittest.TestCase):
                            positions_path=self.positions_path, fills_path=self.fills_path,
                            equity_path=self.equity_path)
 
-    def _forecast_engine(self, report: dict) -> PaperEngine:
-        config = {
-            "starting_balance_usd": 10_000.0,
-            "forecast_gate": {"enabled": True, "history_limit": 700},
-            "strategies": [{"id": "eth_donchian", "engine": "donchian", "symbol": "ETH/USDT",
-                            "timeframe": "1d", "risk_pct": 0.02, "params": {}}],
-        }
-        return PaperEngine(
-            config, candle_provider=self._provider, forecast_evaluator=lambda candles, **kwargs: report,
-            positions_path=self.positions_path, fills_path=self.fills_path, equity_path=self.equity_path,
-            forecast_state_path=self.forecast_state_path,
-            forecast_audit_path=self.forecast_audit_path,
-            forecast_history_path=self.forecast_history_path,
-        )
-
     def _read_lines(self, path: Path) -> list[dict]:
         return [json.loads(x) for x in path.read_text().splitlines()] if path.exists() else []
 
@@ -94,6 +79,385 @@ class PaperEngineTests(unittest.TestCase):
         self.assertEqual(summary["intents"]["gold_cot"], "open")
         self.assertEqual(summary["intents"]["btc_donchian"], "no_trade")
         self.assertEqual(set(summary["open_positions"]), {"eth_donchian", "gold_cot"})
+
+    def test_short_risk_distance_and_static_bracket_are_directional(self):
+        self.assertEqual(_entry_risk_distance(100.0, 110.0, 8.0, side="short"), 10.0)
+        self.assertIsNone(_entry_risk_distance(100.0, 90.0, 8.0, side="short"))
+        self.assertIsNone(
+            _entry_risk_distance(100.0, "not-a-number", 8.0, side="short")
+        )
+        position = Position(
+            strategy_id="ak",
+            symbol="BTC/USDT",
+            side="short",
+            qty=1.0,
+            entry_px=100.0,
+            notional_usd=100.0,
+            risk_pct=0.01,
+            atr_risk=10.0,
+            stop_loss_price=110.0,
+            take_profit_price=80.0,
+        )
+
+        self.assertEqual(
+            PaperEngine._static_protective_exit(
+                position, {"open": 100.0, "high": 111.0, "low": 79.0, "close": 90.0}
+            ),
+            ("stop_loss", 110.0),
+        )
+
+    def test_short_exit_metadata_migration_mirrors_long_geometry(self):
+        strategy = [{
+            "id": "ak", "engine": "donchian", "symbol": "BTC/USDT",
+            "timeframe": "4h", "risk_pct": 0.02,
+            "exit_policy": "structural_bracket", "reward_risk_ratio": 2.0,
+            "params": {},
+        }]
+        engine = self._engine(strategy)
+        account = Account(
+            balance_usd=10_000.0,
+            positions={"ak": Position(
+                strategy_id="ak", symbol="BTC/USDT", side="short", qty=1.0,
+                entry_px=100.0, notional_usd=100.0, risk_pct=0.02,
+                atr_risk=10.0, risk_distance=10.0,
+            )},
+        )
+
+        engine._migrate_exit_metadata(account)
+
+        position = account.positions["ak"]
+        self.assertEqual(position.stop_loss_price, 110.0)
+        self.assertEqual(position.take_profit_price, 80.0)
+        self.assertEqual(position.reward_risk_ratio, 2.0)
+
+    def test_auction_reverses_long_to_short_on_the_signal_candle(self):
+        class ReversingEngine:
+            name = "paper_short_reversal_test"
+            version = "1"
+            required_timeframes: list[str] = []
+            required_indicators: list[str] = []
+            warmup_period = 1
+
+            def init(self, config):
+                self.calls = 0
+
+            def on_candle(self, candle, context):
+                self.calls += 1
+                price = float(candle["close"])
+                if self.calls == 1:
+                    return Signal(
+                        Side.LONG, context.symbol, context.timeframe, "long pulse",
+                        suggested_stop=price - 100.0,
+                        suggested_take_profit=price + 200.0,
+                    )
+                return Signal(
+                    Side.SHORT, context.symbol, context.timeframe, "short pulse",
+                    suggested_stop=price + 100.0,
+                    suggested_take_profit=price - 200.0,
+                )
+
+        register_engine("paper_short_reversal_test", ReversingEngine)
+        strategy = [{
+            "id": "ak", "engine": "paper_short_reversal_test", "symbol": "BTC/USDT",
+            "timeframe": "4h", "risk_pct": 0.02, "entry_enabled": True,
+            "exit_policy": "structural_bracket", "monitor_timeframe": "4h",
+            "reward_risk_ratio": 2.0,
+            "dynamic_exit": {
+                "mode": "execute", "version": "mfe_ratchet_v1",
+                "activation_r": 1.0, "giveback_r": 0.5, "floor_r": 0.1,
+            },
+            "params": {},
+        }]
+        config = {
+            "starting_balance_usd": 10_000.0,
+            "reentry_policy": "topup",
+            "strategies": strategy,
+        }
+        try:
+            self.market = {"BTC/USDT": BREAKOUT}
+            engine = PaperEngine(
+                config, candle_provider=self._provider,
+                positions_path=self.positions_path, fills_path=self.fills_path,
+                equity_path=self.equity_path,
+            )
+            first = engine.run_cycle()
+            self.assertEqual(first["intents"]["ak"], "open")
+
+            next_market = [dict(candle) for candle in BREAKOUT]
+            next_market[-1] = dict(next_market[-1], ts=21, close=2500.0)
+            self.market = {"BTC/USDT": next_market}
+            second = engine.run_cycle()
+
+            state = json.loads(self.positions_path.read_text())
+            self.assertEqual(second["intents"]["ak"], "reverse_open")
+            self.assertEqual([fill["action"] for fill in second["fills"]], ["close", "open"])
+            self.assertEqual([fill["side"] for fill in second["fills"]], ["long", "short"])
+            self.assertEqual(state["positions"]["ak"]["side"], "short")
+            self.assertNotIn("dynamic_exit", state["positions"]["ak"])
+        finally:
+            from orum.strategies import _ENGINES
+            _ENGINES.pop("paper_short_reversal_test", None)
+
+    def test_short_without_complete_bracket_fails_before_candle_is_processed(self):
+        class MalformedShortEngine:
+            name = "paper_short_malformed_test"
+            version = "1"
+            required_timeframes: list[str] = []
+            required_indicators: list[str] = []
+            warmup_period = 1
+
+            def init(self, config):
+                pass
+
+            def on_candle(self, candle, context):
+                return Signal(
+                    Side.SHORT, context.symbol, context.timeframe, "bad short",
+                    suggested_stop=float(candle["close"]) + 100.0,
+                    suggested_take_profit=None,
+                )
+
+        register_engine("paper_short_malformed_test", MalformedShortEngine)
+        strategy = [{
+            "id": "ak", "engine": "paper_short_malformed_test", "symbol": "BTC/USDT",
+            "timeframe": "4h", "risk_pct": 0.02, "entry_enabled": True,
+            "exit_policy": "structural_bracket", "monitor_timeframe": "4h",
+            "reward_risk_ratio": 2.0, "params": {},
+        }]
+        try:
+            self.market = {"BTC/USDT": BREAKOUT}
+            summary = PaperEngine(
+                {"starting_balance_usd": 10_000.0, "reentry_policy": "topup", "strategies": strategy},
+                candle_provider=self._provider,
+                positions_path=self.positions_path, fills_path=self.fills_path,
+                equity_path=self.equity_path,
+            ).run_cycle()
+            state = json.loads(self.positions_path.read_text())
+
+            self.assertEqual(summary["intents"]["ak"], "invalid_bracket")
+            self.assertEqual(state["positions"], {})
+            self.assertNotIn("ak", state["processed_candles"])
+        finally:
+            from orum.strategies import _ENGINES
+            _ENGINES.pop("paper_short_malformed_test", None)
+
+    def test_legacy_reversal_closes_every_opposite_tranche(self):
+        class AlwaysShortEngine:
+            name = "paper_legacy_short_reversal_test"
+            version = "1"
+            required_timeframes: list[str] = []
+            required_indicators: list[str] = []
+            warmup_period = 1
+
+            def init(self, config):
+                pass
+
+            def on_candle(self, candle, context):
+                price = float(candle["close"])
+                return Signal(
+                    Side.SHORT, context.symbol, context.timeframe, "short pulse",
+                    suggested_stop=price + 100.0,
+                    suggested_take_profit=price - 200.0,
+                )
+
+        register_engine("paper_legacy_short_reversal_test", AlwaysShortEngine)
+        base = {
+            "strategy_id": "ak", "symbol": "BTC/USDT", "side": "long",
+            "qty": 1.0, "entry_px": 2600.0, "notional_usd": 2600.0,
+            "risk_pct": 0.01, "atr_risk": 100.0,
+        }
+        self.positions_path.write_text(json.dumps({
+            "balance_usd": 10_000.0,
+            "positions": {"ak": base, "ak::t2": base},
+        }))
+        strategy = [{
+            "id": "ak", "engine": "paper_legacy_short_reversal_test",
+            "symbol": "BTC/USDT", "timeframe": "4h", "risk_pct": 0.02,
+            "entry_enabled": True, "exit_policy": "structural_bracket",
+            "params": {},
+        }]
+        try:
+            self.market = {"BTC/USDT": BREAKOUT}
+            summary = self._engine(strategy).run_cycle()
+            state = json.loads(self.positions_path.read_text())
+
+            self.assertEqual(summary["intents"]["ak"], "reverse_open")
+            self.assertEqual(
+                [fill["action"] for fill in summary["fills"]],
+                ["close", "close", "open"],
+            )
+            self.assertEqual(state["positions"]["ak"]["side"], "short")
+            self.assertNotIn("ak::t2", state["positions"])
+        finally:
+            from orum.strategies import _ENGINES
+            _ENGINES.pop("paper_legacy_short_reversal_test", None)
+
+    def test_legacy_exit_closes_every_hydrated_tranche(self):
+        class AlwaysExitEngine:
+            name = "paper_legacy_exit_all_test"
+            version = "1"
+            required_timeframes: list[str] = []
+            required_indicators: list[str] = []
+            warmup_period = 1
+
+            def init(self, config):
+                pass
+
+            def on_candle(self, candle, context):
+                return Signal(
+                    Side.EXIT, context.symbol, context.timeframe, "exit all"
+                )
+
+        register_engine("paper_legacy_exit_all_test", AlwaysExitEngine)
+        base = {
+            "strategy_id": "ak", "symbol": "BTC/USDT", "side": "long",
+            "qty": 1.0, "entry_px": 2600.0, "notional_usd": 2600.0,
+            "risk_pct": 0.01, "atr_risk": 100.0,
+        }
+        self.positions_path.write_text(json.dumps({
+            "balance_usd": 10_000.0,
+            "positions": {"ak": base, "ak::t2": base},
+        }))
+        strategy = [{
+            "id": "ak", "engine": "paper_legacy_exit_all_test",
+            "symbol": "BTC/USDT", "timeframe": "4h", "risk_pct": 0.02,
+            "entry_enabled": True, "params": {},
+        }]
+        try:
+            self.market = {"BTC/USDT": BREAKOUT}
+            summary = self._engine(strategy).run_cycle()
+            state = json.loads(self.positions_path.read_text())
+
+            self.assertEqual(summary["intents"]["ak"], "close")
+            self.assertEqual(len(summary["fills"]), 2)
+            self.assertEqual(state["positions"], {})
+        finally:
+            from orum.strategies import _ENGINES
+            _ENGINES.pop("paper_legacy_exit_all_test", None)
+
+    def test_reversal_rechecks_risk_caps_after_realizing_loss(self):
+        class AlwaysShortEngine:
+            name = "paper_short_post_loss_cap_test"
+            version = "1"
+            required_timeframes = ["15m"]
+            required_indicators: list[str] = []
+            warmup_period = 1
+
+            def init(self, config):
+                pass
+
+            def on_candle(self, candle, context):
+                price = float(candle["close"])
+                return Signal(
+                    Side.SHORT, context.symbol, context.timeframe, "short pulse",
+                    suggested_stop=price + 10.0,
+                    suggested_take_profit=price - 20.0,
+                )
+
+        register_engine("paper_short_post_loss_cap_test", AlwaysShortEngine)
+        self.positions_path.write_text(json.dumps({
+            "balance_usd": 10_000.0,
+            "positions": {
+                "ak": {
+                    "strategy_id": "ak", "symbol": "BTC/USDT", "side": "long",
+                    "qty": 20.0, "entry_px": 100.0, "notional_usd": 2000.0,
+                    "risk_pct": 0.02, "atr_risk": 10.0,
+                },
+                "other": {
+                    "strategy_id": "other", "symbol": "ETH/USDT", "side": "long",
+                    "qty": 48.0, "entry_px": 100.0, "notional_usd": 4800.0,
+                    "risk_pct": 0.048, "atr_risk": 10.0,
+                },
+            },
+        }))
+        primary = _candles([100.0] * 20 + [80.0])
+        monitor = _candles([100.0] * 21)
+
+        def provider(_symbol, timeframe, _limit):
+            return primary if timeframe == "4h" else monitor
+
+        strategy = [{
+            "id": "ak", "engine": "paper_short_post_loss_cap_test",
+            "symbol": "BTC/USDT", "timeframe": "4h", "risk_pct": 0.02,
+            "entry_enabled": True, "exit_policy": "structural_bracket",
+            "monitor_timeframe": "15m", "params": {},
+        }]
+        try:
+            summary = PaperEngine(
+                {
+                    "starting_balance_usd": 10_000.0,
+                    "max_total_stop_risk_pct": 0.05,
+                    "max_symbol_stop_risk_pct": 1.0,
+                    "reentry_policy": "topup",
+                    "strategies": strategy,
+                },
+                candle_provider=provider,
+                positions_path=self.positions_path, fills_path=self.fills_path,
+                equity_path=self.equity_path,
+            ).run_cycle()
+            state = json.loads(self.positions_path.read_text())
+
+            self.assertEqual(summary["intents"]["ak"], "risk_cap_total")
+            self.assertEqual([fill["action"] for fill in summary["fills"]], ["close"])
+            self.assertNotIn("ak", state["positions"])
+            self.assertIn("other", state["positions"])
+        finally:
+            from orum.strategies import _ENGINES
+            _ENGINES.pop("paper_short_post_loss_cap_test", None)
+
+    def test_disabled_opposite_entry_still_closes_existing_direction(self):
+        class AlwaysShortEngine:
+            name = "paper_disabled_reverse_test"
+            version = "1"
+            required_timeframes: list[str] = []
+            required_indicators: list[str] = []
+            warmup_period = 1
+
+            def init(self, config):
+                pass
+
+            def on_candle(self, candle, context):
+                price = float(candle["close"])
+                return Signal(
+                    Side.SHORT, context.symbol, context.timeframe, "short pulse",
+                    suggested_stop=price + 100.0,
+                    suggested_take_profit=price - 200.0,
+                )
+
+        register_engine("paper_disabled_reverse_test", AlwaysShortEngine)
+        self.positions_path.write_text(json.dumps({
+            "balance_usd": 10_000.0,
+            "positions": {"ak": {
+                "strategy_id": "ak", "symbol": "BTC/USDT", "side": "long",
+                "qty": 1.0, "entry_px": 2600.0, "notional_usd": 2600.0,
+                "risk_pct": 0.01, "atr_risk": 100.0,
+            }},
+        }))
+        strategy = [{
+            "id": "ak", "engine": "paper_disabled_reverse_test",
+            "symbol": "BTC/USDT", "timeframe": "4h", "risk_pct": 0.02,
+            "entry_enabled": False, "exit_policy": "structural_bracket",
+            "params": {},
+        }]
+        try:
+            self.market = {"BTC/USDT": BREAKOUT}
+            summary = PaperEngine(
+                {
+                    "starting_balance_usd": 10_000.0,
+                    "reentry_policy": "topup",
+                    "strategies": strategy,
+                },
+                candle_provider=self._provider,
+                positions_path=self.positions_path, fills_path=self.fills_path,
+                equity_path=self.equity_path,
+            ).run_cycle()
+            state = json.loads(self.positions_path.read_text())
+
+            self.assertEqual(summary["intents"]["ak"], "reverse_close")
+            self.assertEqual([fill["action"] for fill in summary["fills"]], ["close"])
+            self.assertEqual(state["positions"], {})
+        finally:
+            from orum.strategies import _ENGINES
+            _ENGINES.pop("paper_disabled_reverse_test", None)
 
     def test_strategy_receives_primary_and_declared_secondary_timeframes(self):
         class CaptureMtfEngine:
@@ -375,6 +739,50 @@ class PaperEngineTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "entry_enabled must be boolean"):
             self._engine(strategies)
 
+    def test_invalid_reward_risk_is_rejected(self):
+        strategy = [{
+            "id": "ak", "engine": "ak_macd", "symbol": "BTC/USDT",
+            "timeframe": "4h", "risk_pct": 0.02,
+            "reward_risk_ratio": float("inf"), "params": {},
+        }]
+
+        with self.assertRaisesRegex(ValueError, "finite and positive"):
+            self._engine(strategy)
+
+        strategy[0]["reward_risk_ratio"] = True
+        with self.assertRaisesRegex(ValueError, "finite and positive"):
+            self._engine(strategy)
+
+    def test_corrupt_account_state_fails_closed(self):
+        self.positions_path.write_text('{"balance_usd":')
+
+        with self.assertRaisesRegex(RuntimeError, "account state is unreadable"):
+            self._engine([]).run_cycle()
+
+        self.positions_path.write_text("{}")
+        with self.assertRaisesRegex(RuntimeError, "invalid root schema"):
+            self._engine([]).run_cycle()
+
+        self.positions_path.write_text(json.dumps({
+            "balance_usd": 10_000.0,
+            "positions": {"ak": "corrupt"},
+        }))
+        with self.assertRaisesRegex(RuntimeError, "positions schema"):
+            self._engine([]).run_cycle()
+
+    def test_monitor_gap_detection_does_not_trust_short_response(self):
+        self.assertTrue(PaperEngine._monitor_history_has_gap(
+            [{"ts": 1_800_000}], cursor=0, timeframe="15m"
+        ))
+        self.assertTrue(PaperEngine._monitor_history_has_gap(
+            [{"ts": 900_000}, {"ts": 2_700_000}],
+            cursor=0, timeframe="15m",
+        ))
+        self.assertFalse(PaperEngine._monitor_history_has_gap(
+            [{"ts": 900_000}, {"ts": 1_800_000}],
+            cursor=0, timeframe="15m",
+        ))
+
     def test_existing_ak_position_gets_audited_atr_fallback_bracket(self):
         self.positions_path.write_text(json.dumps({
             "balance_usd": 10_000.0,
@@ -411,6 +819,323 @@ class PaperEngineTests(unittest.TestCase):
         self.assertEqual(position["stop_loss_price"], 90.0)
         self.assertEqual(position["take_profit_price"], 115.0)
         self.assertEqual(position["sl_basis"], "atr_fallback_migration")
+
+    def test_ak_reward_risk_config_reaches_bracket_engine(self):
+        strategy = [{
+            "id": "btc_ak_macd_4h", "engine": "ak_macd", "symbol": "BTC/USDT",
+            "timeframe": "4h", "risk_pct": 0.02, "reward_risk_ratio": 2.0,
+            "params": {},
+        }]
+
+        engine = self._engine(strategy)
+
+        self.assertEqual(
+            engine._engines["btc_ak_macd_4h"]._reward_risk_ratio, 2.0
+        )
+
+    def test_dynamic_stop_beats_static_tp_on_same_candle(self):
+        self.positions_path.write_text(json.dumps({
+            "balance_usd": 10_000.0,
+            "positions": {"ak": {
+                "strategy_id": "ak", "position_id": "ak", "symbol": "BTC/USDT",
+                "side": "long", "qty": 1.0, "entry_px": 100.0,
+                "notional_usd": 100.0, "risk_pct": 0.02, "atr_risk": 10.0,
+                "risk_distance": 10.0, "opened_ts": 1, "entry_reason": "existing",
+                "exit_policy": "structural_bracket", "monitor_timeframe": "15m",
+                "stop_loss_price": 90.0, "take_profit_price": 115.0,
+                "last_monitor_candle_ts": 20,
+                "dynamic_exit": {
+                    "policy": {
+                        "mode": "execute", "version": "ak_mfe_ssl_v1",
+                        "activation_r": 1.0, "giveback_r": 0.5, "floor_r": 0.1,
+                        "ema_len": 3, "atr_len": 2, "ssl_atr_mult": 1.0,
+                        "close_on_ssl_invalidation": True,
+                    },
+                    "peak_favorable_price": 120.0, "mfe_r": 2.0,
+                    "dynamic_stop_price": 107.0, "armed": True,
+                    "last_candle_ts": 20,
+                },
+            }},
+            "processed_candles": {"ak": 19},
+        }))
+        strategy = [{
+            "id": "ak", "engine": "ak_macd", "symbol": "BTC/USDT",
+            "timeframe": "4h", "risk_pct": 0.02, "entry_enabled": False,
+            "exit_policy": "structural_bracket", "monitor_timeframe": "15m",
+            "reward_risk_ratio": 1.5, "params": {},
+        }]
+
+        def provider(_symbol, timeframe, _limit):
+            rows = _candles([100.0] * 22)
+            if timeframe == "4h":
+                rows[-1] = dict(rows[-1], ts=20, close=100.0)
+            else:
+                rows[-1] = dict(
+                    rows[-1], ts=21, open=110.0, low=106.0,
+                    high=116.0, close=110.0,
+                )
+            return rows
+
+        summary = PaperEngine(
+            {"starting_balance_usd": 10_000.0, "reentry_policy": "hold",
+             "strategies": strategy},
+            candle_provider=provider,
+            positions_path=self.positions_path, fills_path=self.fills_path,
+            equity_path=self.equity_path,
+        ).run_cycle(now=datetime(2026, 7, 13, 8, 15, tzinfo=timezone.utc))
+
+        self.assertEqual(summary["intents"]["ak"], "close_dynamic_stop")
+        self.assertEqual(summary["fills"][0]["price"], 107.0)
+        self.assertEqual(summary["fills"][0]["reason"], "dynamic_stop")
+        self.assertTrue(summary["fills"][0]["fill_id"])
+        self.assertEqual(len(self._read_lines(self.fills_path)), 1)
+        saved = json.loads(self.positions_path.read_text())
+        self.assertEqual(saved["processed_candles"]["ak"], 20)
+
+    def test_adaptive_target_replaces_original_tp_only_after_persisted_extension(self):
+        policy = DynamicExitPolicy(
+            mode="execute", adaptive_target=True, ema_len=4, atr_len=2,
+        )
+        state = DynamicExitState.initial(
+            policy, entry_price=100.0, last_candle_ts=20,
+            initial_target_price=120.0, atr_risk=10.0,
+        )
+        state = DynamicExitState(**{
+            **state.__dict__, "active_target_price": 130.0,
+            "active_target_r": 3.0, "target_extensions": 1,
+        })
+        position = Position(
+            strategy_id="ak", position_id="ak", symbol="BTC/USDT",
+            side="long", qty=1.0, entry_px=100.0, notional_usd=100.0,
+            risk_pct=0.02, atr_risk=10.0, risk_distance=10.0,
+            stop_loss_price=90.0, take_profit_price=120.0,
+            dynamic_exit=state.to_dict(),
+        )
+        self.assertIsNone(PaperEngine._protective_exit(
+            position,
+            {"open": 115.0, "high": 125.0, "low": 110.0, "close": 124.0},
+        ))
+        self.assertEqual(PaperEngine._protective_exit(
+            position,
+            {"open": 125.0, "high": 131.0, "low": 124.0, "close": 130.0},
+        ), ("take_profit", 130.0))
+
+    def test_observe_runner_never_moves_the_real_take_profit(self):
+        policy = DynamicExitPolicy(
+            mode="observe", adaptive_target=True, ema_len=4, atr_len=2,
+        )
+        state = DynamicExitState.initial(
+            policy, entry_price=100.0, last_candle_ts=20,
+            initial_target_price=120.0, atr_risk=10.0,
+        )
+        state = DynamicExitState(**{
+            **state.__dict__, "active_target_price": 130.0,
+            "active_target_r": 3.0, "target_extensions": 1,
+        })
+        position = Position(
+            strategy_id="ak", position_id="ak", symbol="BTC/USDT",
+            side="long", qty=1.0, entry_px=100.0, notional_usd=100.0,
+            risk_pct=0.02, atr_risk=10.0, risk_distance=10.0,
+            stop_loss_price=90.0, take_profit_price=120.0,
+            dynamic_exit=state.to_dict(),
+        )
+        self.assertEqual(PaperEngine._protective_exit(
+            position,
+            {"open": 115.0, "high": 125.0, "low": 110.0, "close": 124.0},
+        ), ("take_profit", 120.0))
+
+    def test_observe_shadows_dynamic_stop_before_real_static_tp(self):
+        dynamic = {
+            "policy": {
+                "mode": "observe", "version": "ak_mfe_ssl_v1",
+                "activation_r": 1.0, "giveback_r": 0.5, "floor_r": 0.1,
+                "ema_len": 3, "atr_len": 2, "ssl_atr_mult": 1.0,
+                "close_on_ssl_invalidation": True,
+            },
+            "peak_favorable_price": 120.0, "mfe_r": 2.0,
+            "dynamic_stop_price": 107.0, "armed": True,
+            "last_candle_ts": 20,
+        }
+        self.positions_path.write_text(json.dumps({
+            "balance_usd": 10_000.0,
+            "positions": {"ak": {
+                "strategy_id": "ak", "position_id": "ak", "symbol": "BTC/USDT",
+                "side": "long", "qty": 1.0, "entry_px": 100.0,
+                "notional_usd": 100.0, "risk_pct": 0.02, "atr_risk": 10.0,
+                "risk_distance": 10.0, "opened_ts": 1, "entry_reason": "existing",
+                "exit_policy": "structural_bracket", "monitor_timeframe": "15m",
+                "stop_loss_price": 90.0, "take_profit_price": 115.0,
+                "last_monitor_candle_ts": 20, "dynamic_exit": dynamic,
+            }},
+            "processed_candles": {"ak": 20},
+        }))
+        strategy = [{
+            "id": "ak", "engine": "ak_macd", "symbol": "BTC/USDT",
+            "timeframe": "4h", "risk_pct": 0.02, "entry_enabled": False,
+            "exit_policy": "structural_bracket", "monitor_timeframe": "15m",
+            "reward_risk_ratio": 1.5, "params": {},
+        }]
+
+        def provider(_symbol, timeframe, _limit):
+            rows = _candles([100.0] * 22)
+            if timeframe == "4h":
+                rows[-1] = dict(rows[-1], ts=20, close=100.0)
+            else:
+                rows[-1] = dict(
+                    rows[-1], ts=21, open=110.0, low=106.0,
+                    high=116.0, close=110.0,
+                )
+            return rows
+
+        summary = PaperEngine(
+            {"starting_balance_usd": 10_000.0, "reentry_policy": "hold",
+             "strategies": strategy},
+            candle_provider=provider,
+            positions_path=self.positions_path, fills_path=self.fills_path,
+            equity_path=self.equity_path,
+        ).run_cycle()
+
+        self.assertEqual(summary["fills"][0]["reason"], "take_profit")
+        decisions = self._read_lines(
+            self.fills_path.with_name("paper_dynamic_exits.jsonl")
+        )
+        self.assertEqual(decisions[-1]["reason"], "dynamic_stop")
+        self.assertEqual(decisions[-1]["desired_price"], 107.0)
+
+    def test_pending_dynamic_fill_recovers_without_duplicate(self):
+        pending = {
+            "fill_id": "stable-fill", "action": "close", "strategy_id": "ak",
+            "position_id": "ak", "price": 110.0,
+        }
+        self.positions_path.write_text(json.dumps({
+            "balance_usd": 10_100.0,
+            "positions": {},
+            "processed_candles": {},
+            "pending_fills": [pending],
+        }))
+        self.fills_path.write_text(json.dumps(pending) + "\n")
+        engine = PaperEngine(
+            {"starting_balance_usd": 10_000.0, "strategies": []},
+            candle_provider=self._provider,
+            positions_path=self.positions_path, fills_path=self.fills_path,
+            equity_path=self.equity_path,
+        )
+
+        engine.run_cycle()
+
+        self.assertEqual(len(self._read_lines(self.fills_path)), 1)
+        saved = json.loads(self.positions_path.read_text())
+        self.assertNotIn("pending_fills", saved)
+        self.assertEqual(saved["balance_usd"], 10_100.0)
+
+    def test_pending_dynamic_fill_is_published_after_account_commit(self):
+        pending = {
+            "fill_id": "missing-fill", "action": "close", "strategy_id": "ak",
+            "position_id": "ak", "price": 110.0,
+        }
+        self.positions_path.write_text(json.dumps({
+            "balance_usd": 10_100.0, "positions": {},
+            "processed_candles": {}, "pending_fills": [pending],
+        }))
+        engine = PaperEngine(
+            {"starting_balance_usd": 10_000.0, "strategies": []},
+            candle_provider=self._provider,
+            positions_path=self.positions_path, fills_path=self.fills_path,
+            equity_path=self.equity_path,
+        )
+
+        engine.run_cycle()
+
+        self.assertEqual(self._read_lines(self.fills_path), [pending])
+        self.assertNotIn(
+            "pending_fills", json.loads(self.positions_path.read_text())
+        )
+
+    def test_pending_fill_repairs_torn_jsonl_tail(self):
+        pending = {
+            "fill_id": "after-torn-tail", "action": "close",
+            "strategy_id": "ak", "position_id": "ak", "price": 110.0,
+        }
+        self.positions_path.write_text(json.dumps({
+            "balance_usd": 10_100.0, "positions": {},
+            "processed_candles": {}, "pending_fills": [pending],
+        }))
+        self.fills_path.write_bytes(b'{"fill_id":"torn"')
+        engine = PaperEngine(
+            {"starting_balance_usd": 10_000.0, "strategies": []},
+            candle_provider=self._provider,
+            positions_path=self.positions_path, fills_path=self.fills_path,
+            equity_path=self.equity_path,
+        )
+
+        engine.run_cycle()
+
+        self.assertEqual(self._read_lines(self.fills_path), [pending])
+
+    def test_static_short_fill_recovers_after_publish_crash_without_duplicate(self):
+        class AlwaysShortEngine:
+            name = "paper_static_outbox_test"
+            version = "1"
+            required_timeframes: list[str] = []
+            required_indicators: list[str] = []
+            warmup_period = 1
+
+            def init(self, config):
+                pass
+
+            def on_candle(self, candle, context):
+                price = float(candle["close"])
+                return Signal(
+                    Side.SHORT, context.symbol, context.timeframe, "short pulse",
+                    suggested_stop=price + 100.0,
+                    suggested_take_profit=price - 200.0,
+                )
+
+        register_engine("paper_static_outbox_test", AlwaysShortEngine)
+        strategy = [{
+            "id": "ak", "engine": "paper_static_outbox_test",
+            "symbol": "BTC/USDT", "timeframe": "4h", "risk_pct": 0.02,
+            "entry_enabled": True, "exit_policy": "structural_bracket",
+            "params": {},
+        }]
+        config = {
+            "starting_balance_usd": 10_000.0,
+            "reentry_policy": "topup",
+            "strategies": strategy,
+        }
+        try:
+            self.market = {"BTC/USDT": BREAKOUT}
+            crashing = PaperEngine(
+                config, candle_provider=self._provider,
+                positions_path=self.positions_path, fills_path=self.fills_path,
+                equity_path=self.equity_path,
+            )
+            with patch.object(
+                crashing, "_append_durable", side_effect=OSError("publish crash")
+            ):
+                with self.assertRaisesRegex(OSError, "publish crash"):
+                    crashing.run_cycle()
+
+            pending_state = json.loads(self.positions_path.read_text())
+            self.assertEqual(len(pending_state["pending_fills"]), 1)
+            self.assertFalse(self.fills_path.exists())
+
+            summary = PaperEngine(
+                config, candle_provider=self._provider,
+                positions_path=self.positions_path, fills_path=self.fills_path,
+                equity_path=self.equity_path,
+            ).run_cycle()
+
+            ledger = self._read_lines(self.fills_path)
+            self.assertEqual(len(ledger), 1)
+            self.assertEqual(ledger[0]["side"], "short")
+            self.assertEqual(summary["intents"]["ak"], "duplicate_candle")
+            self.assertNotIn(
+                "pending_fills", json.loads(self.positions_path.read_text())
+            )
+        finally:
+            from orum.strategies import _ENGINES
+            _ENGINES.pop("paper_static_outbox_test", None)
 
     def test_protective_stop_closes_on_duplicate_primary_candle_at_frozen_level(self):
         self.positions_path.write_text(json.dumps({
@@ -518,18 +1243,149 @@ class PaperEngineTests(unittest.TestCase):
         strategy = [{
             "id": "btc_utbot", "engine": "suggested_stop_test", "symbol": "BTC/USDT",
             "timeframe": "15m", "risk_pct": 0.005, "entry_enabled": True,
-            "exit_policy": "signal_or_stop", "monitor_timeframe": "15m", "params": {},
+            "exit_policy": "signal_or_stop", "monitor_timeframe": "15m",
+            "dynamic_exit": {
+                "mode": "execute", "version": "mfe_ratchet_v1",
+                "activation_r": 1.0, "giveback_r": 0.5, "floor_r": 0.1,
+            },
+            "params": {},
         }]
         try:
-            summary = self._engine(strategy).run_cycle()
+            summary = PaperEngine(
+                {
+                    "starting_balance_usd": 10_000.0,
+                    "reentry_policy": "topup",
+                    "strategies": strategy,
+                },
+                candle_provider=self._provider,
+                positions_path=self.positions_path,
+                fills_path=self.fills_path,
+                equity_path=self.equity_path,
+            ).run_cycle()
             self.assertEqual(summary["intents"]["btc_utbot"], "open")
             position = json.loads(self.positions_path.read_text())["positions"]["btc_utbot"]
             self.assertEqual(position["stop_loss_price"], 95.0)
             self.assertIsNone(position["take_profit_price"])
             self.assertEqual(position["exit_policy"], "signal_or_stop")
+            self.assertEqual(
+                position["dynamic_exit"]["policy"]["version"],
+                "mfe_ratchet_v1",
+            )
         finally:
             from orum.strategies import _ENGINES
             _ENGINES.pop("suggested_stop_test", None)
+
+    def _run_stop_distance_case(self, suggested_stop):
+        class StopDistanceEngine:
+            name = "stop_distance_test"
+            version = "1"
+            required_timeframes: list[str] = []
+            required_indicators: list[str] = []
+            warmup_period = 1
+
+            def init(self, config):
+                pass
+
+            def on_candle(self, candle, context):
+                return Signal(
+                    Side.LONG,
+                    context.symbol,
+                    context.timeframe,
+                    "test stop distance",
+                    suggested_stop=suggested_stop,
+                )
+
+        register_engine("stop_distance_test", StopDistanceEngine)
+        strategy = [{
+            "id": "btc_utbot", "engine": "stop_distance_test",
+            "symbol": "BTC/USDT", "timeframe": "15m", "risk_pct": 0.02,
+            "entry_enabled": True, "params": {},
+        }]
+        try:
+            self.market = {"BTC/USDT": BREAKOUT}
+            return self._engine(strategy).run_cycle()
+        finally:
+            from orum.strategies import _ENGINES
+            _ENGINES.pop("stop_distance_test", None)
+
+    def test_explicit_stop_keeps_legacy_atr_sizing(self):
+        summary = self._run_stop_distance_case(2500.0)
+
+        self.assertEqual(summary["intents"]["btc_utbot"], "open")
+        self.assertEqual(summary["fills"][0]["risk_distance"], 100.0)
+        self.assertAlmostEqual(
+            summary["fills"][0]["qty"] * summary["fills"][0]["atr_risk"],
+            200.0,
+        )
+
+    def test_missing_stop_uses_atr_fallback(self):
+        summary = self._run_stop_distance_case(None)
+
+        self.assertEqual(summary["intents"]["btc_utbot"], "open")
+        self.assertEqual(
+            summary["fills"][0]["risk_distance"],
+            summary["fills"][0]["atr_risk"],
+        )
+
+    def test_malformed_long_stop_is_rejected(self):
+        summary = self._run_stop_distance_case(2700.0)
+
+        self.assertEqual(summary["intents"]["btc_utbot"], "invalid_stop")
+        self.assertEqual(summary["fills"], [])
+
+    def test_explicit_topup_opens_separate_tranche_with_stable_strategy_id(self):
+        class AlwaysLongWithStop:
+            name = "paper_topup_test"
+            version = "1"
+            required_timeframes: list[str] = []
+            required_indicators: list[str] = []
+            warmup_period = 1
+
+            def init(self, config):
+                pass
+
+            def on_candle(self, candle, context):
+                return Signal(
+                    Side.LONG, context.symbol, context.timeframe, "paper topup",
+                    suggested_stop=2500.0,
+                )
+
+        register_engine("paper_topup_test", AlwaysLongWithStop)
+        config = {
+            "starting_balance_usd": 10_000.0,
+            "max_total_stop_risk_pct": 0.05,
+            "max_symbol_stop_risk_pct": 0.03,
+            "reentry_policy": "topup",
+            "merit_order": ["btc_utbot"],
+            "min_topup_fraction": 0.0,
+            "strategies": [{
+                "id": "btc_utbot", "engine": "paper_topup_test",
+                "symbol": "BTC/USDT", "timeframe": "15m", "risk_pct": 0.02,
+                "entry_enabled": True, "params": {},
+            }],
+        }
+        try:
+            engine = PaperEngine(
+                config, candle_provider=self._provider,
+                positions_path=self.positions_path, fills_path=self.fills_path,
+                equity_path=self.equity_path,
+            )
+            self.market = {"BTC/USDT": BREAKOUT}
+            first = engine.run_cycle()
+            self.market = {
+                "BTC/USDT": BREAKOUT + [dict(BREAKOUT[-1], ts=21)],
+            }
+            second = engine.run_cycle()
+
+            self.assertEqual(first["intents"]["btc_utbot"], "open")
+            self.assertEqual(second["intents"]["btc_utbot"], "open_topup")
+            self.assertEqual(second["open_positions"], ["btc_utbot", "btc_utbot::t2"])
+            self.assertEqual(second["fills"][0]["strategy_id"], "btc_utbot")
+            self.assertEqual(second["fills"][0]["position_id"], "btc_utbot::t2")
+            self.assertAlmostEqual(second["fills"][0]["risk_pct"], 0.01, places=4)
+        finally:
+            from orum.strategies import _ENGINES
+            _ENGINES.pop("paper_topup_test", None)
 
     def test_signal_fill_uses_primary_close_while_equity_marks_monitor_close(self):
         class PrimaryPriceEngine:
@@ -570,98 +1426,6 @@ class PaperEngineTests(unittest.TestCase):
         finally:
             from orum.strategies import _ENGINES
             _ENGINES.pop("primary_price_test", None)
-
-    def test_active_forecast_gate_resizes_new_entry_and_records_counterfactual(self):
-        report = {
-            "active": True, "origin_ts": "2026-07-11T00:00:00+00:00", "horizons": {
-                "12": {"quantiles": {"p10": -0.01, "p25": 0.002, "p50": 0.01, "p75": 0.02, "p90": 0.03}, "metrics": {"direction_accuracy": 0.56}},
-                "24": {"quantiles": {"p10": -0.015, "p25": 0.003, "p50": 0.015, "p75": 0.03, "p90": 0.05}, "metrics": {"direction_accuracy": 0.58}},
-            },
-        }
-        self.market = {"ETH/USDT": BREAKOUT}
-        summary = self._forecast_engine(report).run_cycle()
-
-        self.assertEqual(summary["intents"]["eth_donchian"], "open")
-        fill = summary["fills"][0]
-        self.assertAlmostEqual(fill["risk_pct"], 0.023)
-        audit = self._read_lines(Path(self._dir.name) / "forecast_audit.jsonl")[0]
-        self.assertEqual(audit["baseline_intent"], "open")
-        self.assertEqual(audit["action"], "boost")
-        self.assertEqual(audit["multiplier"], 1.15)
-
-    def test_forecast_veto_blocks_only_new_entry(self):
-        report = {
-            "active": True, "horizons": {
-                "12": {"quantiles": {"p10": -0.04, "p25": -0.03, "p50": -0.01, "p75": 0, "p90": 0.01}, "metrics": {"direction_accuracy": 0.56}},
-                "24": {"quantiles": {"p10": -0.05, "p25": -0.04, "p50": -0.02, "p75": -0.01, "p90": -0.001}, "metrics": {"direction_accuracy": 0.57}},
-            },
-        }
-        self.market = {"ETH/USDT": BREAKOUT}
-        summary = self._forecast_engine(report).run_cycle()
-        self.assertEqual(summary["intents"]["eth_donchian"], "forecast_veto")
-        self.assertEqual(summary["fills"], [])
-        self.assertEqual(summary["open_positions"], [])
-
-    def test_forecast_state_refreshes_without_an_entry_signal(self):
-        report = {"active": False, "horizons": {}, "lock_reasons": ["quality lock"]}
-        self.market = {"ETH/USDT": INSIDE}
-        engine = self._forecast_engine(report)
-
-        summary = engine.run_cycle()
-
-        self.assertEqual(summary["intents"]["eth_donchian"], "no_trade")
-        state = json.loads((Path(self._dir.name) / "forecast_gate.json").read_text())
-        self.assertEqual(state["assets"]["ETH/USDT"]["lock_reasons"], ["quality lock"])
-        self.assertEqual(state["strategies"]["eth_donchian"]["lock_reasons"], ["quality lock"])
-        self.assertFalse((Path(self._dir.name) / "forecast_audit.jsonl").exists())
-
-    def test_forecast_state_merge_preserves_other_strategy_on_duplicate_cycle(self):
-        self.forecast_state_path.write_text(json.dumps({
-            "updated_at": "2026-07-13T05:00:00+00:00",
-            "assets": {"BTC/USDT": {"strategy_id": "btc_ak_macd_4h", "active": False}},
-            "strategies": {"btc_ak_macd_4h": {
-                "strategy_id": "btc_ak_macd_4h", "active": False,
-                "lock_reasons": ["btc quality lock"],
-            }},
-        }))
-        report = {"active": False, "horizons": {}, "lock_reasons": ["eth quality lock"]}
-        self.market = {"ETH/USDT": INSIDE}
-        engine = self._forecast_engine(report)
-
-        engine.run_cycle()
-        engine.run_cycle()
-
-        state = json.loads(self.forecast_state_path.read_text())
-        self.assertEqual(
-            set(state["strategies"]), {"btc_ak_macd_4h", "eth_donchian"}
-        )
-        self.assertEqual(
-            state["strategies"]["btc_ak_macd_4h"]["lock_reasons"],
-            ["btc quality lock"],
-        )
-
-    def test_forecast_history_archives_once_per_six_hour_bucket(self):
-        report = {
-            "active": False,
-            "origin_ts": "2026-07-13T06:00:00+00:00",
-            "origin_price": 100.0,
-            "horizons": {
-                "6": {"quantiles": {"p10": -0.02, "p50": 0.01, "p90": 0.03}},
-                "12": {"quantiles": {"p10": -0.03, "p50": 0.02, "p90": 0.04}},
-                "24": {"quantiles": {"p10": -0.04, "p50": 0.03, "p90": 0.05}},
-            },
-            "lock_reasons": ["quality lock"],
-        }
-        self.market = {"ETH/USDT": INSIDE}
-        engine = self._forecast_engine(report)
-
-        engine.run_cycle(now=datetime(2026, 7, 13, 6, 10, tzinfo=timezone.utc))
-        engine.run_cycle(now=datetime(2026, 7, 13, 6, 25, tzinfo=timezone.utc))
-
-        records = self._read_lines(self.forecast_history_path)
-        predictions = [row for row in records if row["record_type"] == "prediction"]
-        self.assertEqual(len(predictions), 1)
-        self.assertEqual(predictions[0]["bucket_ts"], "2026-07-13T06:00:00+00:00")
 
 
 if __name__ == "__main__":

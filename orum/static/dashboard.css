@@ -49,6 +49,7 @@ body {
   width: 27px; height: 25px; padding: 4px; display: grid; place-items: center;
   border: 1px solid var(--line); background: #25313c; color: var(--muted);
   border-radius: 2px; cursor: pointer;
+  transition: background .25s, color .25s, border-color .25s;
 }
 .layout-preset-btn svg { width: 14px; height: 14px; stroke-width: 1; }
 .layout-preset-btn:hover { color: var(--text); border-color: #607485; }
@@ -57,6 +58,10 @@ body {
   color: var(--good); border-color: var(--good-dim); background: rgba(66, 211, 146, .07);
 }
 .layout-preset-btn:disabled { opacity: .4; cursor: default; }
+#layout-save-btn { margin-left: 3px; border-left: 1px solid var(--line); padding-left: 6px; width: auto; }
+#layout-save-btn.saved-flash {
+  color: var(--good); border-color: var(--good-dim); background: rgba(66, 211, 146, .22);
+}
 .layout-custom-saved {
   width: 5px; height: 5px; margin-left: 2px; border-radius: 50%; background: transparent;
 }
@@ -239,15 +244,15 @@ main { padding: 14px 18px 60px; }
 .terminal-svg .scenario-join-node { fill: #1e2730; stroke: var(--warn); stroke-width: 1.35; }
 .terminal-svg .event-stem { stroke-width: 1.05; stroke-dasharray: 2 2; opacity: .92; }
 .terminal-svg .event-stem.in, .terminal-svg .trade-link.win { stroke: var(--good); }
-.terminal-svg .event-stem.tp { stroke: var(--good); }
+.terminal-svg .event-stem.tp { stroke: var(--info); }
 .terminal-svg .event-stem.sl, .terminal-svg .trade-link.loss { stroke: var(--bad); }
 .terminal-svg .event-stem.model { stroke: #d1ba56; opacity: .68; }
 .terminal-svg .event-label { font-size: 11.5px; font-weight: 800; paint-order: stroke; stroke: #1e2730; stroke-width: 3.4px; }
-.terminal-svg .event-label.in, .terminal-svg .event-label.tp { fill: var(--good); }
+.terminal-svg .event-label.in { fill: var(--good); }
+.terminal-svg .event-label.tp { fill: var(--info); }
 .terminal-svg .event-label.sl { fill: var(--bad); }
 .terminal-svg .event-label.out { fill: #d9e3ec; }
 .terminal-svg .event-label.model { fill: #d8c56d; }
-.terminal-svg .forecast-history-line { fill: none; stroke: var(--warn); stroke-width: 1; opacity: .5; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
 .terminal-svg .position-level { stroke-width: 1; stroke-dasharray: 5 3; opacity: .8; }
 .terminal-svg .position-level.stop { stroke: var(--bad); }
 .terminal-svg .position-level.take { stroke: var(--good); }
@@ -255,14 +260,24 @@ main { padding: 14px 18px 60px; }
 .terminal-svg .position-level-label.stop { fill: var(--bad); }
 .terminal-svg .position-level-label.take { fill: var(--good); }
 .terminal-svg .event-anchor { fill: #1e2730; stroke-width: 1.2; }
-.terminal-svg .event-anchor.in, .terminal-svg .event-anchor.tp { stroke: var(--good); }
-.terminal-svg .event-anchor.sl { stroke: var(--bad); }
 .terminal-svg .event-anchor.model { stroke: #d1ba56; }
 .terminal-svg .event-halo { fill: none; stroke-width: .85; opacity: .48; }
-.terminal-svg .event-halo.in, .terminal-svg .event-halo.tp, .terminal-svg .event-timeline-dot.in, .terminal-svg .event-timeline-dot.tp { stroke: var(--good); fill: var(--good); }
-.terminal-svg .event-halo.sl, .terminal-svg .event-timeline-dot.sl { stroke: var(--bad); fill: var(--bad); }
+.terminal-svg .event-timeline-dot.in { stroke: var(--good); fill: var(--good); }
+.terminal-svg .event-timeline-dot.tp { stroke: var(--info); fill: var(--info); }
+.terminal-svg .event-timeline-dot.sl { stroke: var(--bad); fill: var(--bad); }
 .terminal-svg .event-halo.model, .terminal-svg .event-timeline-dot.model { stroke: #d1ba56; fill: #d1ba56; opacity: .68; }
-.terminal-svg .event-halo.in, .terminal-svg .event-halo.tp, .terminal-svg .event-halo.sl { fill: none; }
+.terminal-svg .event-anchor.model { stroke: #d1ba56; }
+/* Directional entry/exit triangles (up=long or TP, down=short or SL) — shared
+   by the real-money terminals (event-marker) and the EMA shadow charts
+   (shadow-marker), both rendered inside a .terminal-svg root. */
+.terminal-svg .event-marker, .terminal-svg .shadow-marker { stroke: #0a0d12; stroke-width: 1; }
+.terminal-svg .event-marker.in, .terminal-svg .shadow-marker.in { fill: var(--good); }
+.terminal-svg .event-marker.tp, .terminal-svg .shadow-marker.tp { fill: var(--info); }
+.terminal-svg .event-marker.sl, .terminal-svg .shadow-marker.sl { fill: var(--bad); }
+.terminal-svg .shadow-marker-label.in { fill: var(--good); }
+.terminal-svg .shadow-marker-label.tp { fill: var(--info); }
+.terminal-svg .shadow-marker-label.sl { fill: var(--bad); }
+.terminal-svg .llm-marker { opacity: .35; }
 .terminal-svg .trade-link { fill: none; stroke-width: 1.35; opacity: .9; }
 .terminal-svg .trade-endpoint { fill: #1e2730; stroke-width: 1.35; }
 .terminal-svg .trade-endpoint.win { stroke: var(--good); }
@@ -418,6 +433,20 @@ main { padding: 14px 18px 60px; }
 .spark path.line { fill: none; stroke: var(--accent); stroke-width: 1.6; }
 .spark path.area { fill: url(#eqgrad); opacity: .25; }
 .spark line.base { stroke: var(--line); stroke-dasharray: 3 3; }
+
+/* ---- LLM fade shadow terminal (same visual language as market-terminal) - */
+.terminal-svg line.base { stroke: var(--line); stroke-dasharray: 3 3; }
+.terminal-svg .btc-ref-line { fill: none; stroke: var(--warn, #f0a23a); stroke-width: .9; stroke-dasharray: 3 3; opacity: .55; }
+.terminal-svg .fade-line { fill: none; stroke-width: 1.6; }
+.terminal-svg .fade-line.reference { stroke: var(--accent); }
+.terminal-svg .fade-line.evolving { stroke: var(--info); }
+.rail-label.fade-legend { position: relative; padding-left: 12px; }
+.rail-label.fade-legend::before {
+  content: ""; position: absolute; left: 0; top: 50%; width: 7px; height: 7px;
+  border-radius: 50%; transform: translateY(-50%);
+}
+.rail-label.fade-legend.reference::before { background: var(--accent); }
+.rail-label.fade-legend.evolving::before { background: var(--info); }
 
 /* ---- external panel --------------------------------------------------- */
 .counts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 10px; }

@@ -4,6 +4,7 @@ from orum.strategies import StrategyEngineError, load_engine, register_engine
 from orum.strategies.ak_macd import AkMacdEngine
 from orum.strategies.base import StrategyContext
 from orum.strategies.native_dsl import NativeDslEngine
+from orum.strategies.opening_range import OpeningRangeEngine
 from orum.strategies.utbot_mtf import UtBotMtfEngine
 
 
@@ -28,6 +29,11 @@ class LoadBuiltinEnginesTests(unittest.TestCase):
         engine = load_engine({"strategy_engine": {"name": "utbot_mtf"}})
         self.assertIsInstance(engine, UtBotMtfEngine)
         self.assertEqual(engine.required_timeframes, ["15m", "1h"])
+
+    def test_loads_opening_range_by_built_in_name(self):
+        engine = load_engine({"strategy_engine": {"name": "opening_range"}})
+        self.assertIsInstance(engine, OpeningRangeEngine)
+        self.assertEqual(engine.required_timeframes, ["1d"])
 
     def test_kama_squeeze_is_not_registry_activatable(self):
         with self.assertRaises(StrategyEngineError):

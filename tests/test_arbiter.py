@@ -25,6 +25,7 @@ from orum.strategies import _ENGINES, register_engine
 from orum.strategies.base import Side, Signal
 
 from scripts.replay_harness.arbiter import base_strategy_id, make_arbiter_engine_class
+from scripts.replay_harness.arbiter_report import _fill_stats
 
 
 def _candles(closes: list[float], start_ts: int = 0) -> list[dict]:
@@ -77,9 +78,6 @@ class ArbiterTests(unittest.TestCase):
             "positions_path": d / "positions.json",
             "fills_path": d / "fills.jsonl",
             "equity_path": d / "equity.jsonl",
-            "forecast_state_path": d / "forecast_state.json",
-            "forecast_audit_path": d / "forecast_audit.jsonl",
-            "forecast_history_path": d / "forecast_history.jsonl",
         }
 
     def _config(self, strategies: list[dict], *, symbol_cap=0.03, total_cap=0.05) -> dict:
@@ -109,13 +107,26 @@ class ArbiterTests(unittest.TestCase):
         return [json.loads(x) for x in path.read_text().splitlines()] if path.exists() else []
 
     # ---- parity -----------------------------------------------------------
+    def test_harness_uses_production_run_cycle(self):
+        engine_class = make_arbiter_engine_class()
+        self.assertNotIn("run_cycle", engine_class.__dict__)
+
+    def test_report_counts_position_topups_and_legacy_atr_budget(self):
+        stats = _fill_stats([{
+            "strategy_id": "a", "position_id": "a::t2", "action": "open",
+            "fee_usd": 0.0, "qty": 2.0, "atr_risk": 10.0,
+            "risk_distance": 25.0,
+        }])
+
+        self.assertEqual(stats["topup_entries_by_strategy"], {"a": 1})
+        self.assertEqual(stats["entry_risk_distribution"]["a"]["total_usd"], 20.0)
+
     def test_no_contention_matches_production_engine(self):
         strategies = [self._strategy("btc", "BTC/USDT", 0.02),
                       self._strategy("eth", "ETH/USDT", 0.02)]
         config = self._config(strategies)
-        baseline = PaperEngine(config, candle_provider=self._provider, **{
-            k: v for k, v in self._paths("baseline").items()
-            if k in ("positions_path", "fills_path", "equity_path")})
+        baseline = PaperEngine(config, candle_provider=self._provider,
+                               **self._paths("baseline"))
         arbiter = self._arbiter(config, "arbiter", reentry_policy="hold")
         for cycle in range(3):
             closes = [2000.0] * 20 + [2600.0 + 10 * j for j in range(cycle + 1)]
@@ -204,6 +215,9 @@ class ArbiterTests(unittest.TestCase):
         # Third signal: the thesis is fully funded now.
         self.assertEqual(summaries[2]["intents"]["a"], "thesis_already_funded")
         self.assertEqual(base_strategy_id("a::t2"), "a")
+        topup_fill = summaries[1]["fills"][0]
+        self.assertEqual(topup_fill["strategy_id"], "a")
+        self.assertEqual(topup_fill["position_id"], "a::t2")
 
     def test_min_topup_fraction_floors_dust_grants(self):
         summaries = self._reentry_summaries("topup", min_topup_fraction=0.9)
@@ -223,7 +237,8 @@ class ArbiterTests(unittest.TestCase):
         self.assertEqual(summary["intents"]["a"], "close")
         self.assertEqual(summary["open_positions"], [])
         closes = [f for f in self._read(self._paths("run")["fills_path"]) if f["action"] == "close"]
-        self.assertEqual({f["strategy_id"] for f in closes}, {"a", "a::t2"})
+        self.assertEqual({f["strategy_id"] for f in closes}, {"a"})
+        self.assertEqual({f["position_id"] for f in closes}, {"a", "a::t2"})
 
     def test_protective_exit_fires_per_tranche(self):
         config = self._config(

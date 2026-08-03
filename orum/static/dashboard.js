@@ -11,6 +11,14 @@ const signed = (v, fn) => (Number(v) > 0 ? "+" : "") + fn(v);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 const cls = (v) => (Number(v) > 0 ? "pos" : Number(v) < 0 ? "neg" : "");
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+// Directional entry/exit marker: apex up for long entries / take-profit,
+// apex down for short entries / stop-loss — see .event-marker/.shadow-marker.
+const trianglePath = (cx, cy, up, r = 9) => {
+  const h = r * 1.6;
+  return up
+    ? `M${cx.toFixed(1)},${(cy - h / 2).toFixed(1)} L${(cx - r).toFixed(1)},${(cy + h / 2).toFixed(1)} L${(cx + r).toFixed(1)},${(cy + h / 2).toFixed(1)} Z`
+    : `M${cx.toFixed(1)},${(cy + h / 2).toFixed(1)} L${(cx - r).toFixed(1)},${(cy - h / 2).toFixed(1)} L${(cx + r).toFixed(1)},${(cy - h / 2).toFixed(1)} Z`;
+};
 
 function hhmmss(ts) {
   if (!ts) return "--:--:--";
@@ -573,6 +581,99 @@ function renderEquity(s) {
   card.innerHTML = `<h2>Equity curve <span class="hint">${(s.equity_curve || []).length} pts · compound ${signed(s.pnl_compound, (v) => pct(v))}</span></h2><div class="body">${svg}</div>`;
 }
 
+const LLM_FADE_LANE_LABEL = { llm_reference: "reference (non-appris)", llm_evolving: "evolving (avec leçons)" };
+const LLM_FADE_LANE_CLASS = { llm_reference: "reference", llm_evolving: "evolving" };
+function renderLlmFadeShadow(s) {
+  const card = $("llm-fade-shadow-card");
+  if (!card) return;
+  const data = s.llm_fade_shadow || {};
+  const lanes = data.lanes || {};
+  const laneOrder = Object.keys(LLM_FADE_LANE_LABEL);
+  const head = `<div class="terminal-head"><div><span class="terminal-kicker">RECHERCHE · SHADOW</span><strong>LLM fade shadow</strong><span class="hint">inverse du labo LLM · zéro capital réel</span></div></div>`;
+
+  const laneSeries = {};
+  laneOrder.forEach(lane => {
+    laneSeries[lane] = (lanes[lane]?.equity_curve || [])
+      .map(p => ({ ts: new Date(p.ts).getTime(), equity: Number(p.equity), price: Number(p.price) }))
+      .filter(p => Number.isFinite(p.ts));
+  });
+  const pricePoints = laneOrder.flatMap(lane => laneSeries[lane].filter(p => p.price > 0))
+    .sort((a, b) => a.ts - b.ts);
+  const seenTs = new Set();
+  const btcPoints = pricePoints.filter(p => (seenTs.has(p.ts) ? false : (seenTs.add(p.ts), true)));
+
+  const hasAny = laneOrder.some(lane => laneSeries[lane].length >= 2);
+  let chartHtml = `<div class="flat">pas encore assez de trades fadés</div>`;
+  if (hasAny) {
+    const W = 900, H = 260, left = 48, right = W - 48, top = 14, bottom = H - 22;
+    const allTs = laneOrder.flatMap(lane => laneSeries[lane].map(p => p.ts));
+    const t0 = Math.min(...allTs), t1 = Math.max(...allTs);
+    const x = ts => left + (right - left) * (t1 > t0 ? (ts - t0) / (t1 - t0) : 0.5);
+
+    const eqVals = laneOrder.flatMap(lane => laneSeries[lane].map(p => p.equity)).concat([1]);
+    const eqLo = Math.min(...eqVals), eqHi = Math.max(...eqVals);
+    const eqSpan = Math.max(eqHi - eqLo, 0.02) * 1.16;
+    const eqBase = eqLo - Math.max(eqHi - eqLo, 0.02) * 0.08;
+    const yEq = v => bottom - ((v - eqBase) / eqSpan) * (bottom - top);
+
+    const pxVals = btcPoints.map(p => p.price);
+    const pxLo = pxVals.length ? Math.min(...pxVals) : 0, pxHi = pxVals.length ? Math.max(...pxVals) : 1;
+    const pxSpan = Math.max(pxHi - pxLo, pxHi * 0.001) * 1.16;
+    const pxBase = pxLo - Math.max(pxHi - pxLo, pxHi * 0.001) * 0.08;
+    const yPx = v => bottom - ((v - pxBase) / pxSpan) * (bottom - top);
+
+    let svg = `<svg class="terminal-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">`;
+    for (let g = 0; g <= 3; g++) {
+      const gy = top + (bottom - top) * g / 3;
+      const eqVal = (eqBase + eqSpan) - eqSpan * g / 3;
+      svg += `<line class="grid-line" x1="${left}" y1="${gy.toFixed(1)}" x2="${right}" y2="${gy.toFixed(1)}"/>`;
+      svg += `<text class="axis-label" x="${(left - 4).toFixed(1)}" y="${(gy + 3).toFixed(1)}" text-anchor="end">${signed(eqVal - 1, pct)}</text>`;
+      if (pxVals.length) {
+        const pxVal = (pxBase + pxSpan) - pxSpan * g / 3;
+        svg += `<text class="axis-label" x="${(right + 4).toFixed(1)}" y="${(gy + 3).toFixed(1)}">${num(pxVal, 0)}</text>`;
+      }
+    }
+    const baseY = yEq(1).toFixed(1);
+    svg += `<line class="base" x1="${left}" y1="${baseY}" x2="${right}" y2="${baseY}"/>`;
+    if (btcPoints.length >= 2) {
+      const pricePath = btcPoints.map((p, i) => `${i ? "L" : "M"}${x(p.ts).toFixed(1)},${yPx(p.price).toFixed(1)}`).join(" ");
+      svg += `<path class="btc-ref-line" d="${pricePath}"/>`;
+    }
+    laneOrder.forEach(lane => {
+      const pts = laneSeries[lane];
+      if (pts.length < 2) return;
+      const path = pts.map((p, i) => `${i ? "L" : "M"}${x(p.ts).toFixed(1)},${yEq(p.equity).toFixed(1)}`).join(" ");
+      svg += `<path class="fade-line ${LLM_FADE_LANE_CLASS[lane]}" d="${path}"/>`;
+    });
+    svg += `</svg>`;
+    chartHtml = svg;
+  }
+
+  const rail = laneOrder.map(lane => {
+    const l = lanes[lane];
+    if (!l || !l.trade_count) {
+      return `<div class="rail-block"><div class="rail-label fade-legend ${LLM_FADE_LANE_CLASS[lane]}">${esc(LLM_FADE_LANE_LABEL[lane])}</div><div class="rail-value small">aucun trade</div></div>`;
+    }
+    const chg = l.equity - 1;
+    return `<div class="rail-block">
+      <div class="rail-label fade-legend ${LLM_FADE_LANE_CLASS[lane]}">${esc(LLM_FADE_LANE_LABEL[lane])}</div>
+      <div class="rail-value ${cls(chg)}">${signed(chg, pct)}</div>
+      <div class="rail-sub">${l.trade_count} trades fadés · win rate ${num(l.win_rate * 100, 0)}%</div>
+    </div>`;
+  }).join("");
+
+  const recent = laneOrder.flatMap(lane => (lanes[lane]?.trades || []).map(t => ({ ...t, lane })))
+    .sort((a, b) => new Date(b.ts) - new Date(a.ts)).slice(0, 8);
+  const tradesHtml = recent.length
+    ? recent.map(t => `<div class="rail-row"><span>${esc(t.symbol)} ${esc(t.model_side)}→${esc(t.fade_side)} <span class="muted">(${t.lane === "llm_reference" ? "ref" : "evo"})</span></span><span class="${cls(t.opposite_return)}">${signed(t.opposite_return, pct)}</span></div>`).join("")
+    : `<div class="rail-value small">—</div>`;
+
+  card.innerHTML = `${head}<div class="market-terminal">
+      <div class="market-terminal-chart">${chartHtml}</div>
+      <aside class="market-terminal-rail">${rail}<div class="rail-block"><div class="rail-label">Derniers trades fadés</div>${tradesHtml}</div></aside>
+    </div>`;
+}
+
 /* ---- strategy --------------------------------------------------------- */
 function condLine(c) {
   if (!c) return "";
@@ -717,27 +818,26 @@ function renderLeverage(s) {
 
 /* ---- trades table (entry / gain-loss) --------------------------------- */
 function renderTrades(s) {
-  const trades = s.latest_trades || [];
+  let trades = s.latest_trades ? [...s.latest_trades] : [];
+  if (s.open_position && s.open_position.active) {
+    trades.unshift({
+      ts: s.open_position.opened_at || s.open_position.ts || Date.now(),
+      direction: s.open_position.side || s.open_position.direction || "long",
+      entry_price: s.open_position.entry_price || s.open_position.current_price,
+      notional_usd: s.open_position.notional_usd,
+      net_pnl_usd: s.open_position.unrealized_pnl_usd,
+      is_open: true
+    });
+  }
   const rows = trades.length
     ? trades.map((t) => {
         const net = Number(t.net_pnl_usd || 0);
-        return `<tr><td class="ts">${hhmmss(t.ts)}</td><td>${esc(t.direction || "long")}</td><td>${usd(t.entry_price)}</td><td>${usd(t.notional_usd, 0)}</td><td class="${cls(net)}">${signed(net, usd)}</td></tr>`;
+        const openMark = t.is_open ? ` <span class="tag" style="background:rgba(255,255,255,0.15);padding:1px 4px;border-radius:3px;font-size:0.8em;margin-left:4px;">OPEN</span>` : "";
+        return `<tr><td class="ts">${hhmmss(t.ts)}</td><td>${esc(t.direction || t.side || "long")}${openMark}</td><td>${usd(t.entry_price)}</td><td>${usd(t.notional_usd, 0)}</td><td class="${cls(net)}">${signed(net, usd)}</td></tr>`;
       }).join("")
     : `<tr><td colspan="5" class="flat">no trades yet</td></tr>`;
-  $("trades-card").innerHTML = `<h2>Trades <span class="hint">${trades.length} recent · newest first</span></h2><div class="body"><table class="mini-table"><thead><tr><th>time</th><th>side</th><th>entry</th><th>stake</th><th>gain/loss</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-}
-
-/* ---- external (TradingView) panel ------------------------------------ */
-const EXT_TAG = { executed: "good", rejected: "bad", received: "info", duplicate: "warn", malformed: "warn", no_table: "" };
-function renderExternal(s) {
-  const e = s.external || { counts: {}, recent: [], mode: "native" };
-  const c = e.counts || {};
-  const counts = ["received", "executed", "rejected", "duplicate", "malformed"]
-    .map((k) => `<div class="count ${k}"><div class="n">${c[k] || 0}</div><div class="t">${k}</div></div>`).join("");
-  const rows = (e.recent || []).length
-    ? e.recent.map((r) => `<div class="row"><span class="ts">${hhmmss(r.ts)}</span><span class="msg">${esc(r.detail)}${r.check ? ` <span style="color:var(--dim)">[${esc(r.check)}]</span>` : ""}</span><span class="tag ${EXT_TAG[r.status] || ""}">${esc(r.status)}</span></div>`).join("")
-    : `<div class="flat">no external signals${e.mode !== "tradingview_external" ? " · mode is NATIVE" : " yet"}</div>`;
-  $("external-card").innerHTML = `<h2>TradingView signals <span class="hint">${esc(e.mode)} · ${e.total || 0} total</span></h2><div class="body"><div class="counts">${counts}</div><div class="feed">${rows}</div></div>`;
+  const hintText = (s.open_position && s.open_position.active) ? `${trades.length - 1} recent, 1 open` : `${trades.length} recent · newest first`;
+  $("trades-card").innerHTML = `<h2>Trades <span class="hint">${hintText}</span></h2><div class="body"><table class="mini-table"><thead><tr><th>time</th><th>side</th><th>entry</th><th>stake</th><th>gain/loss</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 /* ---- raw log feed ----------------------------------------------------- */
@@ -755,9 +855,286 @@ function renderLogs(s) {
 }
 
 /* ====================================================================== */
+/* Shadow terminal (ema_cross_btc / ema_cross_eth — scripts/portfolio_shadow.py) */
+/* Deliberately separate from renderMarketTerminal: that one carries REAL   */
+/* paper fills and must never show a simulated marker as an executed trade.*/
+/* ====================================================================== */
+const SHADOW_CARD_IDS = { ema_cross_btc: "shadow-ema-cross-btc-card", ema_cross_eth: "shadow-ema-cross-eth-card" };
+const SHADOW_LABELS = { ema_cross_btc: "EMA9/21 BTC", ema_cross_eth: "EMA9/21 ETH" };
+
+let lastShadowState = null;
+const shadowView = {}; // engine -> {start, end} candle-index window (zoom/pan state)
+
+// Persist zoom/pan as an OFFSET FROM THE LIVE EDGE (candles-back + width),
+// not raw indices: the backend always serves the latest 500 1h candles, so
+// the array's index range slides forward every hour -- saving raw start/end
+// would silently drift out of sync with what the user actually looked at.
+const SHADOW_VIEW_KEY = "orum-shadow-view-v1";
+let shadowViewOffsets = {};
+try { shadowViewOffsets = JSON.parse(localStorage.getItem(SHADOW_VIEW_KEY) || "{}"); } catch (e) { shadowViewOffsets = {}; }
+
+function saveShadowViewOffset(engine, total) {
+  const v = shadowView[engine];
+  if (!v) return;
+  shadowViewOffsets[engine] = { offsetFromEnd: Math.max(0, (total - 1) - v.end), width: v.end - v.start };
+  try { localStorage.setItem(SHADOW_VIEW_KEY, JSON.stringify(shadowViewOffsets)); } catch (e) {}
+}
+
+function clampShadowView(engine, total) {
+  const v = shadowView[engine];
+  let w = v.end - v.start;
+  const MIN_W = 15;
+  if (w < MIN_W) w = MIN_W;
+  if (w > total - 1) w = total - 1;
+  if (v.start < 0) { v.start = 0; v.end = v.start + w; }
+  if (v.end > total - 1) { v.end = total - 1; v.start = v.end - w; }
+  v.start = Math.max(0, v.start);
+  v.end = Math.min(total - 1, v.start + w);
+}
+
+function shadowSvgPointX(svgEl, clientX) {
+  const pt = svgEl.createSVGPoint();
+  pt.x = clientX; pt.y = 0;
+  return pt.matrixTransform(svgEl.getScreenCTM().inverse()).x;
+}
+
+/* Redraws ONLY the <svg> inside chartEl -- never touches chartEl itself nor
+   the card's head/rail. This is what wheel/drag call on every single frame:
+   if it replaced chartEl (like a full renderShadowTerminal would), a pointer
+   drag would lose its setPointerCapture target after the very first pixel
+   of movement and silently stop panning. */
+function renderShadowChart(engine, chartEl) {
+  const s = lastShadowState;
+  if (!s) return;
+  const data = (s.shadow_terminal || {})[engine];
+  const allCandles = (data && data.candles) || [];
+  if (allCandles.length < 30) return;
+  const total = allCandles.length;
+  clampShadowView(engine, total);
+  const { start, end } = shadowView[engine];
+  const i0 = Math.round(start), i1 = Math.round(end);
+  const N = i1 - i0 + 1;
+
+  const closesFull = allCandles.map(c => Number(c.close));
+  const ema9Full = emaSeries(closesFull, 9), ema21Full = emaSeries(closesFull, 21);
+
+  const W = chartEl.clientWidth || 900, H = chartEl.clientHeight || 220;
+  const left = 50, right = W - 14, top = 14, bottom = H - 22;
+  const shownVals = allCandles.slice(i0, i1 + 1);
+  const prices = shownVals.flatMap(c => [Number(c.low), Number(c.high)]);
+  let lo = Math.min(...prices), hi = Math.max(...prices);
+  const span = Math.max(hi - lo, hi * 0.001); lo -= span * .05; hi += span * .05;
+  const x = i => left + (right - left) * (i - i0 + .5) / N;
+  const y = v => bottom - ((v - lo) / (hi - lo)) * (bottom - top);
+  const step = (right - left) / N;
+  const cw = clamp(step * .6, 1.2, 6);
+
+  let svg = `<svg class="terminal-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">`;
+  for (let g = 0; g <= 3; g++) {
+    const gy = top + (bottom - top) * g / 3, price = hi - (hi - lo) * g / 3;
+    svg += `<line class="grid-line" x1="${left}" y1="${gy}" x2="${right}" y2="${gy}"/><text class="axis-label" x="${right + 4}" y="${gy + 3}">${num(price, price > 1000 ? 0 : 2)}</text>`;
+  }
+  for (let i = i0; i <= i1; i++) {
+    const c = allCandles[i];
+    const up = Number(c.close) >= Number(c.open), clsName = up ? "up" : "down";
+    const cx = x(i), topY = Math.min(y(c.open), y(c.close)), h = Math.max(1, Math.abs(y(c.close) - y(c.open)));
+    svg += `<line class="wick-${clsName}" x1="${cx.toFixed(1)}" y1="${y(c.high).toFixed(1)}" x2="${cx.toFixed(1)}" y2="${y(c.low).toFixed(1)}"/>`;
+    svg += `<rect class="candle-${clsName}" x="${(cx - cw / 2).toFixed(1)}" y="${topY.toFixed(1)}" width="${cw.toFixed(2)}" height="${h.toFixed(1)}"/>`;
+  }
+  let emaFastPts = "", emaSlowPts = "";
+  for (let i = i0; i <= i1; i++) {
+    if (ema9Full[i] != null) emaFastPts += `${x(i).toFixed(1)},${y(ema9Full[i]).toFixed(1)} `;
+    if (ema21Full[i] != null) emaSlowPts += `${x(i).toFixed(1)},${y(ema21Full[i]).toFixed(1)} `;
+  }
+  svg += `<polyline class="ema-fast" points="${emaFastPts}"/><polyline class="ema-slow" points="${emaSlowPts}"/>`;
+
+  // Pair each exit with its preceding entry (long-only engine, so exits never
+  // overlap) to decide TP (closed >= entry, blue up) vs SL (closed < entry,
+  // red down) -- independent of the log's own "stop"/"cross" exit reason,
+  // since a "cross" exit can still close at a loss if price never recovered.
+  let openPrice = null;
+  const decorated = (data.shadow_markers || []).map(m => {
+    if (m.kind === "entry") {
+      openPrice = m.price;
+      return { ...m, up: true, styleKind: "in" };
+    }
+    const win = openPrice != null && m.price >= openPrice;
+    openPrice = null;
+    return { ...m, up: win, styleKind: win ? "tp" : "sl" };
+  });
+  const firstTs = Number(allCandles[i0].ts), lastTs = Number(allCandles[i1].ts);
+  decorated.forEach(m => {
+    if (m.ts < firstTs || m.ts > lastTs) return;
+    const idx = nearestCandleIndex(allCandles, m.ts);
+    if (idx < i0 || idx > i1) return;
+    const mx = x(idx), my = y(m.price);
+    svg += `<path class="shadow-marker ${m.styleKind}" d="${trianglePath(mx, my, m.up, 9)}"/>`;
+    svg += `<text class="axis-label shadow-marker-label ${m.styleKind}" x="${mx.toFixed(1)}" y="${(m.up ? my + 18 : my - 10).toFixed(1)}" text-anchor="middle">${esc(m.label)}</text>`;
+  });
+  svg += `</svg>`;
+  chartEl.innerHTML = svg;
+}
+
+function attachShadowZoomPan(chartEl, engine, total) {
+  if (chartEl.dataset.zoomBound) return; // chartEl is stable across polls now; bind once
+  chartEl.dataset.zoomBound = "1";
+  const left = 50;
+  const redraw = () => renderShadowChart(engine, chartEl);
+  chartEl.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const svgEl = chartEl.querySelector("svg");
+    if (!svgEl) return;
+    const rect = chartEl.getBoundingClientRect();
+    const right = rect.width - 14;
+    const view = shadowView[engine];
+    const spanN = view.end - view.start;
+    const svgX = shadowSvgPointX(svgEl, e.clientX);
+    const idx = view.start + (svgX - left) / (right - left) * spanN;
+    const factor = e.deltaY > 0 ? 1.18 : 1 / 1.18;
+    let newW = Math.max(15, Math.min(total, spanN * factor));
+    const ratio = (idx - view.start) / spanN;
+    view.start = idx - ratio * newW;
+    view.end = view.start + newW;
+    clampShadowView(engine, total);
+    redraw();
+    saveShadowViewOffset(engine, total);
+  }, { passive: false });
+  let dragging = false, lastX = 0;
+  chartEl.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault(); e.stopPropagation();
+    dragging = true; lastX = e.clientX;
+    chartEl.classList.add("panning");
+    chartEl.setPointerCapture(e.pointerId);
+  });
+  chartEl.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    e.stopPropagation();
+    const svgEl = chartEl.querySelector("svg");
+    if (!svgEl) return;
+    const rect = chartEl.getBoundingClientRect();
+    const right = rect.width - 14;
+    const view = shadowView[engine];
+    const spanN = view.end - view.start;
+    const dxPix = e.clientX - lastX; lastX = e.clientX;
+    const scale = svgEl.viewBox.baseVal.width / rect.width;
+    const dIdx = -(dxPix * scale) / (right - left) * spanN;
+    view.start += dIdx; view.end += dIdx;
+    clampShadowView(engine, total);
+    redraw();
+  });
+  const stop = () => {
+    if (dragging) saveShadowViewOffset(engine, total);
+    dragging = false;
+    chartEl.classList.remove("panning");
+  };
+  chartEl.addEventListener("pointerup", stop);
+  chartEl.addEventListener("pointerleave", stop);
+}
+
+function renderShadowTerminal(s) {
+  lastShadowState = s;
+  const shadow = s.shadow_terminal || {};
+  Object.entries(SHADOW_CARD_IDS).forEach(([engine, cardId]) => {
+    const card = $(cardId);
+    if (!card) return;
+    const data = shadow[engine];
+    const allCandles = (data && data.candles) || [];
+    const label = SHADOW_LABELS[engine] || engine;
+    const head = statusHint => `<div class="terminal-head"><div><span class="terminal-kicker">RECHERCHE · SHADOW</span><strong>${esc(label)}</strong><span class="hint">${esc(statusHint)}</span></div><div class="terminal-controls"><button type="button" data-shadow-zoom="out" data-engine="${engine}" title="Zoom arrière">−</button><button type="button" data-shadow-zoom="in" data-engine="${engine}" title="Zoom avant">+</button><button type="button" data-shadow-zoom="reset" data-engine="${engine}" title="Réinitialiser le zoom">1:1</button></div></div>`;
+    if (allCandles.length < 30) {
+      if (!card.dataset.shadowReady) card.innerHTML = head("chargement…") + `<div class="flat">chargement…</div>`;
+      return;
+    }
+    try {
+      const total = allCandles.length;
+      if (!shadowView[engine]) {
+        const saved = shadowViewOffsets[engine];
+        if (saved && Number.isFinite(saved.offsetFromEnd) && Number.isFinite(saved.width)) {
+          const end = Math.max(0, (total - 1) - saved.offsetFromEnd);
+          shadowView[engine] = { start: Math.max(0, end - saved.width), end };
+        } else {
+          shadowView[engine] = { start: Math.max(0, total - 150), end: total - 1 };
+        }
+      }
+      clampShadowView(engine, total);
+      const N = Math.round(shadowView[engine].end) - Math.round(shadowView[engine].start) + 1;
+
+      const closesFull = allCandles.map(c => Number(c.close));
+      const ema9Full = emaSeries(closesFull, 9), ema21Full = emaSeries(closesFull, 21);
+      const lastMarker = (data.shadow_markers || []).at(-1);
+      const priceDp = closesFull.at(-1) > 1000 ? 0 : 2;
+      const statusHint = (lastMarker
+        ? `dernier : ${lastMarker.label} @ ${num(lastMarker.price, priceDp)}`
+        : "aucune position ouverte") + ` · 1h · ${N} bougies · aucun capital réel`;
+
+      const eng = ((s.research_portfolio || {}).engines || {})[engine] || {};
+      const pos = eng.position || {};
+      const railHtml = `<aside class="market-terminal-rail">
+        <div class="rail-block">
+          <div class="rail-label">État</div>
+          <div class="rail-value small">${esc(eng.action || "—")}</div>
+          <div class="rail-sub">ADX ${eng.adx ?? "—"} · EMA9 ${num(ema9Full.at(-1) ?? 0, priceDp)} / EMA21 ${num(ema21Full.at(-1) ?? 0, priceDp)}</div>
+        </div>
+        <div class="rail-block">
+          <div class="rail-label">Position shadow</div>
+          ${pos.open
+            ? `<div class="rail-status">OUVERTE</div><div class="rail-row"><span>entrée</span><span>${num(pos.entry_px, priceDp)}</span></div><div class="rail-row"><span>latent</span><span class="${cls(pos.unrealized_pct)}">${signed(pos.unrealized_pct, pct)}</span></div>`
+            : `<div class="rail-value small">Aucune position</div>`}
+        </div>
+        <div class="rail-block">
+          <div class="rail-label">Dernier événement</div>
+          <div class="rail-sub">${lastMarker ? `${esc(lastMarker.label)} @ ${num(lastMarker.price, priceDp)}` : "aucun trade shadow pour l'instant"}</div>
+        </div>
+      </aside>`;
+
+      // Build the chart's container ONCE and never replace it again: it's
+      // the element that owns setPointerCapture during a drag, so recreating
+      // it on every poll (or worse, every mousemove) would silently kill
+      // panning mid-gesture. Only the head/rail text refreshes each poll.
+      if (!card.dataset.shadowReady) {
+        card.innerHTML = head(statusHint) + `<div class="market-terminal"><div class="market-terminal-chart"></div>${railHtml}</div>`;
+        card.dataset.shadowReady = "1";
+      } else {
+        const hintEl = card.querySelector(".terminal-head .hint");
+        if (hintEl) hintEl.textContent = statusHint;
+        const railEl = card.querySelector(".market-terminal-rail");
+        if (railEl) railEl.outerHTML = railHtml;
+      }
+      const chartEl = card.querySelector(".market-terminal-chart");
+      attachShadowZoomPan(chartEl, engine, total);
+      renderShadowChart(engine, chartEl);
+    } catch (err) {
+      console.error(`renderShadowTerminal ${engine} crash:`, err);
+      card.innerHTML = head("indisponible") + `<div class="flat neg">rendu ${esc(engine)} indisponible · ${esc(err.message)}</div>`;
+      delete card.dataset.shadowReady;
+    }
+  });
+}
+
+document.addEventListener("click", (e) => {
+  const button = e.target.closest("[data-shadow-zoom]");
+  if (!button) return;
+  const engine = button.dataset.engine;
+  const view = shadowView[engine];
+  if (!view) return;
+  const direction = button.dataset.shadowZoom;
+  const span = view.end - view.start;
+  const mid = (view.start + view.end) / 2;
+  if (direction === "in") { const w = Math.max(15, span * 0.7); view.start = mid - w / 2; view.end = mid + w / 2; }
+  else if (direction === "out") { const w = span * 1.35; view.start = mid - w / 2; view.end = mid + w / 2; }
+  else if (direction === "reset") { delete shadowView[engine]; delete shadowViewOffsets[engine]; try { localStorage.setItem(SHADOW_VIEW_KEY, JSON.stringify(shadowViewOffsets)); } catch (err) {} }
+  if (lastShadowState) {
+    renderShadowTerminal(lastShadowState);
+    const total = ((lastShadowState.shadow_terminal || {})[engine] || {}).candles?.length;
+    if (direction !== "reset" && total) saveShadowViewOffset(engine, total);
+  }
+});
+
+/* ====================================================================== */
 /* Portfolio recherche (paper Kelly — scripts/portfolio_shadow.py)        */
 /* ====================================================================== */
-const RP_LABEL = { donchian_btc: "Donchian BTC", donchian_eth: "Donchian ETH", gold_cot: "Or · fenêtre COT" };
+const RP_LABEL = { donchian_btc: "Donchian BTC", donchian_eth: "Donchian ETH", gold_cot: "Or · fenêtre COT", ema_cross_btc: "EMA9/21 BTC", ema_cross_eth: "EMA9/21 ETH" };
 function renderResearchPortfolio(s) {
   const rp = s.research_portfolio;
   const legacy = s.legacy_audit || {};
@@ -784,6 +1161,10 @@ function renderResearchPortfolio(s) {
     let detail = "";
     if (name === "gold_cot") {
       detail = `COT idx <b>${e.cot_index ?? "?"}</b> · gate ≤20 (dist ${e.dist_gate ?? "?"})`;
+    } else if (name.startsWith("ema_cross")) {
+      detail = act === "hold"
+        ? `EMA9 ${e.ema9 ? num(e.ema9, 0) : "?"} / EMA21 ${e.ema21 ? num(e.ema21, 0) : "?"}`
+        : `ADX ${e.adx ?? "?"} (entrée si &gt;20, confirmé 3h)`;
     } else if (act === "flat") {
       detail = `entrée à +${e.dist_entry_pct ?? "?"}% (hi20 ${e.hi20 ? num(e.hi20, 0) : "?"})`;
     } else {
@@ -851,45 +1232,35 @@ function buildScenarioFan(candles, horizon = 24, pathCount = 14) {
   });
 }
 
-function buildCalibratedFan(report, lastPrice) {
-  if (!report || !report.horizons || !(lastPrice > 0)) return [];
-  const names = ["p10", "p25", "p50", "p75", "p90"], milestones = [0, 6, 12, 24];
-  return names.map(name => {
-    const anchors = milestones.map(hour => hour === 0 ? lastPrice
-      : lastPrice * (1 + Number((((report.horizons || {})[String(hour)] || {}).quantiles || {})[name])));
-    if (anchors.slice(1).some(value => !Number.isFinite(value))) return null;
-    const path = [];
-    for (let hour = 0; hour <= 24; hour++) {
-      const right = milestones.findIndex(value => value >= hour), hi = Math.max(1, right), lo = hi - 1;
-      const weight = (hour - milestones[lo]) / (milestones[hi] - milestones[lo] || 1);
-      path.push(anchors[lo] * (1 - weight) + anchors[hi] * weight);
-    }
-    return path;
-  }).filter(Boolean);
-}
-
-function buildForecastHistoryPath(history, candles) {
-  if (!candles.length) return [];
-  const firstTs = Number(candles[0].ts), lastTs = Number(candles.at(-1).ts);
-  return (history || []).map(record => ({
-    ts: new Date(record.target_ts).getTime(),
-    price: Number(record.predicted_price),
-  })).filter(point => Number.isFinite(point.ts) && point.ts >= firstTs && point.ts <= lastTs && point.price > 0)
-    .sort((a, b) => a.ts - b.ts);
-}
-
 function pairDisplayEvents(events) {
   const open = {}, trades = [];
   events.slice().sort((a, b) => Number(a.ts) - Number(b.ts)).forEach(event => {
     const side = event.side || "long";
-    if (event.kind === "entry") open[side] = event;
-    if (event.kind === "exit" && open[side]) {
-      const entry = open[side]; delete open[side];
+    const key = event.position_id || side;
+    if (event.kind === "entry") open[key] = event;
+    if (event.kind === "exit" && open[key]) {
+      const entry = open[key]; delete open[key];
       trades.push({ entry_ts: entry.ts, entry_price: entry.price, exit_ts: event.ts, exit_price: event.price,
         side, result: event.label });
     }
   });
   return trades;
+}
+
+function llmMarketEvents(snapshot, asset) {
+  // The LLM paper simulator currently operates on BTC/USDT. Keep its audited
+  // fills on the standard BTC terminal instead of introducing a second chart.
+  if (asset !== "BTC/USDT") return [];
+  const events = (((snapshot.llm_lab || {}).equity_curve || {}).events || []);
+  return events.flatMap(event => {
+    const ts = Number(event.candle_ts), price = Number(event.price);
+    if (!Number.isFinite(ts) || !Number.isFinite(price) || price <= 0) return [];
+    const action = String(event.action || "").toLowerCase();
+    const entry = action === "open" || action === "add";
+    const display = action === "take_profit" ? "tp" : action === "stop" ? "sl" : entry ? "in" : "out";
+    const label = display === "tp" ? "LLM TP" : display === "sl" ? "LLM SL" : entry ? "LLM IN" : "LLM OUT";
+    return [{ ts, price, kind: entry ? "entry" : "exit", side: event.side || "long", position_id: event.position_id, label, display, real: true, llm: true }];
+  });
 }
 
 function renderTimelineEvents(events, trades, candles, scale) {
@@ -911,12 +1282,21 @@ function renderTimelineEvents(events, trades, candles, scale) {
   visible.forEach((event, order) => {
     const index = nearestCandleIndex(candles, event.ts), x = scale.x(index), py = scale.y(event.price);
     const raw = String(event.label || (event.kind === "entry" ? "IN" : "OUT")).toUpperCase();
-    const kind = event.real ? (raw === "SL" ? "sl" : raw === "TP" ? "tp" : raw === "OUT" ? "out" : "in") : "model";
+    const kind = event.display || (event.real ? (raw === "SL" ? "sl" : raw === "TP" ? "tp" : raw === "OUT" ? "out" : "in") : "model");
+    const source = event.llm ? " llm-marker" : "";
     const labelY = Math.max(19, py - 18 - (order % 3) * 12);
-    svg += `<line class="event-stem ${kind}" x1="${x.toFixed(1)}" y1="${py.toFixed(1)}" x2="${x.toFixed(1)}" y2="${scale.timelineY}"/>`;
-    svg += `<circle class="event-halo ${kind}" cx="${x.toFixed(1)}" cy="${py.toFixed(1)}" r="7"/><circle class="event-anchor ${kind}" cx="${x.toFixed(1)}" cy="${py.toFixed(1)}" r="4.2"/>`;
-    svg += `<circle class="event-timeline-dot ${kind}" cx="${x.toFixed(1)}" cy="${scale.timelineY}" r="3"/>`;
-    svg += `<text class="event-label ${kind}" x="${x.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle">${esc(raw)}</text>`;
+    svg += `<line class="event-stem ${kind}${source}" x1="${x.toFixed(1)}" y1="${py.toFixed(1)}" x2="${x.toFixed(1)}" y2="${scale.timelineY}"/>`;
+    if (kind === "in" || kind === "tp" || kind === "sl") {
+      // up = long entry / take-profit, down = short entry / stop-loss (see
+      // .event-marker in dashboard.css for the in/tp/sl fill colours).
+      const side = event.side || "long";
+      const up = kind === "sl" ? side === "short" : side !== "short";
+      svg += `<path class="event-marker ${kind}${source}" d="${trianglePath(x, py, up, 9)}"/>`;
+    } else {
+      svg += `<circle class="event-halo ${kind}${source}" cx="${x.toFixed(1)}" cy="${py.toFixed(1)}" r="7"/><circle class="event-anchor ${kind}${source}" cx="${x.toFixed(1)}" cy="${py.toFixed(1)}" r="4.2"/>`;
+    }
+    svg += `<circle class="event-timeline-dot ${kind}${source}" cx="${x.toFixed(1)}" cy="${scale.timelineY}" r="3"/>`;
+    svg += `<text class="event-label ${kind}${source}" x="${x.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle">${esc(raw)}</text>`;
   });
   return svg;
 }
@@ -1006,6 +1386,7 @@ function renderMarketTerminal(asset, s) {
     const position = ((s.paper || {}).open_positions || []).find(
       p => sig.strategy_id ? p.strategy_id === sig.strategy_id : p.symbol === marketAsset
     );
+    const positionTranches = position ? (position.tranches || [position]) : [];
     const title = marketAsset === "PAXG/USDT" ? "OR · PAXG / USDT" : marketAsset.replace("/", " / ");
     const displayTimeframe = sig.display_timeframe || "1h";
     card.innerHTML = `<div class="terminal-head"><div><span class="terminal-kicker">MARCHÉ · PAPER</span><strong>${esc(title)}</strong><span class="hint">${esc(sig.engine || "—")} ${esc(sig.timeframe || "—")} · vue ${esc(displayTimeframe)}</span></div><div class="terminal-controls"><button type="button" data-zoom="out" title="Zoom arrière">−</button><button type="button" data-zoom="in" title="Zoom avant">+</button><button type="button" data-zoom="reset" title="Réinitialiser le zoom">1:1</button><span class="hint">${candles.length} bougies${terminalPan[asset] ? ` · −${terminalPan[asset]} barres` : " · direct"}</span><button type="button" class="terminal-close" title="Fermer cette carte">×</button></div></div><div class="market-terminal"><div class="market-terminal-chart" role="img" aria-label="${esc(title)} : bougies ${esc(displayTimeframe)}, prévision historique +24 h, volumes, momentum, entrées, sorties et scénarios"></div><aside class="market-terminal-rail" aria-label="Indicateurs ${esc(title)}"></aside></div>`;
@@ -1033,16 +1414,18 @@ function renderMarketTerminal(asset, s) {
     const momTop = Math.max(priceTop + 105, momBottom - Math.max(42, H * .095));
     const volumeBottom = momTop - 18, volumeTop = Math.max(priceTop + 130, volumeBottom - Math.max(48, H * .105));
     const priceBottom = Math.max(priceTop + 95, volumeTop - 17);
-    const calibratedFan = buildCalibratedFan(sig.calibrated_forecast, Number(candles.at(-1).close));
-    const fan = showForecast ? (calibratedFan.length ? calibratedFan : buildScenarioFan(candles)) : [];
-    const calibrated = calibratedFan.length > 0;
-    const forecastHistory = buildForecastHistoryPath(sig.forecast_history_24h || [], candles);
-    const realEvents = sig.real_markers || [], modelEvents = sig.markers || [];
+    const fan = showForecast ? buildScenarioFan(candles) : [];
+    // The operational chart is a ledger view: only real paper fills belong on
+    // it. Historical strategy signals remain available to the backend, but an
+    // `InL` model marker must never look like an executed position.
+    const realEvents = (sig.real_markers || []).concat(llmMarketEvents(s, asset));
     const firstTs = Number(candles[0].ts), lastTs = Number(candles.at(-1).ts);
-    const eventPrices = realEvents.concat(modelEvents).filter(e => Number(e.ts) >= firstTs && Number(e.ts) <= lastTs).map(e => Number(e.price)).filter(Number.isFinite);
-    const forecastHistoryPrices = forecastHistory.map(point => point.price);
-    const levelPrices = position ? [position.stop_loss_price, position.take_profit_price].map(Number).filter(value => Number.isFinite(value) && value > 0) : [];
-    const prices = candles.flatMap(c => [Number(c.low), Number(c.high)]).concat(fan.flat(), eventPrices, forecastHistoryPrices, levelPrices);
+    const eventPrices = realEvents.filter(e => Number(e.ts) >= firstTs && Number(e.ts) <= lastTs).map(e => Number(e.price)).filter(Number.isFinite);
+    const levelPrices = positionTranches.flatMap(tranche => [
+      tranche.stop_loss_price,
+      tranche.dynamic_active_target_price || tranche.take_profit_price,
+    ]).map(Number).filter(value => Number.isFinite(value) && value > 0);
+    const prices = candles.flatMap(c => [Number(c.low), Number(c.high)]).concat(fan.flat(), eventPrices, levelPrices);
     let lo = Math.min(...prices), hi = Math.max(...prices), span = Math.max(hi - lo, Math.abs(hi) * .001);
     lo -= span * .08; hi += span * .08;
     const y = value => priceBottom - ((Number(value) - lo) / (hi - lo)) * (priceBottom - priceTop);
@@ -1056,7 +1439,7 @@ function renderMarketTerminal(asset, s) {
     const my = value => (momTop + momBottom) / 2 - (Number(value) / maxMom) * ((momBottom - momTop) * .44);
     let svg = `<svg class="terminal-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">`;
     svg += `<text class="section-label" x="${left}" y="15">PRIX ${esc(displayTimeframe.toUpperCase())} · ÉCHELLE VISIBLE +8%</text>`;
-    if (showForecast) svg += `<text class="section-label" x="${observedRight + 16}" y="15">${calibrated ? "PRÉVISION · CALIBRÉE" : "SCÉNARIOS · AFFICHAGE SEUL"}</text>`;
+    if (showForecast) svg += `<text class="section-label" x="${observedRight + 16}" y="15">SCÉNARIOS · AFFICHAGE SEUL</text>`;
     for (let grid = 0; grid <= 4; grid++) {
       const gy = priceTop + (priceBottom - priceTop) * grid / 4, price = hi - (hi - lo) * grid / 4;
       svg += `<line class="grid-line" x1="${left}" y1="${gy}" x2="${fanRight}" y2="${gy}"/><text class="axis-label" x="${fanRight + 8}" y="${gy + 3}">${num(price, price > 1000 ? 0 : 2)}</text>`;
@@ -1080,25 +1463,22 @@ function renderMarketTerminal(asset, s) {
       }
     });
     svg += `<polyline class="ema-fast" points="${terminalPolyline(ema9, x, y)}"/><polyline class="ema-slow" points="${terminalPolyline(ema21, x, y)}"/>`;
-    if (forecastHistory.length > 1) {
-      const points = forecastHistory.map(point => {
-        const index = nearestCandleIndex(candles, point.ts);
-        return `${x(index).toFixed(1)},${y(point.price).toFixed(1)}`;
-      }).join(" ");
-      svg += `<polyline class="forecast-history-line" points="${points}"/>`;
-    }
-    if (position && Number(position.stop_loss_price) > 0) {
-      const level = Number(position.stop_loss_price);
-      svg += `<line class="position-level stop" x1="${left}" y1="${y(level)}" x2="${observedRight}" y2="${y(level)}"/><text class="position-level-label stop" x="${left + 5}" y="${y(level)-5}">SL ${num(level,2)}</text>`;
-    }
-    if (position && Number(position.take_profit_price) > 0) {
-      const level = Number(position.take_profit_price);
-      svg += `<line class="position-level take" x1="${left}" y1="${y(level)}" x2="${observedRight}" y2="${y(level)}"/><text class="position-level-label take" x="${left + 5}" y="${y(level)-5}">TP ${num(level,2)}</text>`;
-    }
+    positionTranches.forEach((tranche, index) => {
+      if (Number(tranche.stop_loss_price) > 0) {
+        const level = Number(tranche.stop_loss_price), tag = positionTranches.length > 1 ? ` T${index + 1}` : "";
+        svg += `<line class="position-level stop" x1="${left}" y1="${y(level)}" x2="${observedRight}" y2="${y(level)}"/><text class="position-level-label stop" x="${left + 5}" y="${y(level)-5}">SL${tag} ${num(level,2)}</text>`;
+      }
+      const activeTarget = Number(tranche.dynamic_active_target_price || tranche.take_profit_price);
+      if (activeTarget > 0) {
+        const tag = positionTranches.length > 1 ? ` T${index + 1}` : "";
+        const runner = Number(tranche.dynamic_target_extensions || 0) > 0 ? " RUNNER" : "";
+        svg += `<line class="position-level take" x1="${left}" y1="${y(activeTarget)}" x2="${observedRight}" y2="${y(activeTarget)}"/><text class="position-level-label take" x="${left + 5}" y="${y(activeTarget)-5}">TP${tag}${runner} ${num(activeTarget,2)}</text>`;
+      }
+    });
     svg += `<line class="grid-line" x1="${left}" y1="${volumeBottom}" x2="${fanRight}" y2="${volumeBottom}"/><text class="section-label" x="${left}" y="${volumeTop-8}">VOLUME</text>`;
     svg += `<line class="grid-line" x1="${left}" y1="${my(0)}" x2="${observedRight}" y2="${my(0)}"/><text class="section-label" x="${left}" y="${momTop-7}">MOMENTUM MACD ${esc(displayTimeframe.toUpperCase())}</text>`;
     const fanX = index => observedRight + (fanRight-observedRight) * index / 24;
-    const centralIndex = calibrated ? 2 : 7;
+    const centralIndex = 7;
     const central = fan[centralIndex] || [];
     const observedJoinX = x(candles.length - 1), observedJoinY = y(candles.at(-1).close);
     if (showForecast) svg += `<line class="history-future-divider" x1="${fanX(0)}" y1="${priceTop}" x2="${fanX(0)}" y2="${timelineY}"/>`;
@@ -1112,13 +1492,48 @@ function renderMarketTerminal(asset, s) {
       svg += `<line class="scenario-stem" x1="${mx}" y1="${py}" x2="${mx}" y2="${timelineY}"/><circle class="scenario-node" cx="${mx}" cy="${py}" r="3.1"/><text class="axis-label" x="${mx}" y="${Math.max(20,py-8)}" text-anchor="middle">+${milestone}h</text>`;
     });
     const eventScale = { x, y, timelineY };
-    svg += renderTimelineEvents(modelEvents.concat(realEvents), (sig.trades || []).concat(pairDisplayEvents(realEvents)), candles, eventScale);
+    svg += renderTimelineEvents(realEvents, pairDisplayEvents(realEvents), candles, eventScale);
     svg += `</svg>`;
     chart.innerHTML = svg;
 
     const last = candles.at(-1), previous = candles.at(-2), move = Number(last.close) / Number(previous.close) - 1;
     const rsi = rsiSeries(closes).at(-1), atr = atrSeries(candles.map(c=>c.high), candles.map(c=>c.low), closes).at(-1);
-    const unrealized = position ? Number(position.qty || 0) * (Number(last.close) - Number(position.entry_px || 0)) : 0;
+    const unrealized = positionTranches.reduce((total, tranche) => {
+      const direction = (tranche.side || "long") === "short" ? -1 : 1;
+      return total + direction * Number(tranche.qty || 0) * (Number(last.close) - Number(tranche.entry_px || 0));
+    }, 0);
+    const longOnly = sig.strategy_id === "btc_utbot_m15_h1" ? " · LONG ONLY" : "";
+    const nativeEgide = {
+      structural_bracket: "bracket structurel SL/TP",
+      signal_or_stop: "signal UT + stop",
+      donchian_signal: "canal Donchian 10 j",
+      cot_signal: "signal COT",
+    };
+    const strategyConfig = ((s.portfolio_config || {}).strategies || [])
+      .find(item => item.id === sig.strategy_id) || {};
+    const configuredDynamic = strategyConfig.dynamic_exit || {};
+    const dynamicBaseRoute = {
+      ak_mfe_ssl_v1: "MFE + SSL AK",
+      mfe_ratchet_v1: "MFE ratchet",
+    }[configuredDynamic.version];
+    const dynamicRoute = dynamicBaseRoute && configuredDynamic.adaptive_target
+      ? `${dynamicBaseRoute} + runner adaptatif`
+      : dynamicBaseRoute;
+    const positionSide = position?.side || positionTranches[0]?.side || null;
+    const egideRoute = dynamicRoute && positionSide !== "short"
+      ? `${dynamicRoute} · ${configuredDynamic.mode || "—"}`
+      : (nativeEgide[strategyConfig.exit_policy] || "sortie stratégie");
+    const egide = `ÉGIDE DYNAMIQUE · ${egideRoute}`;
+    const trancheDetail = positionTranches.map((tranche, index) => {
+      const dyn = tranche.dynamic_exit_mode
+        ? (tranche.dynamic_hypothetical_closed
+          ? ` · DYN observe SORTIE ${esc(tranche.dynamic_hypothetical_exit_reason || "—")} @ ${Number(tranche.dynamic_hypothetical_exit_price)>0?num(tranche.dynamic_hypothetical_exit_price,2):"—"} · ${ago(tranche.dynamic_hypothetical_exit_ts)}`
+          : ` · DYN ${esc(tranche.dynamic_exit_mode)} · MFE ${tranche.dynamic_mfe_r == null ? "—" : num(tranche.dynamic_mfe_r,2)+"R"} · stop ${Number(tranche.dynamic_stop_price)>0?num(tranche.dynamic_stop_price,2):"—"}${Number(tranche.dynamic_active_target_price)>0?` · cible ${num(tranche.dynamic_active_target_price,2)} (${num(tranche.dynamic_active_target_r,2)}R · +${Number(tranche.dynamic_target_extensions||0)} · force ${Number(tranche.dynamic_target_strength_score||0)}/4)`:""}`)
+        : (nativeEgide[tranche.exit_policy]
+          ? ` · ÉGIDE native · ${nativeEgide[tranche.exit_policy]}`
+          : "");
+      return `T${index + 1} ${num(tranche.entry_px,2)} · SL ${Number(tranche.stop_loss_price)>0?num(tranche.stop_loss_price,2):"—"}${dyn}`;
+    }).join("<br>");
     const exitPolicy = position ? ({
       structural_bracket: "bracket figé · contrôle M15",
       signal_or_stop: "sortie signal UT ou stop",
@@ -1128,10 +1543,10 @@ function renderMarketTerminal(asset, s) {
     }[position.exit_policy] || position.exit_policy || "sortie non renseignée") : "";
     rail.innerHTML = `
       <div class="rail-block"><div class="rail-label">Dernier prix</div><div class="rail-value ${cls(move)}">${num(last.close, Number(last.close)>1000?2:3)}</div><div class="rail-sub">bougie ${hhmmss(last.ts)} UTC · ${signed(move, pct)}</div></div>
-      <div class="rail-block"><div class="rail-label">Moteur actif sur cet actif</div><div class="rail-value small">${esc(sig.engine || "—")}</div><div class="rail-sub">signal ${esc(sig.timeframe || "—")} · affichage ${esc(sig.display_timeframe || "1h")}</div></div>
+      <div class="rail-block"><div class="rail-label">Moteur actif sur cet actif</div><div class="rail-value small">${esc(sig.engine || "—")}${longOnly}</div><div class="rail-sub">signal ${esc(sig.timeframe || "—")} · affichage ${esc(sig.display_timeframe || "1h")}<br>${esc(egide)}</div></div>
       <div class="rail-block"><div class="rail-label">Indicateurs ${esc(displayTimeframe)}</div><div class="rail-row"><span>RSI 14</span><span>${rsi == null ? "—" : num(rsi,1)}</span></div><div class="rail-row"><span>ATR 14</span><span>${atr == null ? "—" : num(atr,2)}</span></div><div class="rail-row"><span>MACD hist.</span><span class="${cls(hist.at(-1))}">${hist.at(-1)==null?"—":num(hist.at(-1),3)}</span></div><div class="rail-row"><span>volume</span><span>${num(last.volume,0)}</span></div></div>
-      <div class="rail-block"><div class="rail-label">Position paper</div>${position ? `<div class="rail-status">OUVERTE · ${position.side === "short" ? "S" : "L"}</div><div class="rail-row"><span>entrée / actuel</span><span>${num(position.entry_px,2)} / ${num(last.close,2)}</span></div><div class="rail-row"><span>non réalisé</span><span class="${cls(unrealized)}">${signed(unrealized, usd)}</span></div><div class="rail-row"><span>SL appliqué</span><span>${Number(position.stop_loss_price)>0?num(position.stop_loss_price,2):"—"}</span></div><div class="rail-row"><span>TP appliqué</span><span>${Number(position.take_profit_price)>0?num(position.take_profit_price,2):"—"}</span></div><div class="rail-row"><span>politique</span><span>${esc(exitPolicy)}</span></div><div class="rail-sub">ouverte ${ago(position.opened_ts)} · contrôle ${esc(position.monitor_timeframe || position.timeframe || "signal")}</div>` : `<div class="rail-value small">Aucune position</div><div class="rail-sub">portefeuille commun · ${(s.paper||{}).open_count||0} ouverte(s) au total</div>`}</div>
-      <div class="rail-block"><div class="rail-label">Prévision +6 / +12 / +24 h</div>${sig.calibrated_forecast && sig.calibrated_forecast.decision ? `<div class="rail-status">${esc((sig.calibrated_forecast.decision.action || "locked").toUpperCase())} · x${num(sig.calibrated_forecast.decision.multiplier ?? 1,2)}</div>` : ""}<div class="scenario-disclaimer">${esc(sig.scenario_note || "Éventail de stress visuel. Affichage seul, jamais envoyé au moteur.")}</div><div class="rail-sub">Historique prévision +24 h · ${(sig.forecast_history_24h||[]).length} points</div></div>`;
+      <div class="rail-block"><div class="rail-label">Position paper</div>${position ? `<div class="rail-status">OUVERTE · ${position.side === "short" ? "S" : "L"} · ${position.tranche_count || 1} tranche(s)</div><div class="rail-row"><span>entrée moy. / actuel</span><span>${num(position.entry_px,2)} / ${num(last.close,2)}</span></div><div class="rail-row"><span>non réalisé</span><span class="${cls(unrealized)}">${signed(unrealized, usd)}</span></div><div class="rail-row"><span>risque stops</span><span>${usd(position.stop_risk_usd || 0)}</span></div><div class="rail-row"><span>notionnel</span><span>${usd(position.notional_usd || 0)}</span></div><div class="rail-row"><span>politique</span><span>${esc(exitPolicy)}</span></div><div class="rail-sub">${trancheDetail}<br>ouverte ${ago(position.opened_ts)} · contrôle ${esc(position.monitor_timeframe || position.timeframe || "signal")}</div>` : `<div class="rail-value small">Aucune position</div><div class="rail-sub">portefeuille commun · ${(s.paper||{}).open_count||0} ouverte(s) au total</div>`}</div>
+      <div class="rail-block"><div class="rail-label">Scénarios +24 h</div><div class="scenario-disclaimer">${esc(sig.scenario_note || "Éventail de stress visuel. Affichage seul, jamais envoyé au moteur.")}</div></div>`;
   } catch (err) {
     console.error(`renderMarketTerminal ${asset} crash:`, err);
     card.innerHTML = `<div class="flat neg">rendu ${esc(asset)} indisponible · ${esc(err.message)}</div>`;
@@ -1232,7 +1647,7 @@ async function tick() {
     const s = await r.json();
     window.__lastState = s;
     renderTop(s); renderWorker(s); renderKpis(s); renderProChart(s); renderStats(s);
-    renderPosition(s); renderEquity(s); renderStrategy(s); renderLeverage(s); renderExternal(s); renderLogs(s); renderTrades(s); renderResearchPortfolio(s);
+    renderPosition(s); renderEquity(s); renderStrategy(s); renderLeverage(s); renderLogs(s); renderTrades(s); renderResearchPortfolio(s); renderShadowTerminal(s); renderLlmFadeShadow(s);
     $("clock").textContent = new Date().toTimeString().slice(0, 8);
     $("conn").textContent = "● live"; $("conn").classList.remove("down");
   } catch (err) {
@@ -1263,23 +1678,25 @@ const DASHBOARD_LAYOUT_PRESETS = {
   column: [
     ["market-btc",0,0,12,8],["market-btc-utbot",0,8,12,8],["market-eth",0,16,12,8],["market-paxg",0,24,12,8],
     ["position",0,32,12,3],["stats",0,35,12,3],["research",0,38,12,5],["equity",0,43,12,3],
-    ["trades",0,46,12,4],["strategy",0,50,12,4],["leverage",0,54,12,9],["external",0,63,12,4],["log",0,67,12,4],
+    ["trades",0,46,12,4],["strategy",0,50,12,4],["leverage",0,54,12,9],["log",0,63,12,4],
+    ["shadow-ema-cross-btc",0,67,12,7],["shadow-ema-cross-eth",0,74,12,7],["llm-fade-shadow",0,81,12,8],
   ],
   "two-column": [
     ["market-btc",0,0,6,8],["market-btc-utbot",6,0,6,8],["market-eth",0,8,6,8],["market-paxg",6,8,6,8],
     ["position",0,16,6,3],["stats",6,16,6,3],["research",0,19,6,5],["equity",6,19,6,5],
-    ["strategy",0,24,6,4],["leverage",6,24,6,9],["trades",0,28,6,4],["external",6,33,6,4],["log",0,37,12,4],
+    ["strategy",0,24,6,4],["leverage",6,24,6,9],["trades",0,28,6,4],["log",0,33,12,4],
+    ["shadow-ema-cross-btc",0,37,12,7],["shadow-ema-cross-eth",0,44,12,7],["llm-fade-shadow",0,51,12,8],
   ],
   "aligned-wall": [
     ["market-btc",0,0,6,7],["market-btc-utbot",6,0,6,7],["market-eth",0,7,6,7],["market-paxg",6,7,6,7],
     ["position",0,14,4,4],["stats",4,14,4,4],["equity",8,14,4,4],["research",0,18,8,5],
-    ["trades",8,18,4,5],["strategy",0,23,4,4],["leverage",4,23,4,9],["external",8,23,4,4],["log",0,32,12,4],
+    ["trades",8,18,4,5],["strategy",0,23,4,4],["leverage",4,23,4,9],["log",0,32,12,4],
+    ["shadow-ema-cross-btc",0,36,12,7],["shadow-ema-cross-eth",0,43,12,7],["llm-fade-shadow",0,50,12,8],
   ],
 };
 Object.keys(DASHBOARD_LAYOUT_PRESETS).forEach(name => {
   DASHBOARD_LAYOUT_PRESETS[name] = DASHBOARD_LAYOUT_PRESETS[name].map(([id,x,y,w,h]) => ({ id, x, y, w, h }));
 });
-const DASHBOARD_LAYOUT_IDS = DASHBOARD_LAYOUT_PRESETS.column.map(item => item.id);
 const PERSONAL_LAYOUT_KEY = "orum-dash-layout-v4-personal";
 const ACTIVE_LAYOUT_KEY = "orum-dash-layout-v4-active";
 const LEGACY_LAYOUT_KEY = "orum-dash-layout-v3";
@@ -1298,17 +1715,21 @@ function safeStorageRemove(key) {
   catch (error) { console.warn("layout storage removal failed:", error); return false; }
 }
 function isValidDashboardLayout(layout) {
-  if (!Array.isArray(layout) || layout.length !== DASHBOARD_LAYOUT_IDS.length) return false;
+  // Deliberately does not require an exact card-for-card/count match against the
+  // dashboard's current cards: a saved layout predates whatever cards exist today
+  // (one was added/removed since), and GridStack.load() already tolerates a partial
+  // set gracefully. An exact-count check here previously made EVERY saved layout
+  // silently fail on reload the moment a card was added or removed from the dashboard.
+  if (!Array.isArray(layout) || layout.length === 0) return false;
   const seen = new Set();
-  const valid = layout.every(item => {
-    if (!item || !DASHBOARD_LAYOUT_IDS.includes(item.id) || seen.has(item.id)) return false;
+  return layout.every(item => {
+    if (!item || typeof item.id !== "string" || !item.id || seen.has(item.id)) return false;
     seen.add(item.id);
     const values = [item.x, item.y, item.w, item.h].map(Number);
     if (!values.every(Number.isInteger)) return false;
     const [x, y, w, h] = values;
     return x >= 0 && y >= 0 && w > 0 && h > 0 && x + w <= 12;
   });
-  return valid && seen.size === DASHBOARD_LAYOUT_IDS.length;
 }
 
 (function initGridLayout() {
@@ -1362,6 +1783,12 @@ function isValidDashboardLayout(layout) {
 
     presetButtons.forEach(button => {
       button.addEventListener("click", () => applyLayoutPreset(button.dataset.layoutPreset));
+    });
+    const saveBtn = $("layout-save-btn");
+    if (saveBtn) saveBtn.addEventListener("click", () => {
+      savePersonalLayout();
+      saveBtn.classList.add("saved-flash");
+      setTimeout(() => saveBtn.classList.remove("saved-flash"), 900);
     });
     grid.on("change", savePersonalLayout);
     grid.on("dragstop", savePersonalLayout);

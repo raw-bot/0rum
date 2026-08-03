@@ -117,6 +117,24 @@ def test_hold_is_complete_but_has_no_trade_geometry():
     assert decision.action == "hold"
 
 
+def test_hold_canonicalizes_inert_limit_metadata_without_relaxing_entry_validation():
+    decision = ProposedDecision.from_mapping(
+        _decision(
+            action="hold",
+            equity_fraction=0,
+            requested_leverage=0,
+            order_type="limit",
+            limit_price=None,
+            stop_loss=None,
+            take_profits=[],
+            time_exit_minutes=None,
+        )
+    )
+
+    assert decision.order_type == "market"
+    assert decision.limit_price is None
+
+
 def test_evidence_normalizes_utc_and_round_trips_json_primitives():
     evidence = Evidence.from_mapping(
         {

@@ -322,13 +322,14 @@ def close_position_if_needed(
             # external package __init__ (orchestrator -> executor -> loop), which
             # would be a circular import at module load. At call time it is resolved.
             from orum.external.bracket import band_invalidated, trail_stop
-            # The SSL band must be computed on 15m CLOSED bars — the SAME timeframe
-            # as the AK MACD baseline / the chart's "red line". The worker's own feed
-            # is 1m (only ~13 fifteen-minute bars deep), so we pull a dedicated cached
-            # 15m window (forming bar already dropped). Empty (offline) -> skip the
+            # The SSL band must be computed on CLOSED bars matching the strategy's
+            # configured timeframe — the SAME timeframe as the baseline / the chart's
+            # "red line". The worker's own feed is 1m, so we pull a dedicated cached
+            # window (forming bar already dropped). Empty (offline) -> skip the
             # trail, never fall back to the wrong-timeframe 1m feed.
             asset = position.get("asset") or os.getenv("0RUM_ASSET", "BTC/USDT")
-            candles = price.recent_15m_candles(asset)
+            tf = position.get("timeframe") or strategy.get("timeframe", "15m")
+            candles = price.recent_closed_candles(asset, interval=tf)
             atr_mult = float(trail.get("atr_mult", 1.0))
             baseline_series = dsl_indicators.ema(candles, int(trail.get("base_len", 30)))
             atr_series = dsl_indicators.atr(candles, int(trail.get("atr_len", 14)))

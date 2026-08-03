@@ -66,8 +66,9 @@ uv run python -m unittest discover -s tests
 
 ## LLM trading laboratory (opt-in)
 
-An isolated laboratory can ask DeepSeek V4 Pro through OpenRouter for a French
-market brief and two complete trade proposals. The model chooses direction,
+An isolated laboratory can ask an LLM (`nvidia/nemotron-3-ultra-550b-a55b`,
+called directly against NVIDIA since 2026-07-25) for a French market brief
+and two complete trade proposals. The model chooses direction,
 size, leverage, stop, targets and time exit; every response is validated and
 journaled with its evidence and snapshot hash. Confirmed `paper_autonomous`
 runs execute accepted market actions only inside separate LLM paper accounts.
@@ -75,10 +76,10 @@ runs execute accepted market actions only inside separate LLM paper accounts.
 The default mode is `off`. One-shot observer and shadow runs are explicit:
 
 ```bash
-export OPENROUTER_API_KEY="..."
-uv run python scripts/run_llm_lab.py --mode observer --once
-uv run python scripts/run_llm_lab.py --mode shadow --once
-uv run python scripts/run_llm_lab.py --mode paper_autonomous --once --confirm-paper
+export NVIDIA_API_KEY="..."
+uv run python scripts/run_llm_lab.py --mode observer --provider nvidia --once
+uv run python scripts/run_llm_lab.py --mode shadow --provider nvidia --once
+uv run python scripts/run_llm_lab.py --mode paper_autonomous --provider nvidia --once --confirm-paper
 ```
 
 Autonomous paper supports isolated long/short exposure, configurable 1x–40x
@@ -151,7 +152,7 @@ the dashboard button is rate-limited to one trigger per minute.
 | `ORUM_DASHBOARD_HOST` / `_PORT` | `127.0.0.1` / `8787` | dashboard bind |
 | `0RUM_REFLECT_HOME` | `.sandbox/0rum-local-llm-home` | 0rum CLI home for reflections |
 | `GEMINI_API_KEY` | — | read from `<0rum home>/.gemini_api_key` if unset |
-| `OPENROUTER_API_KEY` | — | required for explicit LLM observer/shadow/autonomous calls; never logged |
+| `NVIDIA_API_KEY` | — | required for LLM observer/shadow/autonomous calls; never logged |
 
 ## Known limitations
 

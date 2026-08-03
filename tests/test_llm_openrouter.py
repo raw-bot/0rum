@@ -5,6 +5,8 @@ import httpx
 import pytest
 
 from orum.llm.openrouter import (
+    NVIDIA_CHAT_COMPLETIONS_URL,
+    NvidiaClient,
     OpenRouterClient,
     OpenRouterConfigError,
     OpenRouterResponseError,
@@ -82,6 +84,89 @@ def test_openrouter_pins_model_and_json_schema_without_logging_key():
             },
         },
         "stream": False,
+        "max_tokens": 4096,
+    }
+
+
+def test_openrouter_unwraps_only_a_single_object_response_array():
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "model": "deepseek/deepseek-v4-pro",
+                "choices": [{"message": {"content": '[{"bias":"neutral"}]'}}],
+            },
+        )
+
+    client = OpenRouterClient(
+        api_key="secret-value",
+        model="deepseek/deepseek-v4-pro",
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    result = client.complete_json(
+        system="system",
+        user="user",
+        schema={
+            "type": "object",
+            "properties": {"bias": {"const": "neutral"}},
+            "required": ["bias"],
+            "additionalProperties": False,
+        },
+        schema_name="brief",
+    )
+
+    assert result.payload == {"bias": "neutral"}
+
+
+def test_nvidia_uses_direct_endpoint_and_json_mode():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "id": "nvidia-1",
+                "model": "nvidia/nemotron-3-ultra-550b-a55b",
+                "choices": [{"message": {"content": '{"bias":"neutral"}'}}],
+            },
+        )
+
+    client = NvidiaClient(
+        api_key="secret-value",
+        model="nvidia/nemotron-3-ultra-550b-a55b",
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    result = client.complete_json(
+        system="system",
+        user="user",
+        schema={"type": "object", "properties": {"bias": {"type": "string"}}, "required": ["bias"]},
+        schema_name="brief",
+    )
+
+    assert result.payload == {"bias": "neutral"}
+    assert seen["url"] == NVIDIA_CHAT_COMPLETIONS_URL
+    assert seen["body"] == {
+        "model": "nvidia/nemotron-3-ultra-550b-a55b",
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "system\n\nRéponds exclusivement par un seul objet JSON, sans Markdown ni texte "
+                    "hors JSON. Tous les champs requis du contrat suivant doivent être présents et "
+                    "respecter exactement leurs types et contraintes :\n"
+                    '{"properties":{"bias":{"type":"string"}},"required":["bias"],"type":"object"}'
+                ),
+            },
+            {"role": "user", "content": "user"},
+        ],
+        "response_format": {"type": "json_object"},
+        "chat_template_kwargs": {"enable_thinking": False},
+        "stream": False,
+        "temperature": 0,
+        "max_tokens": 4096,
     }
 
 
@@ -98,6 +183,16 @@ def test_openrouter_rejects_non_finite_or_non_positive_timeout(timeout):
             api_key="secret-value",
             model="deepseek/deepseek-v4-pro",
             timeout_seconds=timeout,
+        )
+
+
+@pytest.mark.parametrize("max_completion_tokens", [0, -1, 1.5, True])
+def test_openrouter_rejects_invalid_completion_token_cap(max_completion_tokens):
+    with pytest.raises(OpenRouterConfigError, match="max_completion_tokens"):
+        OpenRouterClient(
+            api_key="secret-value",
+            model="deepseek/deepseek-v4-pro",
+            max_completion_tokens=max_completion_tokens,
         )
 
 

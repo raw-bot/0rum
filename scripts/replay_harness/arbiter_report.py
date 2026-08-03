@@ -51,10 +51,11 @@ def _fill_stats(fills: list[dict]) -> dict:
     entry_risk_usd: dict[str, list[float]] = defaultdict(list)
     for fill in fills:
         sid = base_strategy_id(fill["strategy_id"])
+        position_id = fill.get("position_id", fill["strategy_id"])
         if fill["action"] == "open":
             net[sid] -= fill["fee_usd"]
             entries[sid] += 1
-            if fill["strategy_id"] != sid:
+            if position_id != sid:
                 topup_entries[sid] += 1
             entry_risk_usd[sid].append(fill["qty"] * fill["atr_risk"])
         elif fill["action"] == "close":
@@ -105,7 +106,8 @@ def _auction_summary(events: list[dict]) -> dict:
 
 
 def _fill_signature(fill: dict) -> tuple:
-    return (fill["ts"], fill["strategy_id"], fill["action"],
+    return (fill["ts"], fill["strategy_id"],
+            fill.get("position_id", fill["strategy_id"]), fill["action"],
             round(fill["price"], 8), round(fill["qty"], 10))
 
 

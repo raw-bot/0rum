@@ -12,7 +12,7 @@ def test_cycle_uses_memory_only_secret_and_publishes_redacted_success(tmp_path):
 
     def run_once(argv, *, environ):
         seen["argv"] = argv
-        seen["key"] = environ["OPENROUTER_API_KEY"]
+        seen["key"] = environ["NVIDIA_API_KEY"]
         return 0
 
     status_path = tmp_path / "status.json"
@@ -25,7 +25,11 @@ def test_cycle_uses_memory_only_secret_and_publishes_redacted_success(tmp_path):
 
     assert code == 0
     assert seen == {
-        "argv": ["--mode", "paper_autonomous", "--once", "--confirm-paper"],
+        "argv": [
+            "--mode", "paper_autonomous", "--once", "--confirm-paper",
+            "--provider", "nvidia", "--model", "nvidia/nemotron-3-ultra-550b-a55b",
+            "--request-timeout-seconds", "300",
+        ],
         "key": "memory-only-secret",
     }
     status_text = status_path.read_text(encoding="utf-8")
@@ -37,7 +41,7 @@ def test_cycle_uses_memory_only_secret_and_publishes_redacted_success(tmp_path):
         "last_cycle_started_at": NOW.isoformat(),
         "last_error": "",
         "last_result": "ok",
-        "model": "deepseek/deepseek-v4-pro",
+        "model": "nvidia/nemotron-3-ultra-550b-a55b",
         "running": False,
     }
     assert "memory-only-secret" not in status_text
@@ -67,7 +71,7 @@ def test_keychain_failure_is_redacted_and_model_is_not_called(tmp_path):
     assert code == 2
     assert called is False
     assert status["last_result"] == "configuration_error"
-    assert status["last_error"] == "OpenRouter credential unavailable"
+    assert status["last_error"] == "NVIDIA credential unavailable"
     assert status["running"] is False
     assert "sensitive-keychain-provider-output" not in status_text
 

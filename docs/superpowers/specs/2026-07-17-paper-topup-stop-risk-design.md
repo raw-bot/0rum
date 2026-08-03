@@ -1,14 +1,20 @@
 # Paper Topup And Stop-Risk Design
 
 Date: 2026-07-17  
-Status: approved by the operator
+Status: superseded in part by the operator on 2026-07-17
+
+> The tranche/topup design remains active. The actual-stop sizing section is
+> historical only: paper sizing, cap budgets and R were restored to the legacy
+> `2 * ATR(14)` basis, with the notional leverage cap kept at 3x.
 
 ## Goal
 
 Promote the replay-validated thesis-budget `topup` policy directly into the
-paper portfolio, while correcting position sizing and portfolio caps to use
-the actual entry-to-stop loss distance. Preserve the AK MACD and UT Bot signal
-rules agreed during the preceding strategy work.
+paper portfolio. Preserve the AK MACD and UT Bot signal rules agreed during
+the preceding strategy work. Position sizing and portfolio caps keep using
+the legacy ATR-based distance (see the status note above and "Position And
+Risk Contract" below); only the actual entry-to-stop distance is added, for
+dashboard display and audit.
 
 This remains paper-only. It does not add a broker-order path and does not
 authorize restarting the worker, watcher, dashboard, or producer.
@@ -47,26 +53,36 @@ strategy identifier.
 
 Every position persists both:
 
-- `atr_risk`: the legacy `2 * ATR(14)` diagnostic basis used when the signal
-  supplies no stop;
-- `risk_distance`: the per-unit loss distance used for sizing, caps, and R.
+- `atr_risk`: the legacy `2 * ATR(14)` basis — this is what still drives
+  position sizing, portfolio/thesis risk caps, and the R-multiple reported
+  when a tranche closes;
+- `risk_distance`: the actual entry-to-stop loss distance, computed and
+  stored for dashboard display and audit only. It does not feed sizing, caps,
+  or R (see the status note above: the operator kept the ATR-based basis
+  after comparing +390.91% ATR-based vs +118.23% actual-stop-based replay).
 
 For a long entry:
 
 1. If the strategy supplies a finite stop strictly below the entry,
    `risk_distance = entry_price - stop_loss_price`.
-2. If the strategy supplies no stop, `risk_distance = 2 * ATR(14)`.
+2. If the strategy supplies no stop, `risk_distance = atr_risk`.
 3. If the strategy supplies a stop that is non-finite, zero, or at/above the
-   entry, the entry is refused as `invalid_stop`; the engine must not silently
-   replace a malformed explicit stop with ATR.
+   entry, the entry is refused as `invalid_stop` — this check still runs even
+   though `risk_distance` itself is display-only, because it is the only
+   place a malformed explicit stop gets caught before a position opens.
 
 Quantity is:
 
-`granted_risk_usd / risk_distance`
+`granted_risk_usd / atr_risk`
 
 Open portfolio risk and symbol-thesis risk are always:
 
-`sum(position.qty * position.risk_distance)`
+`sum(position.qty * position.atr_risk)`
+
+The dashboard shows the actual dollar figure separately as `stop_risk_usd`
+(`position.qty * position.risk_distance`), so the operator can see when a
+strategy's real stop is materially wider or tighter than the ATR unit it was
+sized against.
 
 For legacy persisted positions without `risk_distance`, the loader falls back
 to their existing `atr_risk`. This is a compatibility rule, not a rewrite of

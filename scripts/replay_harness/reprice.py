@@ -40,21 +40,25 @@ def _ts(iso: str) -> int:
 def load_trades(ledger_dir: Path) -> list[dict]:
     """Chronological open/close pairs per strategy from the fills ledger."""
     fills = [json.loads(l) for l in (ledger_dir / "fills.jsonl").read_text().splitlines() if l.strip()]
-    open_by_sid: dict[str, dict] = {}
+    open_by_position: dict[str, dict] = {}
     trades: list[dict] = []
     for f in fills:
         sid = f["strategy_id"]
+        position_id = f.get("position_id", sid)
         if f["action"] == "open":
-            open_by_sid[sid] = f
-        elif f["action"] == "close" and sid in open_by_sid:
-            o = open_by_sid.pop(sid)
+            open_by_position[position_id] = f
+        elif f["action"] == "close" and position_id in open_by_position:
+            o = open_by_position.pop(position_id)
             trades.append({
                 "sid": sid,
+                "position_id": position_id,
+                "side": o.get("side", "long"),
                 "open_ts": _ts(o["ts"]),
                 "legacy_entry": o["price"],
                 "stop": o.get("stop_loss_price"),
                 "tp": o.get("take_profit_price"),
                 "atr_risk": o["atr_risk"],
+                "risk_distance": o.get("risk_distance", o["atr_risk"]),
                 "risk_pct": o["risk_pct"],
                 "close_ts": _ts(f["ts"]),
                 "close_reason": f["reason"],
@@ -84,7 +88,8 @@ def reprice(trades: list[dict], provider: SnapshotProvider, *, symbol: str,
     def close_position(sid: str, price: float, bar_ts: int, reason: str) -> None:
         nonlocal balance
         pos = open_pos.pop(sid)
-        gross = pos["qty"] * (price - pos["entry"])
+        direction = 1.0 if pos["trade"].get("side", "long") == "long" else -1.0
+        gross = direction * pos["qty"] * (price - pos["entry"])
         fee = pos["qty"] * price * FEE_RT / 2
         balance += gross - fee
         done.append({**pos["trade"], "real_entry": pos["entry"], "real_exit": price,
@@ -101,42 +106,68 @@ def reprice(trades: list[dict], provider: SnapshotProvider, *, symbol: str,
             if bar["ts"] < pos["from_ts"]:
                 continue
             stop, tp = pos["trade"]["stop"], pos["trade"]["tp"]
-            if stop is not None and lo <= stop:
-                price = (opn if opn <= stop else stop) * (1 - slip)
-                close_position(sid, price, bar["ts"], "stop_loss")
-                continue
-            if tp is not None and hi >= tp:
-                close_position(sid, opn if opn >= tp else tp, bar["ts"], "take_profit")
-                continue
+            side = pos["trade"].get("side", "long")
+            if side == "long":
+                if stop is not None and lo <= stop:
+                    price = (opn if opn <= stop else stop) * (1 - slip)
+                    close_position(sid, price, bar["ts"], "stop_loss")
+                    continue
+                if tp is not None and hi >= tp:
+                    close_position(sid, opn if opn >= tp else tp, bar["ts"], "take_profit")
+                    continue
+            else:
+                if stop is not None and hi >= stop:
+                    price = (opn if opn >= stop else stop) * (1 + slip)
+                    close_position(sid, price, bar["ts"], "stop_loss")
+                    continue
+                if tp is not None and lo <= tp:
+                    close_position(sid, opn if opn <= tp else tp, bar["ts"], "take_profit")
+                    continue
             if (pos["trade"]["close_reason"] not in ("stop_loss", "take_profit")
                     and bar["ts"] >= pos["signal_exit_ts"]):
-                close_position(sid, opn * (1 - slip), bar["ts"], pos["trade"]["close_reason"])
+                exit_slip = 1 - slip if side == "long" else 1 + slip
+                close_position(sid, opn * exit_slip, bar["ts"], pos["trade"]["close_reason"])
 
         # -- entries due at this bar -----------------------------------------
         while next_trade < len(pending) and pending[next_trade]["open_ts"] <= bar["ts"]:
             trade = pending[next_trade]
             next_trade += 1
-            sid = trade["sid"]
-            if sid in open_pos:
+            position_id = trade["position_id"]
+            if position_id in open_pos:
                 skipped["position_still_open"] += 1
                 continue
-            entry = opn * (1 + slip)
-            if trade["stop"] is not None and entry <= trade["stop"]:
+            side = trade.get("side", "long")
+            if side not in ("long", "short"):
+                raise ValueError(f"unknown replay side {side!r}")
+            entry = opn * (1 + slip if side == "long" else 1 - slip)
+            gap_through = trade["stop"] is not None and (
+                (side == "long" and entry <= trade["stop"])
+                or (side == "short" and entry >= trade["stop"])
+            )
+            if gap_through:
                 skipped["gap_through_entry"] += 1
                 continue
-            equity = balance + sum(p["qty"] * (float(bar["close"]) - p["entry"])
-                                   for p in open_pos.values())
+            equity = balance + sum(
+                (1.0 if p["trade"].get("side", "long") == "long" else -1.0)
+                * p["qty"] * (float(bar["close"]) - p["entry"])
+                for p in open_pos.values()
+            )
             qty = trade["risk_pct"] * equity / trade["atr_risk"]
             if max_leverage and qty * entry > max_leverage * equity:
                 qty = max_leverage * equity / entry
             entry_fee = qty * entry * FEE_RT / 2
             balance -= entry_fee
-            open_pos[sid] = {"trade": trade, "entry": entry, "qty": qty,
-                             "entry_fee": entry_fee, "from_ts": bar["ts"] + 1,
-                             "signal_exit_ts": trade["close_ts"]}
+            open_pos[position_id] = {
+                "trade": trade, "entry": entry, "qty": qty,
+                "entry_fee": entry_fee, "from_ts": bar["ts"] + 1,
+                "signal_exit_ts": trade["close_ts"],
+            }
 
-        equity = balance + sum(p["qty"] * (float(bar["close"]) - p["entry"])
-                               for p in open_pos.values())
+        equity = balance + sum(
+            (1.0 if p["trade"].get("side", "long") == "long" else -1.0)
+            * p["qty"] * (float(bar["close"]) - p["entry"])
+            for p in open_pos.values()
+        )
         peak = max(peak, equity)
         if peak > 0:
             max_dd = max(max_dd, (peak - equity) / peak)

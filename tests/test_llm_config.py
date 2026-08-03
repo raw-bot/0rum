@@ -9,11 +9,12 @@ def test_default_config_is_off_and_aggressive_paper_cap_is_explicit():
     assert config.mode is LlmMode.OFF
     assert config.paper_max_leverage == 40.0
     assert config.jurisdiction_profile == "fr_retail"
-    assert config.model == "deepseek/deepseek-v4-pro"
+    assert config.model == "nvidia/nemotron-3-ultra-550b-a55b"
     assert config.paper_starting_balance_usd == 10_000
     assert config.paper_fee_rate == 0.0005
     assert config.paper_maintenance_margin_rate == 0.005
     assert config.allow_stop_beyond_liquidation is False
+    assert config.max_completion_tokens == 4096
 
 
 @pytest.mark.parametrize(
@@ -23,6 +24,8 @@ def test_default_config_is_off_and_aggressive_paper_cap_is_explicit():
         ({"analyst_interval_minutes": 0}, "analyst_interval_minutes"),
         ({"request_timeout_seconds": float("nan")}, "request_timeout_seconds"),
         ({"max_parse_retries": -1}, "max_parse_retries"),
+        ({"max_completion_tokens": 0}, "max_completion_tokens"),
+        ({"max_completion_tokens": 8193}, "max_completion_tokens"),
         ({"paper_min_leverage": 5, "paper_max_leverage": 4}, "paper_max_leverage"),
         ({"paper_min_leverage": 0.5}, "paper_min_leverage"),
         ({"paper_max_leverage": 41}, "paper_max_leverage"),

@@ -332,8 +332,12 @@ class ShadowTrader:
             raise LlmServiceError(
                 f"decision cites unknown evidence: {', '.join(unknown_evidence)}"
             )
-        if set(decision.evidence_ids) - set(brief.evidence_ids):
-            raise LlmServiceError("decision cites evidence not used by the market brief")
+        stale_evidence = sorted(set(decision.evidence_ids) - set(brief.evidence_ids))
+        if stale_evidence:
+            raise LlmServiceError(
+                "decision cites evidence not used by the market brief: "
+                + ", ".join(stale_evidence)
+            )
         allowed_lessons = {
             str(item["lesson_id"])
             for item in lessons

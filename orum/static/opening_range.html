@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>0rum · Opening Range NVDA</title>
+  <link rel="stylesheet" href="/assets/dashboard.css?v=37" />
+  <link rel="stylesheet" href="/assets/opening-range.css?v=1" />
+</head>
+<body class="or-page">
+  <a class="or-skip" href="#or-content">Aller au contenu</a>
+  <header id="topbar">
+    <div class="brand">0RUM<span class="brand-sub">opening range reversal</span></div>
+    <div class="chips">
+      <span class="chip info"><b>RECHERCHE</b><span class="k">aucun ordre envoyé</span></span>
+      <span id="or-engine-chip" class="chip"><b>MOTEUR</b><span class="k">connexion…</span></span>
+    </div>
+    <a class="topbar-link" href="/" aria-label="Retourner au dashboard">DASHBOARD</a>
+    <a class="topbar-link" href="/bot" aria-label="Ouvrir les opérations du bot">BOT</a>
+    <span id="or-poll" class="clock">connexion…</span>
+  </header>
+
+  <main id="or-content" class="or-main">
+    <section class="or-hero">
+      <div>
+        <p class="eyebrow">STRATÉGIE INDÉPENDANTE · LECTURE SEULE</p>
+        <h1>Opening Range Reversal</h1>
+        <p class="or-lead">Observer une fausse cassure de la première plage de cotation de NVDA, puis rechercher un retour dans la plage. Cette surface prépare la validation ; elle ne déclenche aucun trade.</p>
+      </div>
+      <div class="or-asset" aria-label="Actif de référence">
+        <span>ACTIF DE RÉFÉRENCE</span>
+        <strong>NVDA</strong>
+        <small>Nasdaq · USD · action américaine</small>
+      </div>
+    </section>
+
+    <section class="or-clock-panel" aria-label="Horaires de marché">
+      <div><span>NEW YORK</span><strong id="or-ny-clock">--:--:--</strong><small id="or-ny-date">—</small></div>
+      <div><span>PARIS</span><strong id="or-paris-clock">--:--:--</strong><small id="or-paris-date">—</small></div>
+      <div><span>PHASE ACTUELLE</span><strong id="or-phase">—</strong><small id="or-phase-detail">calcul selon l’heure de New York</small></div>
+    </section>
+
+    <div class="or-grid">
+      <section class="bot-card or-span-two" aria-labelledby="timeline-title">
+        <div class="bot-card-head">
+          <div><p class="eyebrow">SESSION US</p><h2 id="timeline-title">Fenêtre opérationnelle</h2></div>
+          <span class="or-status neutral">America/New_York</span>
+        </div>
+        <ol class="or-timeline">
+          <li data-phase="pre"><time>Avant 09:30</time><b>Pré-ouverture</b><span>Observation uniquement</span></li>
+          <li data-phase="range"><time>09:30–09:45</time><b>Construction de la plage</b><span>Haut et bas des 3 bougies M5</span></li>
+          <li data-phase="entry"><time>09:45–11:00</time><b>Fenêtre d’entrée</b><span>Recherche de la fausse cassure</span></li>
+          <li data-phase="monitor"><time>Après 11:00</time><b>Suivi seulement</b><span>Aucune nouvelle entrée</span></li>
+        </ol>
+      </section>
+
+      <section class="bot-card" aria-labelledby="engine-title">
+        <div class="bot-card-head">
+          <div><p class="eyebrow">RUNTIME</p><h2 id="engine-title">Moteur récent</h2></div>
+          <span id="or-worker-status" class="or-status neutral">lecture…</span>
+        </div>
+        <dl class="or-facts">
+          <div><dt>Mode</dt><dd id="or-worker-mode">—</dd></div>
+          <div><dt>Cadence</dt><dd>15 min</dd></div>
+          <div><dt>Dernier heartbeat</dt><dd id="or-worker-heartbeat">—</dd></div>
+          <div><dt>Ancien moteur</dt><dd id="or-legacy-status">vérification…</dd></div>
+        </dl>
+      </section>
+
+      <section class="bot-card" aria-labelledby="data-title">
+        <div class="bot-card-head">
+          <div><p class="eyebrow">DONNÉES</p><h2 id="data-title">Flux NVDA</h2></div>
+          <span id="or-data-status" class="or-status neutral">connexion…</span>
+        </div>
+        <p class="or-copy">Flux Yahoo/yfinance réservé au paper et à la recherche. Les bougies en formation et hors séance régulière sont exclues ; ce flux n’est pas présenté comme broker-grade.</p>
+        <dl class="or-facts">
+          <div><dt>Source</dt><dd id="or-data-provider">—</dd></div>
+          <div><dt>Dernier close</dt><dd id="or-latest-close">—</dd></div>
+          <div><dt>Dernière M5 (NY)</dt><dd id="or-latest-time">—</dd></div>
+          <div><dt>Couverture</dt><dd id="or-data-counts">—</dd></div>
+          <div><dt>Fraîcheur</dt><dd id="or-data-freshness">—</dd></div>
+        </dl>
+      </section>
+
+      <section class="bot-card" aria-labelledby="rules-title">
+        <div class="bot-card-head">
+          <div><p class="eyebrow">CONTRAT DE STRATÉGIE</p><h2 id="rules-title">Règles à valider</h2></div>
+          <span class="or-status good">paper actif</span>
+        </div>
+        <dl class="or-rules">
+          <div><dt>Plage d’ouverture</dt><dd>09:30 à 09:45 ET</dd></div>
+          <div><dt>Entrée autorisée</dt><dd>09:45 à 11:00 ET</dd></div>
+          <div><dt>Unité du signal</dt><dd>M5</dd></div>
+          <div><dt>Filtre</dt><dd>Range / ATR(14) ≥ 25 %</dd></div>
+          <div><dt>Objectif</dt><dd>Côté opposé de la plage</dd></div>
+          <div><dt>Stop</dt><dd>Extrême de la bougie signal</dd></div>
+        </dl>
+      </section>
+
+      <section class="bot-card" aria-labelledby="ready-title">
+        <div class="bot-card-head">
+          <div><p class="eyebrow">PRÉPARATION</p><h2 id="ready-title">Avant toute activation</h2></div>
+          <span id="or-readiness-count" class="or-status warning">lecture…</span>
+        </div>
+        <ul class="or-checklist">
+          <li data-ready="market">Source NVDA M5 et D1 paper</li>
+          <li data-ready="calendar">Calendrier officiel Nasdaq et jours fériés</li>
+          <li data-ready="timezone">Heure d’été US/France via America/New_York</li>
+          <li data-ready="detector">Détecteur sans bougie en formation</li>
+          <li data-ready="costs">Spread, slippage et commissions validés</li>
+          <li data-ready="paper">Sleeve paper séparée, risque 0,25 %</li>
+        </ul>
+      </section>
+
+      <section class="bot-card or-span-two" aria-labelledby="candles-title">
+        <div class="bot-card-head">
+          <div><p class="eyebrow">MARCHÉ</p><h2 id="candles-title">Bougies NVDA M5 récentes</h2></div>
+          <span id="or-range-status" class="or-status neutral">range —</span>
+        </div>
+        <div class="or-table-wrap">
+          <table class="mini-table">
+            <thead><tr><th>New York</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th></tr></thead>
+            <tbody id="or-candles-body"><tr><td colspan="6">Connexion au flux…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="bot-card or-span-two" aria-labelledby="signal-title">
+        <div class="bot-card-head">
+          <div><p class="eyebrow">SIGNAL</p><h2 id="signal-title">Observation du jour</h2></div>
+          <span id="or-signal-status" class="or-status neutral">lecture…</span>
+        </div>
+        <div class="or-signal-empty">
+          <strong id="or-signal-title">Analyse en cours</strong>
+          <p id="or-signal-detail">Lecture des bougies clôturées et de la position paper.</p>
+        </div>
+      </section>
+    </div>
+
+    <p id="or-updated" class="or-updated">Dernière lecture du runtime : —</p>
+  </main>
+
+  <script src="/assets/opening-range.js?v=2"></script>
+</body>
+</html>

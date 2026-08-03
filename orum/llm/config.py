@@ -23,12 +23,13 @@ class LlmMode(str, Enum):
 @dataclass(frozen=True, slots=True)
 class LlmTradingConfig:
     mode: LlmMode = LlmMode.OFF
-    provider: str = "openrouter"
-    model: str = "deepseek/deepseek-v4-pro"
+    provider: str = "nvidia"
+    model: str = "nvidia/nemotron-3-ultra-550b-a55b"
     analyst_interval_minutes: int = 60
     decision_timeframe: str = "15m"
     request_timeout_seconds: float = 60.0
     max_parse_retries: int = 1
+    max_completion_tokens: int = 4096
     paper_min_leverage: float = 1.0
     paper_max_leverage: float = 40.0
     paper_starting_balance_usd: float = 10_000.0
@@ -58,12 +59,13 @@ class LlmTradingConfig:
                 raise ConfigError("allow_stop_beyond_liquidation must be boolean")
             config = cls(
                 mode=mode,
-                provider=str(value.get("provider", "openrouter")).strip(),
-                model=str(value.get("model", "deepseek/deepseek-v4-pro")).strip(),
+                provider=str(value.get("provider", "nvidia")).strip(),
+                model=str(value.get("model", "nvidia/nemotron-3-ultra-550b-a55b")).strip(),
                 analyst_interval_minutes=int(value.get("analyst_interval_minutes", 60)),
                 decision_timeframe=str(value.get("decision_timeframe", "15m")).strip(),
                 request_timeout_seconds=float(value.get("request_timeout_seconds", 60)),
                 max_parse_retries=int(value.get("max_parse_retries", 1)),
+                max_completion_tokens=int(value.get("max_completion_tokens", 4096)),
                 paper_min_leverage=float(value.get("paper_min_leverage", 1)),
                 paper_max_leverage=float(value.get("paper_max_leverage", 40)),
                 paper_starting_balance_usd=float(value.get("paper_starting_balance_usd", 10_000)),
@@ -91,6 +93,8 @@ class LlmTradingConfig:
             raise ConfigError("request_timeout_seconds must be finite and positive")
         if self.max_parse_retries < 0:
             raise ConfigError("max_parse_retries must be non-negative")
+        if not 1 <= self.max_completion_tokens <= 8192:
+            raise ConfigError("max_completion_tokens must be between 1 and 8192")
         if not math.isfinite(self.paper_min_leverage) or self.paper_min_leverage < 1:
             raise ConfigError("paper_min_leverage must be finite and at least 1")
         if (

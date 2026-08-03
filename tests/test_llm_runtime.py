@@ -475,7 +475,7 @@ def test_cli_requires_api_key_only_for_remote_modes(capsys):
         runtime_factory=factory,
     ) == 2
     assert built == [(LlmMode.OFF, None)]
-    assert "OPENROUTER_API_KEY is required" in capsys.readouterr().err
+    assert "NVIDIA_API_KEY is required" in capsys.readouterr().err
 
 
 def test_cli_prints_shadow_lane_statuses(capsys):
@@ -491,7 +491,7 @@ def test_cli_prints_shadow_lane_statuses(capsys):
 
     exit_code = run_llm_lab.main(
         ["--mode", "shadow", "--once"],
-        environ={"OPENROUTER_API_KEY": "test-key"},
+        environ={"NVIDIA_API_KEY": "test-key"},
         runtime_factory=lambda config, api_key: CliRuntime(result),
     )
 
@@ -529,14 +529,14 @@ def test_cli_requires_explicit_confirmation_for_autonomous_paper(capsys):
 
     assert run_llm_lab.main(
         ["--mode", "paper_autonomous", "--once"],
-        environ={"OPENROUTER_API_KEY": "test-key"}, runtime_factory=factory,
+        environ={"NVIDIA_API_KEY": "test-key"}, runtime_factory=factory,
     ) == 2
     assert built == []
     assert "--confirm-paper" in capsys.readouterr().err
 
     assert run_llm_lab.main(
         ["--mode", "paper_autonomous", "--once", "--confirm-paper"],
-        environ={"OPENROUTER_API_KEY": "test-key"}, runtime_factory=factory,
+        environ={"NVIDIA_API_KEY": "test-key"}, runtime_factory=factory,
     ) == 0
     assert built == [LlmMode.PAPER_AUTONOMOUS]
 
@@ -558,11 +558,34 @@ def test_cli_loads_optional_yaml_and_applies_explicit_mode_override(tmp_path):
 
     assert run_llm_lab.main(
         ["--mode", "observer", "--once", "--config", str(path)],
-        environ={"OPENROUTER_API_KEY": "test-key"},
+        environ={"NVIDIA_API_KEY": "test-key"},
         runtime_factory=factory,
     ) == 0
     assert captured[0].mode is LlmMode.OBSERVER
     assert captured[0].paper_max_leverage == 33
+
+
+def test_cli_applies_explicit_provider_model_and_timeout_overrides():
+    captured = []
+
+    def factory(config, api_key):
+        captured.append((config, api_key))
+        return CliRuntime(run_llm_lab.LlmRunResult(config.mode, "snap", "brief", ()))
+
+    assert run_llm_lab.main(
+        [
+            "--mode", "observer", "--once", "--provider", "nvidia",
+            "--model", "nvidia/nemotron-3-ultra-550b-a55b",
+            "--request-timeout-seconds", "300",
+        ],
+        environ={"NVIDIA_API_KEY": "test-key"},
+        runtime_factory=factory,
+    ) == 0
+    config, api_key = captured[0]
+    assert config.provider == "nvidia"
+    assert config.model == "nvidia/nemotron-3-ultra-550b-a55b"
+    assert config.request_timeout_seconds == 300
+    assert api_key == "test-key"
 
 
 def test_snapshot_account_reader_labels_native_and_both_llm_lanes(tmp_path):

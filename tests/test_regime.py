@@ -177,30 +177,30 @@ class StudyTests(unittest.TestCase):
         return run
 
     def test_study_blocks_the_losing_regime_out_of_sample(self):
-        # Market: strong uptrend during 2024 H1+H2 train and 2025 H1 eval for
-        # winners; a choppy regime hosts every loser. Features must separate
-        # them ex ante, so winners sit on trending candles, losers on chop.
+        # Alternating market segments so BOTH the train window and the eval
+        # window contain the two regimes: trades in trending segments win,
+        # trades in choppy segments lose. The features must separate them
+        # EX ANTE for the frozen thresholds to block the losers out of sample.
         start_ms = _ms("2024-01-01")
-        trend = [1000.0 * (1.01 ** i) for i in range(2000)]
-        chop = [1000.0 + (30.0 if i % 2 else -30.0) for i in range(2000)]
+        def trend(n): return [1000.0 * (1.01 ** i) for i in range(n)]
+        def chop(n): return [1000.0 + (30.0 if i % 2 else -30.0) for i in range(n)]
+        seg = (_candles(trend(600), start_ms=start_ms)
+               + _candles(chop(600), start_ms=start_ms + 600 * H4_MS)
+               + _candles(trend(400), start_ms=start_ms + 1200 * H4_MS)
+               + _candles(chop(1000), start_ms=start_ms + 1600 * H4_MS))
         provider = SnapshotProvider()
-
-        def series_for(kind: str) -> list[dict]:
-            return _candles(trend if kind == "trend" else chop, start_ms=start_ms)
-
-        trades = []
-        # Train year 2024: winners in trend hours, losers in chop hours — but a
-        # single provider series must host both, so interleave: use two symbols?
-        # Simpler: two separate studies would lose the point; instead alternate
-        # market segments: first 1000 bars trend, next 1000 chop.
-        seg = _candles(trend[:1000], start_ms=start_ms)
-        seg += _candles(chop, start_ms=start_ms + 1000 * H4_MS)
         provider.series[("BTC/USDT", "4h")] = seg
-        # Winners: entries inside the trend segment (bar 100..900).
-        for i in range(100, 900, 40):
+        trades = []
+        # Train half-year (~bars 0-1095): winners in trend, losers in chop —
+        # entries at least 60 bars into their segment for a clean feature read.
+        for i in range(100, 540, 40):        # trend segment 1 -> winners
             trades.append((start_ms + i * H4_MS, 150.0))
-        # Losers: entries inside the chop segment (bar 1100..1900).
-        for i in range(1100, 1900, 40):
+        for i in range(700, 1090, 40):       # chop segment 1 -> losers
+            trades.append((start_ms + i * H4_MS, -100.0))
+        # Eval half-year (~bars 1095-2190): same structure, later segments.
+        for i in range(1300, 1580, 40):      # trend segment 2 -> winners
+            trades.append((start_ms + i * H4_MS, 150.0))
+        for i in range(1700, 2150, 40):      # chop segment 2 -> losers
             trades.append((start_ms + i * H4_MS, -100.0))
         with tempfile.TemporaryDirectory() as tmp:
             run = self._run_dir(Path(tmp), trades)
