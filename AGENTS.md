@@ -1,6 +1,7 @@
 > ✅ **C'EST ICI LE BOT LIVE** (2026-07-06) : dashboard 127.0.0.1:8787, LaunchAgent com.0rum.dashboard.
 > Toute modification du bot de trading se fait DANS CE REPO (branche strategy/backtest-parity).
 > NE JAMAIS redémarrer les process live (worker/watcher/dashboard/producer) sans confirmation explicite de l'utilisateur.
+> Après toute modification opérationnelle autorisée, recharger immédiatement le composant paper concerné dans le même passage et vérifier son état réellement chargé (configuration, heartbeat, code de sortie et erreurs). Ne jamais remettre l'activation à plus tard sans présenter explicitement le blocage à l'utilisateur. Cette règle n'autorise aucun ordre broker/live.
 > Ne pas confondre avec ~/Documents/00-code/0rum (moteur de recherche, Docker :8008).
 
 <!-- gitnexus:start -->
