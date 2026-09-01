@@ -5,7 +5,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **0rum** (576 symbols, 931 relationships, 43 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **0rum** (563 symbols, 918 relationships, 44 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -105,7 +105,7 @@ To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.
 <!-- gitnexus:end -->
 # CLAUDE.md
 
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+Behavioral guidelines to reduce common LLM coding mistakes, tuned for Claude Sonnet 5 / Fable 5 (last reviewed 2026-07-30). Merge with project-specific instructions as needed.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
@@ -164,6 +164,24 @@ For multi-step tasks, state a brief plan:
 ```
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+## 5. Calibration for Sonnet 5 / Fable 5
+
+These models behave differently from the 4.x generation — tune for it rather than repeating old workarounds:
+
+- **State scope explicitly.** Sonnet 5 / Fable 5 follow instructions literally and won't silently generalize a rule from one file to the whole repo (or vice versa). If a rule should apply broadly, say so — don't rely on inference.
+- **Skip "double-check your work" prompting.** Both models already self-verify by default; adding explicit re-check instructions mostly adds verbosity, not accuracy. Section 4's verification loop is already enough — don't stack more on top.
+- **Default response length is higher than 4.x.** These models calibrate length to perceived task complexity and can run long. Keep status updates to one or two sentences; don't pad written deliverables (docs, PR descriptions, commit messages) with filler sections or restated context.
+- **Don't over-delegate to subagents.** Reach for a subagent only for genuinely independent, parallelizable work (e.g. multi-directory research) — not for a handful of file reads or edits doable directly in the current turn.
+- **Drop "CRITICAL:" / "MUST" tool-forcing language.** These models already follow the system prompt closely; aggressive imperatives now overtrigger tool use. State what a tool is for and when to use it, plainly.
+
+## Keeping this file lean
+
+Claude Code loads this file on every turn — every line costs context budget, and rules stop being followed once the file gets bloated (roughly north of ~200 lines total, including the GitNexus block above). Route new guidance by kind rather than appending prose here:
+- Hard, non-negotiable invariant (e.g. "always run tests before commit") → a hook in `.claude/settings.json`.
+- Reusable procedural knowledge (a multi-step workflow, a domain playbook) → a Skill.
+- A delegation boundary (isolate context, run a bounded sub-task) → a Subagent.
+- Always-on project convention that doesn't fit the above → keep it here, short.
 
 ---
 

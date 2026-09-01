@@ -1,6 +1,7 @@
 .gitnexus
+.repowise/
 .DS_Store
-Docs/.DS_Store
+**/.DS_Store
 *.docx
 *.ex4
 *.ex5
@@ -8,3 +9,4 @@ Docs/.DS_Store
 *.tar.gz
 __pycache__/
 *.pyc
+
