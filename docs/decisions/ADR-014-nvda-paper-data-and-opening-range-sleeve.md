@@ -74,6 +74,26 @@ Rejeté : cela empêche toute observation et tout paper trade.
 - Les coûts réels, la qualité SIP et l’exécution broker restent des verrous
   explicites avant tout passage hors paper.
 
+## Amendement — D1 Yahoo partiel (2026-08-04)
+
+Yahoo peut publier une ligne D1 de séance terminée dont Open, High, Low et
+Volume sont finis mais dont Close reste temporairement absent. Rejeter cette
+ligne est correct pour le moteur paper, mais ne doit pas effacer les M5 valides
+de la surface opérateur.
+
+Le dashboard peut donc écarter uniquement une ligne D1 répondant à toutes les
+conditions suivantes : elle est l’unique ligne non finie, son timestamp est le
+maximum unique du lot, seul Close est non fini, et toutes les lignes antérieures
+restent conformes. L’API expose alors `status=DEGRADED_PAPER` et un `warning`
+daté, conserve les M5 en lecture seule, et suspend tout nouveau signal. Une
+ligne non finie plus ancienne, plusieurs lignes non finies, un timestamp
+dupliqué ou une violation des bornes OHLCV rend toujours le flux indisponible.
+
+Cette tolérance est explicitement demandée par le snapshot du dashboard. Le
+fournisseur utilisé par le portefeuille paper conserve son comportement strict
+par défaut ; aucune entrée n’est réactivée à partir d’un D1 dégradé et aucun
+prix n’est synthétisé depuis les M5.
+
 ## Retour arrière
 
 Retirer la sleeve nvda_opening_range des deux configurations, supprimer son

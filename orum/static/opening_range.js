@@ -102,9 +102,12 @@ function renderCandles(candles) {
 function renderMarket(market, snapshot) {
   const connected = Boolean(market.connected);
   const fresh = Boolean(market.fresh);
+  const degraded = market.status === "DEGRADED_PAPER" || Boolean(market.warning);
+  const detectorReady = connected && fresh && !degraded
+    && Number.isFinite(Number(market.atr14_d1)) && Number(market.atr14_d1) > 0;
   const status = byId("or-data-status");
-  status.textContent = !connected ? "indisponible" : fresh ? "connecté · paper" : "données anciennes";
-  status.className = `or-status ${connected && fresh ? "good" : connected ? "warning" : "bad"}`;
+  status.textContent = !connected ? "indisponible" : degraded ? "dégradé · paper" : fresh ? "connecté · paper" : "données anciennes";
+  status.className = `or-status ${connected && fresh && !degraded ? "good" : connected ? "warning" : "bad"}`;
   byId("or-data-provider").textContent = market.provider || "—";
   byId("or-latest-close").textContent = market.latest ? `${formatPrice(market.latest.close)} $` : "—";
   byId("or-latest-time").textContent = market.latest
@@ -114,9 +117,9 @@ function renderMarket(market, snapshot) {
     : "—";
   const counts = market.timeframes || {};
   byId("or-data-counts").textContent = `M5 ${counts["5m"] || 0} · D1 ${counts["1d"] || 0}`;
-  byId("or-data-freshness").textContent = market.freshness_seconds == null
+  byId("or-data-freshness").textContent = market.warning || (market.freshness_seconds == null
     ? market.error || "—"
-    : formatAge(market.freshness_seconds);
+    : formatAge(market.freshness_seconds));
 
   const opening = market.opening_range;
   const rangeStatus = byId("or-range-status");
@@ -139,11 +142,16 @@ function renderMarket(market, snapshot) {
     signalStatus.className = "or-status good";
     byId("or-signal-title").textContent = `${String(position.side || "position").toUpperCase()} NVDA · paper`;
     byId("or-signal-detail").textContent = `Entrée ${formatPrice(position.entry_px)} $ · stop ${formatPrice(position.stop_loss_price)} $ · objectif ${formatPrice(position.take_profit_price)} $.`;
-  } else if (market.signal && ["long", "short"].includes(market.signal.side)) {
+  } else if (detectorReady && market.signal && ["long", "short"].includes(market.signal.side)) {
     signalStatus.textContent = "signal détecté";
     signalStatus.className = "or-status warning";
     byId("or-signal-title").textContent = `${market.signal.side.toUpperCase()} NVDA détecté`;
     byId("or-signal-detail").textContent = `Stop ${formatPrice(market.signal.stop)} $ · objectif ${formatPrice(market.signal.target)} $ · traitement au prochain cycle paper.`;
+  } else if (degraded) {
+    signalStatus.textContent = "calcul suspendu";
+    signalStatus.className = "or-status warning";
+    byId("or-signal-title").textContent = "Données D1 dégradées";
+    byId("or-signal-detail").textContent = market.warning || "Le calcul reste suspendu jusqu’au retour d’un D1 valide.";
   } else {
     signalStatus.textContent = connected ? "aucun signal" : "non calculable";
     signalStatus.className = "or-status neutral";
@@ -154,10 +162,10 @@ function renderMarket(market, snapshot) {
   }
 
   const ready = {
-    market: connected && (counts["5m"] || 0) >= 3 && (counts["1d"] || 0) >= 15,
+    market: detectorReady && (counts["5m"] || 0) >= 3 && (counts["1d"] || 0) >= 15,
     calendar: false,
     timezone: true,
-    detector: connected,
+    detector: detectorReady,
     costs: false,
     paper: Boolean((snapshot.worker || {}).running),
   };

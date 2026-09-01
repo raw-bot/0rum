@@ -69,3 +69,57 @@ def test_invalid_ohlc_is_rejected_instead_of_reaching_strategy():
     with patch.object(us_equity, "_download", return_value=frame):
         with pytest.raises(us_equity.UsEquityDataError, match="OHLCV bounds"):
             us_equity.fetch_us_equity_candles("NVDA", "5m", 10, now=now)
+
+
+def test_dashboard_can_discard_one_latest_daily_row_with_missing_close():
+    index = pd.DatetimeIndex([
+        datetime(2026, 7, 31),
+        datetime(2026, 8, 3),
+    ])
+    frame = _frame(index, [
+        [198.44, 202.0, 194.95, 200.75, 139_659_700],
+        [197.73, 208.74, 196.85, float("nan"), 127_547_828],
+    ])
+    now = datetime(2026, 8, 4, 7, 0, tzinfo=NEW_YORK)
+    diagnostics = []
+    us_equity.clear_us_equity_cache()
+
+    with patch.object(us_equity, "_download", return_value=frame):
+        with pytest.raises(us_equity.UsEquityDataError, match="non-finite OHLCV"):
+            us_equity.fetch_us_equity_candles("NVDA", "1d", 10, now=now)
+        candles = us_equity.fetch_us_equity_candles(
+            "NVDA",
+            "1d",
+            10,
+            now=now,
+            allow_trailing_daily_missing_close=True,
+            diagnostics=diagnostics,
+        )
+
+    assert [row["close"] for row in candles] == [200.75]
+    assert diagnostics == [
+        "bougie D1 invalide du 2026-08-03 écartée : clôture Yahoo non valide"
+    ]
+
+
+def test_dashboard_still_rejects_non_finite_non_latest_daily_row():
+    index = pd.DatetimeIndex([
+        datetime(2026, 7, 31),
+        datetime(2026, 8, 3),
+    ])
+    frame = _frame(index, [
+        [198.44, 202.0, 194.95, float("nan"), 139_659_700],
+        [197.73, 208.74, 196.85, 206.69, 127_547_828],
+    ])
+    now = datetime(2026, 8, 4, 7, 0, tzinfo=NEW_YORK)
+    us_equity.clear_us_equity_cache()
+
+    with patch.object(us_equity, "_download", return_value=frame):
+        with pytest.raises(us_equity.UsEquityDataError, match="non-finite OHLCV"):
+            us_equity.fetch_us_equity_candles(
+                "NVDA",
+                "1d",
+                10,
+                now=now,
+                allow_trailing_daily_missing_close=True,
+            )

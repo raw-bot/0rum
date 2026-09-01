@@ -36,15 +36,24 @@ def _empty_snapshot(error: str) -> dict:
         "candles": [],
         "fresh": False,
         "freshness_seconds": None,
+        "warning": None,
         "error": error,
     }
 
 
 def opening_range_snapshot(*, now: datetime | None = None) -> dict:
     observed_at = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    diagnostics: list[str] = []
     try:
         m5 = fetch_us_equity_candles("NVDA", "5m", 300, now=observed_at)
-        daily = fetch_us_equity_candles("NVDA", "1d", 30, now=observed_at)
+        daily = fetch_us_equity_candles(
+            "NVDA",
+            "1d",
+            30,
+            now=observed_at,
+            allow_trailing_daily_missing_close=True,
+            diagnostics=diagnostics,
+        )
     except UsEquityDataError as exc:
         return _empty_snapshot(str(exc))
     except Exception as exc:  # noqa: BLE001 - source failure must remain visible, not kill dashboard.
@@ -80,17 +89,19 @@ def opening_range_snapshot(*, now: datetime | None = None) -> dict:
             "atr_ratio": width / daily_atr if daily_atr else None,
         }
 
-    engine = OpeningRangeEngine()
-    engine.init({})
-    signal = engine.on_candle(
-        latest,
-        StrategyContext(
-            candles=m5,
-            symbol="NVDA",
-            timeframe="5m",
-            candles_by_timeframe={"1d": daily},
-        ),
-    )
+    signal = None
+    if not diagnostics:
+        engine = OpeningRangeEngine()
+        engine.init({})
+        signal = engine.on_candle(
+            latest,
+            StrategyContext(
+                candles=m5,
+                symbol="NVDA",
+                timeframe="5m",
+                candles_by_timeframe={"1d": daily},
+            ),
+        )
     signal_payload = None
     if signal is not None:
         signal_payload = {
@@ -102,7 +113,7 @@ def opening_range_snapshot(*, now: datetime | None = None) -> dict:
         }
 
     return {
-        "status": "CONNECTED_PAPER" if fresh else "STALE",
+        "status": "STALE" if not fresh else "DEGRADED_PAPER" if diagnostics else "CONNECTED_PAPER",
         "connected": True,
         "provider": SOURCE_NAME,
         "grade": SOURCE_GRADE,
@@ -127,6 +138,7 @@ def opening_range_snapshot(*, now: datetime | None = None) -> dict:
         ],
         "fresh": fresh,
         "freshness_seconds": round(freshness, 1),
+        "warning": "; ".join(diagnostics) or None,
         "error": None,
         "observed_at": observed_at.isoformat(),
     }

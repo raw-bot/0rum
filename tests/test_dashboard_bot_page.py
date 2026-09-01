@@ -60,6 +60,8 @@ def test_opening_range_page_assets_and_dashboard_link_are_served():
     assert script_type == "application/javascript"
     assert 'fetch("/api/state"' in script
     assert 'fetch("/api/opening-range"' in script
+    assert 'market.status === "DEGRADED_PAPER"' in script
+    assert 'signalStatus.textContent = "calcul suspendu"' in script
     assert "/api/worker/" not in script
     assert "method:" not in script
     assert dashboard_status == 200

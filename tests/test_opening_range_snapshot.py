@@ -65,3 +65,35 @@ def test_snapshot_contains_source_failure_without_raising(monkeypatch):
     assert snapshot["status"] == "UNAVAILABLE"
     assert snapshot["connected"] is False
     assert snapshot["error"] == "feed unavailable"
+
+
+def test_snapshot_displays_m5_but_suspends_signal_when_daily_is_degraded(monkeypatch):
+    m5 = [
+        _m5(9, 30, 100, 101, 99, 100),
+        _m5(9, 35, 100, 102, 100, 101),
+        _m5(9, 40, 101, 101.5, 100, 101),
+        _m5(9, 45, 101, 101.5, 100, 101),
+    ]
+
+    def fetch(_symbol, timeframe, _limit, **kwargs):
+        if timeframe == "5m":
+            return m5
+        kwargs["diagnostics"].append(
+            "bougie D1 invalide du 2026-08-03 écartée : clôture Yahoo non valide"
+        )
+        return _daily()
+
+    monkeypatch.setattr(opening_range, "fetch_us_equity_candles", fetch)
+
+    snapshot = opening_range.opening_range_snapshot(
+        now=datetime(2026, 8, 3, 13, 51, tzinfo=timezone.utc)
+    )
+
+    assert snapshot["status"] == "DEGRADED_PAPER"
+    assert snapshot["connected"] is True
+    assert snapshot["timeframes"] == {"5m": 4, "1d": 19}
+    assert snapshot["candles"]
+    assert snapshot["signal"] is None
+    assert snapshot["warning"] == (
+        "bougie D1 invalide du 2026-08-03 écartée : clôture Yahoo non valide"
+    )
