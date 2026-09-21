@@ -544,3 +544,18 @@ def test_trader_rejects_halfwidth_hangul_memo_and_journals_model_error(tmp_path)
     records = journal.read()
     assert [record["status"] for record in records] == ["model_error"]
     assert records[0]["decision"] is None
+
+
+def test_provided_lessons_are_journaled_and_reference_stays_empty(tmp_path):
+    for lane in ('llm_reference', 'llm_evolving'):
+        journal = JsonlJournal(tmp_path / (lane+'.jsonl'))
+        client = FakeCompletionClient(_decision(lane=lane, lesson_ids=[] if lane == 'llm_reference' else ['lesson-one']))
+        trader = ShadowTrader(client=client, journal=journal)
+        supplied = [{'lesson_id':'lesson-one', 'version':3, 'adjustment':'Attendre la confirmation.'}]
+        trader.decide(_snapshot(), MarketBrief.from_mapping(_brief()), lane=lane, lessons=supplied)
+        row = journal.read()[0]
+        assert row['provided_lessons'] == ([] if lane == 'llm_reference' else supplied)
+        if lane == 'llm_reference':
+            assert 'lesson-one' not in client.calls[0]['user']
+        else:
+            assert row['decision']['lesson_ids'] == ['lesson-one']

@@ -1,0 +1,89 @@
+{
+  "auction": [],
+  "balance_usd": 13412.928015340787,
+  "config_sha256": "15ab0e16a902e29ae36a5489a87ead1c2bf58838e0ddc8680bad977f19cb9409",
+  "entry_drawdown": 0.1677605264052633,
+  "entry_drawdown_halt": false,
+  "entry_drawdown_multiplier": 0.39015526235263054,
+  "equity_usd": 13256.519617935584,
+  "errors": {},
+  "execution_method": "observed_mark_v2",
+  "fills": [],
+  "gross_notional_usd": 3180.8390052016184,
+  "intents": {
+    "btc_ak_macd_4h": "duplicate_candle",
+    "btc_ema_cross": "duplicate_candle",
+    "btc_ha_trend_4h": "duplicate_candle",
+    "btc_utbot_m15_h1": "duplicate_candle",
+    "eth_donchian": "duplicate_candle",
+    "eth_ema_cross": "duplicate_candle",
+    "gold_cot": "duplicate_candle",
+    "nvda_opening_range": "no_trade"
+  },
+  "leverage_cap_scope": "per_tranche",
+  "marks": {
+    "BTC/USDT": 75897.53,
+    "ETH/USDT": 2403.14,
+    "NVDA": 212.19900512695312,
+    "PAXG/USDT": 4309.23
+  },
+  "max_leverage_per_tranche": 3.0,
+  "open_positions": [
+    "eth_donchian",
+    "eth_donchian::t2"
+  ],
+  "source_sha256": "36aa2ebf1a663b8e2fe2da16c8e278f867e02ab6329b908162909bea0b691a3b",
+  "status": "ok",
+  "strategies": {
+    "btc_ak_macd_4h": {
+      "errors": {},
+      "intent": "duplicate_candle",
+      "monitor_candle_ts": 1789500600000,
+      "signal_candle_ts": 1789473600000
+    },
+    "btc_ema_cross": {
+      "errors": {},
+      "intent": "duplicate_candle",
+      "monitor_candle_ts": 1789500600000,
+      "signal_candle_ts": 1789495200000
+    },
+    "btc_ha_trend_4h": {
+      "errors": {},
+      "intent": "duplicate_candle",
+      "monitor_candle_ts": 1789500600000,
+      "signal_candle_ts": 1789473600000
+    },
+    "btc_utbot_m15_h1": {
+      "errors": {},
+      "intent": "duplicate_candle",
+      "monitor_candle_ts": 1789500600000,
+      "signal_candle_ts": 1789500600000
+    },
+    "eth_donchian": {
+      "errors": {},
+      "intent": "duplicate_candle",
+      "monitor_candle_ts": 1789495200000,
+      "signal_candle_ts": 1789344000000
+    },
+    "eth_ema_cross": {
+      "errors": {},
+      "intent": "duplicate_candle",
+      "monitor_candle_ts": 1789500600000,
+      "signal_candle_ts": 1789495200000
+    },
+    "gold_cot": {
+      "errors": {},
+      "intent": "duplicate_candle",
+      "monitor_candle_ts": 1789495200000,
+      "signal_candle_ts": 1789344000000
+    },
+    "nvda_opening_range": {
+      "errors": {},
+      "intent": "no_trade",
+      "monitor_candle_ts": 1789501800000,
+      "signal_candle_ts": 1789501800000
+    }
+  },
+  "ts": "2026-09-15T19:55:45+00:00",
+  "valuation_complete": true
+}

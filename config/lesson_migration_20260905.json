@@ -1,0 +1,209 @@
+{
+  "migration_id": "lesson-rules-v2-20260905",
+  "bindings": [
+    {
+      "lesson_id": "lesson-d092f746da845caf92b8abb7",
+      "source_sha256": "3dc4a3abf256644ec974874da31fdfad2443e76e3b5e2fbba00c2313eee13893",
+      "adjustment_key": "confirm_entry",
+      "reviewed_observation": "Dans un environnement à haute volatilité avec structure baissière claire mais sans momentum immédiat, privilégier l'attente de confirmation d'entrée et des stops plus larges pour éviter les sorties prématurées par bruit de marché.",
+      "reviewed_conditions": {
+        "symbol": "BTC/USDT",
+        "regime": "downtrend with high volatility",
+        "volatility_bucket": "unknown",
+        "side": "short",
+        "action": "open_short",
+        "funding_sign": "unknown",
+        "oi_change_bucket": "unknown",
+        "narrative_class": "Narrative of BTC resilience above 65k invalidated by sharp rejection; price action shows distribution at 65.5-66k with aggressive selling on volume",
+        "exposure_bucket": "low"
+      }
+    },
+    {
+      "lesson_id": "lesson-50a3d05806ab7e1582cb3265",
+      "source_sha256": "e3210d0a87a65507a57c3e03fdd4496f01f657296215da72f8eb2a8bcd820177",
+      "adjustment_key": "confirm_entry",
+      "reviewed_observation": "Ajouter une règle : 'Pas d'entrée short si RSI 1h < 35 sans signal de continuation (cassure support + volume)'. Exiger un ratio R:R minimum de 1:2 sur TP1 (distance entry->TP1 >= 2x distance entry->SL). Privilégier les entrées en pullback vers EMA20/VWAP plutôt qu'en extension baissière.",
+      "reviewed_conditions": {
+        "symbol": "BTC/USDT",
+        "regime": "downtrend with high volatility",
+        "volatility_bucket": "unknown",
+        "side": "short",
+        "action": "open_short",
+        "funding_sign": "unknown",
+        "oi_change_bucket": "unknown",
+        "narrative_class": "Narrative absent (no news feed). Price action shows clear distribution: lower highs, lower lows, volume spikes on declines (e.g., 1h candle 1785506400000 volume 3628 BTC on drop to 62682). Price has not stabilized; each bounce sold into resistance near 63.5-64k.",
+        "exposure_bucket": "low"
+      }
+    },
+    {
+      "lesson_id": "lesson-25c94f419d48aa453c06bd97",
+      "source_sha256": "05a674d96f385b373d0619f937bf9eef88db824e3e66befbaae188b9cf3be1ed",
+      "adjustment_key": "confirm_entry",
+      "reviewed_observation": "Ne pas shorter aveuglément une tendance baissière sans confirmation de faiblesse du rebond court terme ; attendre un signe d'essoufflement (RSI 15m, volume décroissant) améliore le timing et réduit le risque de sortie par time_exit en léger profit.",
+      "reviewed_conditions": {
+        "symbol": "BTC/USDT",
+        "regime": "downtrend with high volatility",
+        "volatility_bucket": "unknown",
+        "side": "short",
+        "action": "open_short",
+        "funding_sign": "unknown",
+        "oi_change_bucket": "unknown",
+        "narrative_class": "Narrative absent; price action shows clear distribution from 65.7k down to 63.4k with lower highs and lower lows on 4h. Volume surges on down-moves suggest aggressive selling / liquidation hunting rather than absorption.",
+        "exposure_bucket": "low"
+      }
+    },
+    {
+      "lesson_id": "lesson-de743757d275d30269eae6b4",
+      "source_sha256": "a5994cfe8a11b184f82e7d02cdee2920651519586680357c1546ac85495041fd",
+      "adjustment_key": "confirm_entry",
+      "reviewed_observation": "Ne pas shorter une cassure sans clôture confirmée sur le timeframe de référence quand le depth imbalance signale une dominance acheteuse. Réviser les TP à la baisse et conditionner l'entrée à une bougie 1h close sous le niveau clé.",
+      "reviewed_conditions": {
+        "symbol": "BTC/USDT",
+        "regime": "range_breakdown",
+        "volatility_bucket": "unknown",
+        "side": "short",
+        "action": "open_short",
+        "funding_sign": "unknown",
+        "oi_change_bucket": "unknown",
+        "narrative_class": "Narrative 'accumulation' (OI élevé, carnet bid-heavy) mais prix en breakdown sous 64 800 $ avec volumes vendeurs — divergence baissière, distribution probable.",
+        "exposure_bucket": "low"
+      }
+    },
+    {
+      "lesson_id": "lesson-079570cfe324817b59388eae",
+      "source_sha256": "af672a68068a2c6d292ce0b96915dd36d94c189e0aa46245f0bc5f14ba45d5f9",
+      "adjustment_key": "confirm_entry",
+      "reviewed_observation": "Ne pas shorter en milieu de range sans confirmation de cassure nette du support clé (63 000 $). Privilégier les entrées sur pullback vers résistance après cassure validée, ou réduire levier/taille si le timing est incertain.",
+      "reviewed_conditions": {
+        "symbol": "BTC/USDT",
+        "regime": "range_breakdown",
+        "volatility_bucket": "unknown",
+        "side": "short",
+        "action": "open_short",
+        "funding_sign": "unknown",
+        "oi_change_bucket": "unknown",
+        "narrative_class": "Narrative 'range 63k-64k' non confirmée : prix casse le bas du range avec volume modéré, absence de funding pour valider le biais perp",
+        "exposure_bucket": "low"
+      }
+    },
+    {
+      "lesson_id": "lesson-fb7c4b29b785f5b600ec7f8f",
+      "source_sha256": "67a6348c8701ac7a1cc33c7b77b256fc8a039429ff60eadd0a928c58bc6e2818",
+      "adjustment_key": "stop_beyond_noise",
+      "reviewed_observation": "Sur BTC en range volatil, les stops <1.5% sont trop souvent chassés par le bruit. Privilégier des stops basés sur la structure (swing highs, EMAs) plutôt qu'un % fixe, et réduire le levier pour tenir la position jusqu'à la validation de la thèse.",
+      "reviewed_conditions": {
+        "symbol": "BTC/USDT",
+        "regime": "downtrend with high volatility",
+        "volatility_bucket": "unknown",
+        "side": "short",
+        "action": "open_short",
+        "funding_sign": "unknown",
+        "oi_change_bucket": "unknown",
+        "narrative_class": "Narrative highlights July strength and inflows, but price action shows clear distribution and downtrend since late July highs near 66k. Stablecoin outflows and theft news add negative fundamental pressure not fully priced in given the gradual grind lower.",
+        "exposure_bucket": "low"
+      }
+    },
+    {
+      "lesson_id": "lesson-22a26854628837ff78e343ac",
+      "source_sha256": "1f3945990ed7b229b5e5f30bac5d7f8625bead3655f935548128b77b1b9d1d0d",
+      "adjustment_key": "stop_beyond_noise",
+      "reviewed_observation": "Dans un marché baissier avec RSI survendu, privilégier l'entrée sur rejet de résistance (pullback) plutôt que l'anticipation ; utiliser un stop basé sur la structure (swing high 1h/4h) et non sur un niveau natif serré.",
+      "reviewed_conditions": {
+        "symbol": "BTC/USDT",
+        "regime": "downtrend with high volatility",
+        "volatility_bucket": "unknown",
+        "side": "short",
+        "action": "open_short",
+        "funding_sign": "unknown",
+        "oi_change_bucket": "unknown",
+        "narrative_class": "Narrative of macro uncertainty (GDELT 429 error, no on-chain) but price action shows clear distribution from 65k+ down to 62.5k with increasing volume on declines – sellers in control, not priced-in bounce.",
+        "exposure_bucket": "low"
+      }
+    },
+    {
+      "lesson_id": "lesson-827a1a7435ceb5c518007f46",
+      "source_sha256": "0fee277f8329922b5e1e70e8143d0f7bbee4e491c7f5e127aeebe10092e8cd2e",
+      "adjustment_key": "stop_beyond_noise",
+      "reviewed_observation": "Dans un range serré (800$ de large), un stop à 1.5x ATR 15m est trop proche du bruit de marché. La cassure de range nécessite une confirmation de clôture pour éviter les faux signaux. Le levier 10x amplifie excessivement le risque de stop-out sur du bruit.",
+      "reviewed_conditions": {
+        "symbol": "BTC/USDT",
+        "regime": "range_breakdown",
+        "volatility_bucket": "unknown",
+        "side": "short",
+        "action": "open_short",
+        "funding_sign": "unknown",
+        "oi_change_bucket": "unknown",
+        "narrative_class": "Narrative 'accumulation post-halving' non validée : prix sous toutes les EMA court/moyen terme, structure de plus bas descendants depuis 64 244 $.",
+        "exposure_bucket": "low"
+      }
+    },
+    {
+      "lesson_id": "lesson-12602727de5f4ccbfc811022",
+      "source_sha256": "bd12a4d5f1c1595be0d9f4377262b198ad8ccd5c0b753c9a2ceec095a267e9b1",
+      "adjustment_key": "stop_beyond_noise",
+      "reviewed_observation": "Dans un range 4h serré (62500-63500), les stops placés juste au-dessus des bornes techniques (EMA20, haut range) sont vulnérables aux faux cassures. Privilégier l'attente de clôture confirmée hors range ou placer stops au-delà de l'ATR 1h (1.5-2x ATR) plutôt que sur des niveaux techniques précis.",
+      "reviewed_conditions": {
+        "symbol": "BTC/USDT",
+        "regime": "range_breakdown",
+        "volatility_bucket": "unknown",
+        "side": "short",
+        "action": "open_short",
+        "funding_sign": "unknown",
+        "oi_change_bucket": "unknown",
+        "narrative_class": "Narrative macro absente (GDELT 429, on-chain non configuré). Prix réagit technique: breakdown range 4h 62500-63500 avec volume croissant sur 1h. Absence de funding/OI change récent suggère pas de flush forcé.",
+        "exposure_bucket": "low"
+      }
+    },
+    {
+      "lesson_id": "lesson-7ea5152c805a2d43d5ac6258",
+      "source_sha256": "eafeb3f26950280bb8518c6becdd89f270f5a13549d78465c0b7b67479069ec1",
+      "adjustment_key": "stop_beyond_noise",
+      "reviewed_observation": "Sur les breakdowns de range 4h avec levier 10x, placer le SL au-dessus du haut du range (ou EMA20 4h) et non de l'EMA20 1h. Ne pas trader sans funding rate confirmé quand levier > 5x.",
+      "reviewed_conditions": {
+        "symbol": "BTC/USDT",
+        "regime": "range_breakdown",
+        "volatility_bucket": "unknown",
+        "side": "short",
+        "action": "open_short",
+        "funding_sign": "unknown",
+        "oi_change_bucket": "unknown",
+        "narrative_class": "Narrative haussière (structure HA 4h verte) mais prix en breakdown sous 78k avec volumes élevés à la baisse (300-500k vol sur bougies rouges 15m). Divergence : structure bullish non confirmée par le flux vendeur.",
+        "exposure_bucket": "low"
+      }
+    },
+    {
+      "lesson_id": "lesson-acc813fd382ecc86e87cc2f9",
+      "source_sha256": "fc3710ec129de95f7d41216c0300faa268672b7ed0b94c5c713af0c6949b25e9",
+      "adjustment_key": "wait_pullback",
+      "reviewed_observation": "Sur structure baissière 4h confirmée mais sans momentum immédiat, privilégier entrée sur pullback/retest avec stop plus serré (≤0.8 ATR) et TP rapprochés ; sortir si pas de progression après 4h.",
+      "reviewed_conditions": {
+        "symbol": "BTC/USDT",
+        "regime": "range_breakdown",
+        "volatility_bucket": "unknown",
+        "side": "short",
+        "action": "open_short",
+        "funding_sign": "unknown",
+        "oi_change_bucket": "unknown",
+        "narrative_class": "Narrative ETH affaiblie (sorties ETF 70,6 M$) et risque géopolitique (Nord-Corée hack) ; prix BTC réagit par breakdown technique sans catalyseur haussier direct",
+        "exposure_bucket": "low"
+      }
+    },
+    {
+      "lesson_id": "lesson-53bb25ad396a27f96e4fbec1",
+      "source_sha256": "9896c6f13209d5eb384cdf5a169dd83eb45eaab19417f1326144570c181ecf6d",
+      "adjustment_key": "wait_pullback",
+      "reviewed_observation": "Ne pas shorter aveuglément une cassure de range en survente RSI 15m < 30 sans confirmation de poursuite baissière (ex: clôture 15m sous bas de bougie cassure + volume). Privilégier l'attente d'un pullback vers la zone cassée (retest 78000-78100) pour entrer avec un meilleur ratio risque/récompense et éviter les pièges de rebond technique immédiat.",
+      "reviewed_conditions": {
+        "symbol": "BTC/USDT",
+        "regime": "range_breakdown",
+        "volatility_bucket": "unknown",
+        "side": "short",
+        "action": "open_short",
+        "funding_sign": "unknown",
+        "oi_change_bucket": "unknown",
+        "narrative_class": "Narrative haussière (structure 4h encore au-dessus EMA50 77 616) mais prix casse le bas du range 78 000-79 300 avec volume élevé (324k sur la dernière 15m) → distribution / absorption vendeuse.",
+        "exposure_bucket": "low"
+      }
+    }
+  ]
+}

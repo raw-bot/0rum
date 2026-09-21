@@ -33,6 +33,8 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from math import isfinite
+from orum.strategies.cot_calendar import publication_at
 
 # COT reports are weekly; a daily updater refreshes the file. Anything older
 # than this many days means the updater has been down long enough that we no
@@ -65,6 +67,7 @@ def read_gate(
     *,
     max_age_days: float = DEFAULT_MAX_AGE_DAYS,
     now: datetime | None = None,
+    asof: datetime | None = None,
 ) -> CotGate | None:
     """Return the validated gate, or None if the cache is absent, malformed,
     or stale. Never raises; never fabricates a fallback."""
@@ -98,12 +101,30 @@ def read_gate(
         return None  # no trustworthy freshness anchor -> treat as stale
 
     reference = now or datetime.now(timezone.utc)
-    if reference - updated_at > _timedelta_days(max_age_days):
+    if reference - updated_at > _timedelta_days(max_age_days) or updated_at > reference:
         return None  # stale: updater has not refreshed the gate recently enough
 
     threshold = data.get("threshold")
     threshold = float(threshold) if isinstance(threshold, (int, float)) and not isinstance(threshold, bool) else None
 
+    try:
+        published = publication_at(report_date)
+        supplied = _parse_iso(data.get("published_at"))
+        if supplied is not None:
+            published = max(published, supplied)
+        report = datetime.fromisoformat(report_date).replace(tzinfo=timezone.utc)
+        if reference - report > _timedelta_days(max_age_days) or report > reference:
+            return None
+        if published > (asof or reference):
+            return None
+    except (ValueError, TypeError):
+        return None
+    if cot_index is not None and not isfinite(cot_index):
+        return None
+    if threshold is None or not isfinite(threshold):
+        return None
+    if gate_on and (cot_index is None or cot_index > threshold):
+        return None
     return CotGate(
         gate_on=gate_on,
         cot_index=float(cot_index) if cot_index is not None else None,

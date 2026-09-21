@@ -210,7 +210,7 @@ class ShadowTrader:
         lane: str,
         lessons: Sequence[Mapping[str, Any]],
     ) -> DecisionResult:
-        normalized_lessons = [dict(item) for item in lessons]
+        normalized_lessons = [] if lane == "llm_reference" else json.loads(json.dumps(list(lessons)))
         prompt = build_trader_prompt(
             snapshot,
             brief,
@@ -269,6 +269,7 @@ class ShadowTrader:
                     prompt_version=prompt.version,
                     completion=completion,
                     status="model_error",
+                    provided_lessons=normalized_lessons,
                     raw_payload=raw_payload,
                     error=error,
                 )
@@ -283,6 +284,7 @@ class ShadowTrader:
                 prompt_version=prompt.version,
                 completion=completion,
                 status="valid",
+                provided_lessons=normalized_lessons,
                 result=result,
             )
         )
@@ -358,6 +360,7 @@ class ShadowTrader:
         prompt_version: str,
         completion: CompletionResult | None,
         status: str,
+        provided_lessons: list[dict[str, Any]],
         result: DecisionResult | None = None,
         raw_payload: dict[str, Any] | None = None,
         error: Exception | None = None,
@@ -368,6 +371,8 @@ class ShadowTrader:
             "schema_version": 1,
             "recorded_at": _timestamp(self._clock),
             "kind": "proposed_decision",
+            "provided_lessons": provided_lessons,
+            "provided_lesson_ids": [item["lesson_id"] for item in provided_lessons],
             "status": status,
             "lane": lane,
             "model": None if completion is None else completion.model,

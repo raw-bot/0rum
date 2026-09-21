@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>0rum · Comptes de recherche</title>
+  <link rel="stylesheet" href="/assets/dashboard.css?v=37" />
+  <style>
+    .accounts-main { max-width: 1600px; margin: 0 auto; padding-top: 28px; }
+    .accounts-intro { margin-bottom: 24px; }
+    .accounts-intro h1 { font-size: 28px; margin: 0 0 12px; }
+    .accounts-intro p { color: var(--dim); line-height: 1.6; max-width: 820px; }
+    #strategy-accounts-card .mini-table { min-width: 980px; }
+    #strategy-accounts-card .mini-table td { padding-top: 14px; padding-bottom: 14px; }
+    #strategy-accounts-card details { margin-top: 20px; line-height: 1.7; }
+    #strategy-accounts-card summary { cursor: pointer; margin-bottom: 16px; }
+    #accounts-connection { margin-top: 18px; }
+    @media (max-width: 700px) { .accounts-intro h1 { font-size: 22px; } }
+  </style>
+</head>
+<body>
+  <header id="topbar">
+    <div class="brand">0RUM<span class="brand-sub">comptes de recherche</span></div>
+    <a class="topbar-link" href="/">← DASHBOARD PRINCIPAL</a>
+  </header>
+  <main class="accounts-main">
+    <div class="accounts-intro">
+      <h1>Huit stratégies, huit comptes indépendants</h1>
+      <p>Chaque stratégie dispose de son propre capital fictif et de ses positions. Le compte de référence réunit les huit stratégies dans un seul budget pour comparer leurs résultats.</p>
+    </div>
+    <section class="card" id="strategy-accounts-card" aria-label="Résultats des comptes virtuels">
+      <h2>Comptes de recherche</h2><div class="body">Chargement des comptes…</div>
+    </section>
+    <p id="accounts-connection" class="muted" role="status">Connexion…</p>
+  </main>
+  <script src="/assets/strategy-accounts.js?v=1"></script>
+</body>
+</html>

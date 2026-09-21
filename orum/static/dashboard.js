@@ -385,15 +385,16 @@ function ring(frac, color, center, label, sub) {
 }
 function renderStats(s) {
   const win = Number(s.win_rate || 0);
-  const dd = Number(s.drawdown || 0), maxDD = (s.goal && s.goal.max_drawdown) || 0.05;
+  const dd = Number(s.drawdown || 0), maxDD = (s.guardrail && s.guardrail.halt_pct) || 0.20;
   const p = s.portfolio || {}, op = s.open_position || {};
-  const exposure = op.active && p.balance_usd ? clamp(Number(op.notional_usd) / Number(p.balance_usd), 0, 1) : 0;
+  const exposure = (s.paper || {}).exposure_ratio;
+  const openCount = Number((s.paper || {}).open_count || 0);
   $("stats-card").innerHTML = `
     <h2>Performance <span class="hint">${s.trade_count || 0} trades</span></h2>
     <div class="body"><div class="stats-grid">
       ${ring(win, "#2ecc71", pct(win, 0), "win rate", `${Math.round(win * (s.trade_count || 0))}/${s.trade_count || 0}`)}
       ${ring(maxDD ? dd / maxDD : 0, dd >= maxDD ? "#ff5765" : "#ffb454", pct(dd, 1), "drawdown", `max ${pct(maxDD, 0)}`)}
-      ${ring(exposure, "#4aa3ff", pct(exposure, 0), "exposure", op.active ? "in position" : "flat")}
+      ${ring(exposure, "#4aa3ff", exposure == null ? "—" : pct(exposure, 0), "exposure", `${openCount} position(s)`)}
     </div></div>`;
 }
 
@@ -404,7 +405,12 @@ function renderTop(s) {
   const cr = s.champion_reaudit || {};
   const crMap = { conforming: "ok", drift_detected: "bad", insufficient_data: "warn", not_yet_audited: "" };
   const src = s.signal_source || "native";
+  const worker = s.worker || {};
   const chips = [
+    `<span class="chip ${worker.healthy ? "ok" : "bad"}"><span class="k">santé paper</span><b>${esc(worker.status || "inconnue")}</b></span>`,
+    `<span class="chip info" title="Les résultats antérieurs restent identifiés par leur méthode"><span class="k">exécution</span><b>${esc(worker.execution_method || "legacy_v1")}</b></span>`,
+    ...(s.performance_methods && Object.keys(s.performance_methods).length > 1 ? [`<span class="chip warn"><b>Historique : plusieurs méthodes d’exécution</b></span>`] : []),
+    ...(s.partial ? [`<span class="chip warn"><b>Données partielles : ${esc((s.source_errors || []).map(e => e.source).join(", "))}</b></span>`] : []),
     `<span class="chip info"><span class="k">asset</span><b>${esc(s.asset)}</b></span>`,
     `<span class="chip"><span class="k">mode</span><b>${esc(s.mode || "paper")}</b></span>`,
     `<span class="chip ${src === "tradingview_external" ? "info" : ""}"><span class="k">signals</span><b>${src === "tradingview_external" ? "TV EXTERNAL" : "NATIVE"}</b></span>`,
@@ -526,7 +532,7 @@ function renderMarkets(s) {
 function renderKpis(s) {
   const p = s.paper || {};
   const dd = Number(s.drawdown || 0);
-  const ddMax = (s.goal && s.goal.max_drawdown) || 0.05;
+  const ddMax = (s.guardrail && s.guardrail.halt_pct) || 0.20;
   const unrealized = Number(p.equity_usd || 0) - Number(p.balance_usd || 0);
   const tiles = [
     { label: "Equity paper", val: usd(p.equity_usd), sub: `cash ${usd(p.balance_usd, 0)}` },
@@ -544,28 +550,12 @@ function renderKpis(s) {
 /* ---- open position ---------------------------------------------------- */
 function renderPosition(s) {
   const card = $("position-card");
-  const p = s.open_position || {};
-  if (!p.active) { card.style.display = "none"; return; }  // hide when flat; reappears filled when a position opens
+  const paper = s.paper || {};
+  const rows = paper.open_positions || [];
   card.style.display = "";
-  const entry = Number(p.entry_price), cur = Number(p.current_price), stop = Number(p.stop_price), tp = Number(p.take_profit_price);
-  const range = tp - stop, pos = range > 0 ? clamp((cur - stop) / range, 0, 1) * 100 : 50;
-  const heldM = Math.round((p.held_seconds || 0) / 60);
-  card.innerHTML = `
-    <h2>Open position <span class="hint">${esc(p.direction || "long")} · ${esc(p.asset || "")}</span></h2>
-    <div class="body">
-      <div class="kv">
-        <div class="k">entry</div><div class="v">${usd(entry)}</div>
-        <div class="k">current</div><div class="v ${cls(cur - entry)}">${usd(cur)}</div>
-        <div class="k">unrealized</div><div class="v ${cls(p.unrealized_pnl_usd)}">${signed(p.unrealized_pnl_usd, usd)} (${signed(p.unrealized_pnl_pct, pct)})</div>
-        <div class="k">size</div><div class="v">${usd(p.notional_usd, 0)} · ${num(p.qty_base, 4)}</div>
-        <div class="k">held</div><div class="v">${heldM}m</div>
-      </div>
-      <div class="pricebar"><div class="fill" style="width:100%"></div><div class="mark" style="left:${pos}%"></div></div>
-      <div class="pricebar-legend"><span>SL ${usd(stop, 0)}</span><span>price</span><span>TP ${usd(tp, 0)}</span></div>
-    </div>`;
+  card.innerHTML = `<h2>Positions paper <span class="hint">${paper.open_count || 0} tranche(s)</span></h2><div class="body">${rows.length ? rows.map(p => `<div class="kv"><div class="k">${esc(p.strategy_id)} · ${esc(p.symbol)} · ${esc(p.side)}</div><div class="v">${num(p.qty, 6)} @ ${usd(p.entry_px)} · SL ${p.stop_loss_price == null ? "—" : usd(p.stop_loss_price)} · TP ${p.take_profit_price == null ? "—" : usd(p.take_profit_price)}</div></div>`).join("") : "Aucune position ouverte."}</div>`;
 }
 
-/* ---- equity sparkline ------------------------------------------------- */
 function renderEquity(s) {
   const card = $("equity-card");
   const pts = (s.equity_curve || []).map((p) => Number(p.equity));
@@ -683,21 +673,9 @@ function condLine(c) {
   return `<div class="cond">${esc(ind + field)} <span style="color:var(--warn)">${esc(c.operator)}</span> ${esc(rhs)}</div>`;
 }
 function renderStrategy(s) {
-  const st = s.strategy || {};
-  const entry = st.entry && st.entry.conditions ? st.entry : null;
-  const exit = st.exit && st.exit.conditions ? st.exit : null;
-  const riskBlock = st.risk || {};
-  const risk = (k, d) => (riskBlock[k] != null ? riskBlock[k] : d);
-  const entryHtml = entry ? `<div class="cond"><span class="logic">ENTRY · ${esc(entry.logic)}</span></div>` + entry.conditions.map(condLine).join("") : `<div class="cond"><span class="logic">ENTRY</span> ${esc(JSON.stringify(st.entry || {}))}</div>`;
-  const exitHtml = exit ? `<div class="cond"><span class="logic">EXIT · ${esc(exit.logic)}</span></div>` + exit.conditions.map(condLine).join("") : "";
-  $("strategy-card").innerHTML = `
-    <h2>Strategy <span class="hint">v${esc(st.version || "?")}</span></h2>
-    <div class="body">${entryHtml}${exitHtml}
-      <div class="kv" style="margin-top:10px">
-        <div class="k">stop / tp</div><div class="v">${num(risk("stop_loss_pct", 2), 1)}% / ${num(risk("take_profit_pct", 3), 1)}%</div>
-        <div class="k">size (R)</div><div class="v">${num(risk("position_size_r", 0.5), 2)}%</div>
-        <div class="k">max hold</div><div class="v">${risk("max_hold_candles", 30)} candles</div>
-      </div></div>`;
+  const cfg = s.portfolio_config || {};
+  const rows = (cfg.strategies || []).map(st => `<div class="kv"><div class="k">${esc(st.id)}</div><div class="v">${esc(st.engine)} · ${esc(st.symbol)} · ${esc(st.timeframe)} · ${st.entry_enabled ? "entrées actives" : "entrées désactivées"}</div></div>`).join("");
+  $("strategy-card").innerHTML = `<h2>Stratégies paper actives</h2><div class="body">${rows}<p class="muted">Exécution : ${esc(cfg.execution_mode || "inconnue")} · source ${esc(cfg.source || "inconnue")}</p></div>`;
 }
 
 /* ---- portfolio risk card (writes state/portfolio.yaml — the file the LIVE
@@ -720,24 +698,24 @@ function renderLeverage(s) {
   const active = strategies.filter((st) => st.entry_enabled);
   const inactive = strategies.filter((st) => !st.entry_enabled);
   if (!_pfInited) {
-    const riskScale = [0, 1 / 3, 2 / 3, 1]
-      .map((t) => `<span>${_pfFmtPct(bounds.min + t * (bounds.max - bounds.min))}</span>`).join("");
     const label = (text) =>
       `<div class="muted" style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-top:14px">${text}</div>`;
     const levSet = pc.max_leverage != null;
     const levBlock = `
-        ${label("portfolio — max leverage (notional cap × equity)")}
+        ${label("plafond par tranche — notionnel × equity")}
         <div class="lev-readout"><span id="pf-lev-val">${levSet ? Number(pc.max_leverage).toFixed(1) : "off"}</span><span class="lev-x" id="pf-lev-unit">${levSet ? "×" : ""}</span></div>
         <input id="pf-lev" class="pf-range" type="range" min="1" max="5" step="0.5" value="${levSet ? Number(pc.max_leverage) : 5}" />
         <div class="lev-scale"><span>1×</span><span>2×</span><span>3×</span><span>4×</span><span>5×</span></div>`;
     const rows = active.map((st) => {
       const riskPct = Number(st.risk_pct || 0) * 100;
+      const rowBounds = st.risk_bounds || bounds;
+      const rowScale = [0, 1 / 3, 2 / 3, 1].map(t => `<span>${_pfFmtPct(rowBounds.min + t * (rowBounds.max - rowBounds.min))}</span>`).join("");
       let html = `
         ${label(`${esc(st.id)} — risk / trade`)}
         <div class="lev-readout"><span id="pf-risk-val-${st.id}">${riskPct.toFixed(2)}</span><span class="lev-x">%</span></div>
         <input id="pf-risk-${st.id}" data-sid="${st.id}" class="pf-range pf-risk" type="range"
-               min="${(bounds.min * 100).toFixed(2)}" max="${(bounds.max * 100).toFixed(2)}" step="0.25" value="${riskPct}" />
-        <div class="lev-scale">${riskScale}</div>`;
+               min="${(rowBounds.min * 100).toFixed(2)}" max="${(rowBounds.max * 100).toFixed(2)}" step="0.25" value="${riskPct}" />
+        <div class="lev-scale">${rowScale}</div>`;
       if (st.reward_risk_ratio != null) {
         html += `
         ${label(`${esc(st.id)} — take-profit (reward : risk)`)}
@@ -819,24 +797,20 @@ function renderLeverage(s) {
 /* ---- trades table (entry / gain-loss) --------------------------------- */
 function renderTrades(s) {
   let trades = s.latest_trades ? [...s.latest_trades] : [];
-  if (s.open_position && s.open_position.active) {
-    trades.unshift({
-      ts: s.open_position.opened_at || s.open_position.ts || Date.now(),
-      direction: s.open_position.side || s.open_position.direction || "long",
-      entry_price: s.open_position.entry_price || s.open_position.current_price,
-      notional_usd: s.open_position.notional_usd,
-      net_pnl_usd: s.open_position.unrealized_pnl_usd,
-      is_open: true
-    });
+  const openPositions = (s.paper || {}).open_positions || [];
+  for (const pos of openPositions) {
+    trades.unshift({ts: pos.opened_ts, direction: pos.side,
+      entry_price: pos.entry_px, notional_usd: pos.notional_usd,
+      net_pnl_usd: pos.unrealized_pnl_usd, is_open: true});
   }
   const rows = trades.length
     ? trades.map((t) => {
         const net = Number(t.net_pnl_usd || 0);
         const openMark = t.is_open ? ` <span class="tag" style="background:rgba(255,255,255,0.15);padding:1px 4px;border-radius:3px;font-size:0.8em;margin-left:4px;">OPEN</span>` : "";
-        return `<tr><td class="ts">${hhmmss(t.ts)}</td><td>${esc(t.direction || t.side || "long")}${openMark}</td><td>${usd(t.entry_price)}</td><td>${usd(t.notional_usd, 0)}</td><td class="${cls(net)}">${signed(net, usd)}</td></tr>`;
+        return `<tr><td class="ts">${hhmmss(t.ts)}</td><td>${esc(t.direction || t.side || "long")}${openMark}</td><td>${usd(t.entry_price)}</td><td>${usd(t.notional_usd, 0)}</td><td class="${cls(net)}">${t.is_open && t.net_pnl_usd == null ? "—" : signed(net, usd)}</td></tr>`;
       }).join("")
     : `<tr><td colspan="5" class="flat">no trades yet</td></tr>`;
-  const hintText = (s.open_position && s.open_position.active) ? `${trades.length - 1} recent, 1 open` : `${trades.length} recent · newest first`;
+  const hintText = `${trades.length - openPositions.length} recent, ${openPositions.length} open`;
   $("trades-card").innerHTML = `<h2>Trades <span class="hint">${hintText}</span></h2><div class="body"><table class="mini-table"><thead><tr><th>time</th><th>side</th><th>entry</th><th>stake</th><th>gain/loss</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 

@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from orum.llm.contracts import ProposedDecision
 from orum.llm.journal import JsonlJournal
 from orum.llm.leverage import LeverageResult
+from orum.llm.paper_contracts import LlmPaperFill
 from orum.llm.paper_simulator import LlmPaperSimulator
 from orum.llm.paper_store import LlmPaperStore
 from orum.llm.paper_validator import PaperDecisionValidator
@@ -148,3 +149,16 @@ class PaperLaneExecutor:
                 "equity_after_usd": committed.equity_usd,
             })
         return simulation.fills
+
+    def learning_fills(self) -> list[LlmPaperFill]:
+        """Terminal fill per position, so partial targets cannot truncate outcomes."""
+        positions = {}
+        for row in self.store.fills.read():
+            position = positions.setdefault(row["position_id"], {"qty": 0.0, "terminal": None})
+            if row["action"] in {"open", "add"}:
+                position["qty"] += float(row["qty"])
+            else:
+                position["qty"] -= float(row["qty"])
+                position["terminal"] = row
+        return [LlmPaperFill.from_mapping(value["terminal"]) for value in positions.values()
+                if value["terminal"] is not None and abs(value["qty"]) <= 1e-10]

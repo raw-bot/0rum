@@ -15,6 +15,8 @@ from zoneinfo import ZoneInfo
 
 import yfinance as yf
 
+from orum.market_calendar import session_bounds, latest_closed_bar
+
 NEW_YORK = ZoneInfo("America/New_York")
 SOURCE_NAME = "Yahoo Finance via yfinance"
 SOURCE_GRADE = "PAPER_RESEARCH"
@@ -91,7 +93,8 @@ def _normalize(
         local_time = candle_time.astimezone(NEW_YORK)
         if timeframe == "5m":
             clock = local_time.time().replace(tzinfo=None)
-            if not wall_time(9, 30) <= clock < wall_time(16, 0):
+            session = session_bounds(local_time.date())
+            if session is None or not session[0] <= local_time < session[1]:
                 continue
             if int(candle_time.timestamp() * 1000) + duration_ms > int(now_utc.timestamp() * 1000):
                 continue
@@ -164,6 +167,15 @@ def _normalize(
     candles = [rows[key] for key in sorted(rows)]
     if not candles:
         raise UsEquityDataError("no complete regular-session candles")
+    if timeframe == "5m":
+        expected = latest_closed_bar(now_utc)
+        if candles[-1]["ts"] < expected - 300_000:
+            raise UsEquityDataError("stale regular-session candles")
+        for previous, current in zip(candles, candles[1:]):
+            previous_day = datetime.fromtimestamp(previous["ts"] / 1000, NEW_YORK).date()
+            current_day = datetime.fromtimestamp(current["ts"] / 1000, NEW_YORK).date()
+            if previous_day == current_day and current["ts"] - previous["ts"] != 300_000:
+                raise UsEquityDataError("missing regular-session candle")
     return candles
 
 

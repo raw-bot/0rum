@@ -1,0 +1,61 @@
+{
+  "buckets": [
+    {
+      "id": "stop_to_atr_risk_below_3",
+      "kelly_fraction": 0.1,
+      "kelly_full_research": 0.14406555403823312,
+      "max_risk_pct": 0.02,
+      "p_win_research_estimate": 0.3784648187633262,
+      "payoff_r_winsorized": 2.6516089202140605,
+      "raw_win_rate": 0.4411764705882353,
+      "sample_n": 34,
+      "shadow_risk_pct_pre_drawdown": 0.014406555403823313,
+      "stop_distance_atr_risk_max": 3.0,
+      "stop_distance_atr_risk_min": 0.0,
+      "wins": 15
+    },
+    {
+      "id": "stop_to_atr_risk_3_or_more",
+      "kelly_fraction": 0.1,
+      "kelly_full_research": 0.039490446394337186,
+      "max_risk_pct": 0.02,
+      "p_win_research_estimate": 0.344932844932845,
+      "payoff_r_winsorized": 2.1446503766390808,
+      "raw_win_rate": 0.3358208955223881,
+      "sample_n": 134,
+      "shadow_risk_pct_pre_drawdown": 0.003949044639433719,
+      "stop_distance_atr_risk_max": null,
+      "stop_distance_atr_risk_min": 3.0,
+      "wins": 45
+    }
+  ],
+  "completed_episodes": 168,
+  "label": "net_pnl_after_both_fees_gt_zero",
+  "observed_from": "2024-01-04T15:15:00+00:00",
+  "observed_to": "2026-07-11T23:30:00+00:00",
+  "policy": {
+    "applied": false,
+    "kelly_fraction": 0.1,
+    "max_risk_pct": 0.02,
+    "negative_r_cap": null,
+    "positive_r_winsor_cap": 4.0
+  },
+  "prior": {
+    "sample_n": 168,
+    "shrinkage_weight": 100.0,
+    "source": "same_strategy_global_empirical_rate",
+    "win_rate": 0.35714285714285715,
+    "wins": 60
+  },
+  "promotion_blocker": "bucket boundary and policy were chosen after inspecting this sample; an untouched prospective holdout is required",
+  "promotion_eligible": false,
+  "schema_version": 1,
+  "source": {
+    "config_sha256": "4eefa9c83b7b9e33424d49c7aa2d817490384ff3e451df346051f34501369cd5",
+    "data_fingerprint_sha256": "d5efff8d2d9461ad1f1ab189b01b0bdfa65cf3d3f1e72a36e3ebdcc3a4893571",
+    "fills_sha256": "3b1d74b1a6105c64bf3ec88158d22d5c43cbce368d37fa165bfebaf35b96439a",
+    "run_id": "iso_utbot"
+  },
+  "status": "research_only",
+  "strategy_id": "btc_utbot_m15_h1"
+}

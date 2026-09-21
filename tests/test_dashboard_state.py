@@ -81,7 +81,12 @@ class DashboardStateTests(unittest.TestCase):
                 {"action": "close", "ts": "t3", "strategy_id": "eth_donchian", "symbol": "ETH/USDT",
                  "side": "long", "entry_px": 2050.0, "price": 2075.0, "qty": 2.0, "realized_pnl_usd": 50.0, "r": 0.5},
             ]
+            paper_fills.insert(2, {"action": "open", "ts": "t1b", "strategy_id": "btc_ak_macd_4h", "fee_usd": 0})
+            paper_fills.insert(4, {"action": "open", "ts": "t2b", "strategy_id": "eth_donchian", "fee_usd": 0})
             (state / "paper_fills.jsonl").write_text("\n".join(json.dumps(f) for f in paper_fills) + "\n")
+            (state / "paper_positions.json").write_text(json.dumps({"balance_usd": 9950, "positions": {}}))
+            (state / "paper_equity.jsonl").write_text("\n".join(json.dumps({"ts": f"t{i}", "equity_usd": equity}) for i, equity in enumerate([10100, 9900, 9950])))
+            (state / "paper_runtime_status.json").write_text(json.dumps({"ts": datetime.now(UTC).isoformat(), "status": "ok", "marks": {"BTC/USDT": 103}, "gross_notional_usd": 0, "valuation_complete": True}))
             (state / "hypotheses.jsonl").write_text(
                 json.dumps({"changed": False, "score": 0.12, "reason": "hold", "ts": "h1"}) + "\n"
             )
@@ -106,15 +111,15 @@ class DashboardStateTests(unittest.TestCase):
         self.assertEqual(snapshot["asset"], "BTC/USDT")
         self.assertEqual(snapshot["trade_count"], 3)
         self.assertEqual(snapshot["reflection"]["remaining"], 7)
-        self.assertEqual(snapshot["strategy"]["version"], "01")
-        self.assertEqual(snapshot["last_price"], 102.0)
-        self.assertEqual(snapshot["heartbeat"]["price_source"], "binance_public")
+        self.assertEqual(snapshot["legacy"]["strategy"]["version"], "01")
+        self.assertEqual(snapshot["last_price"], 103.0)
+        self.assertEqual(snapshot["legacy"]["heartbeat"]["price_source"], "binance_public")
         self.assertTrue(any("action=manage_position" in item["detail"] for item in snapshot["activity"]))
-        self.assertTrue(snapshot["open_position"]["active"])
-        self.assertAlmostEqual(snapshot["open_position"]["unrealized_pnl_pct"], 0.02)
-        self.assertAlmostEqual(snapshot["open_position"]["unrealized_pnl_usd"], 50.0)
-        self.assertAlmostEqual(snapshot["open_position"]["stop_price"], 98.0)
-        self.assertAlmostEqual(snapshot["open_position"]["take_profit_price"], 103.0)
+        self.assertTrue(snapshot["legacy"]["open_position"]["active"])
+        self.assertAlmostEqual(snapshot["legacy"]["open_position"]["unrealized_pnl_pct"], 0.02)
+        self.assertAlmostEqual(snapshot["legacy"]["open_position"]["unrealized_pnl_usd"], 50.0)
+        self.assertAlmostEqual(snapshot["legacy"]["open_position"]["stop_price"], 98.0)
+        self.assertAlmostEqual(snapshot["legacy"]["open_position"]["take_profit_price"], 103.0)
         self.assertEqual(snapshot["latest_hypothesis"]["reason"], "hold")
         self.assertEqual(snapshot["decisions"][0]["decision"], "hold")
         self.assertEqual(snapshot["decisions"][0]["score"], 0.12)
@@ -158,6 +163,7 @@ class DashboardStateTests(unittest.TestCase):
             (state / "paper_equity.jsonl").write_text(
                 json.dumps({"ts": "2026-06-01T07:25:09+00:00", "equity_usd": 10000.0}) + "\n"
             )
+            (state / "paper_runtime_status.json").write_text(json.dumps({"ts": "2026-06-01T07:25:09+00:00", "status": "ok"}))
             with _patch.object(dashboard, "STATE_DIR", state):
                 snapshot = dashboard.build_snapshot()
 

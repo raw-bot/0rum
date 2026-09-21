@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timezone, timedelta
 from zoneinfo import ZoneInfo
 
+from orum.market_calendar import session_bounds
 from orum.strategies.base import Side, Signal, StrategyContext
 
 NEW_YORK = ZoneInfo("America/New_York")
@@ -42,7 +43,7 @@ def _reversal_side(candle: dict, range_low: float, range_high: float) -> Side | 
 
 class OpeningRangeEngine:
     name = "opening_range"
-    version = "nvda_15m_reversal_v1"
+    version = "nvda_15m_reversal_v2"
     required_timeframes = ["1d"]
     required_indicators = ["opening_range_15m", "atr14_d1"]
     warmup_period = 15
@@ -53,20 +54,23 @@ class OpeningRangeEngine:
             raise ValueError("min_range_atr_ratio must be in (0, 2]")
 
     def on_candle(self, candle: dict, context: StrategyContext) -> Signal | None:
+        self.skipped_signal_ts = None
         if context.symbol != "NVDA" or context.timeframe != "5m":
             return None
         current = _local_datetime(candle)
         current_clock = current.time().replace(tzinfo=None)
-        if current_clock >= time(15, 55):
+        session = session_bounds(current.date())
+        if session is None:
+            return None
+        # Signal at the close of the 15:40/12:40 bar, leaving three M5 polls
+        # before the exchange closes (observed-mark execution).
+        if current + timedelta(minutes=5) >= session[1] - timedelta(minutes=15):
             return Signal(
                 side=Side.EXIT,
                 symbol=context.symbol,
                 timeframe=context.timeframe,
                 entry_reason="opening_range_session_close",
             )
-        if not time(9, 45) <= current_clock < time(11, 0):
-            return None
-
         same_day = [
             row for row in context.candles
             if _local_datetime(row).date() == current.date()
@@ -88,9 +92,13 @@ class OpeningRangeEngine:
 
         entry_rows = [
             row for row in same_day
-            if time(9, 45) <= _local_datetime(row).time().replace(tzinfo=None) < current_clock
+            if time(9, 45) <= _local_datetime(row).time().replace(tzinfo=None) < min(current_clock, time(11, 0))
         ]
-        if any(_reversal_side(row, range_low, range_high) is not None for row in entry_rows):
+        first_reversal = next((row for row in entry_rows if _reversal_side(row, range_low, range_high) is not None), None)
+        if first_reversal is not None:
+            self.skipped_signal_ts = first_reversal["ts"]
+            return None
+        if not time(9, 45) <= current_clock < time(11, 0):
             return None
         side = _reversal_side(candle, range_low, range_high)
         if side is None:

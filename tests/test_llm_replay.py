@@ -25,11 +25,9 @@ def test_builtin_replay_proves_aggressive_paper_and_learning_is_reproducible():
     final_fills = [row for row in first["fills"] if row["action"] != "open"]
     assert [row["action"] for row in final_fills] == ["liquidation", "liquidation"]
     assert first["comparison"]["coverage_status"] == "common_window"
-    assert first["lessons"][-1]["state"] == "active"
+    assert first["lessons"][-1]["state"] == "candidate"
     assert first["retrieved_lessons"]["llm_reference"] == []
-    assert first["retrieved_lessons"]["llm_evolving"] == [
-        first["lessons"][-1]["lesson_id"]
-    ]
+    assert first["retrieved_lessons"]["llm_evolving"] == []
     assert "api_key" not in json.dumps(first).lower()
 
 

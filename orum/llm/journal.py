@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import threading
@@ -88,3 +89,72 @@ class JsonlJournal:
                 )
             records.append(record)
         return records if limit is None else records[-limit:]
+
+    def publish_pending(self, records: list[dict[str, Any]]) -> None:
+        """Publish an account outbox under one journal lock; recover only its torn tail.
+
+        An unknown corrupt suffix is never discarded. A matching incomplete
+        pending record is preserved separately before truncation and replay.
+        """
+        encoded = [json.dumps(row, allow_nan=False, ensure_ascii=False,
+                              separators=(",", ":"), sort_keys=True).encode("utf-8")
+                   for row in records]
+        with self._lock:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with self.path.open("a+b") as handle:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+                handle.seek(0)
+                data = handle.read()
+                lines = data.splitlines(keepends=True)
+                existing = {}
+                offset = 0
+                for index, line in enumerate(lines):
+                    if not line.strip():
+                        offset += len(line)
+                        continue
+                    try:
+                        row = json.loads(line)
+                    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+                        if (index != len(lines) - 1 or line.endswith(b"\n")
+                                or not any(payload.startswith(line) for payload in encoded)):
+                            raise JournalError("unrecoverable fill journal corruption") from exc
+                        evidence = self.path.with_name(self.path.name + ".torn-" + hashlib.sha256(line).hexdigest())
+                        if not evidence.exists():
+                            with evidence.open("xb") as saved:
+                                saved.write(line)
+                                saved.flush()
+                                os.fsync(saved.fileno())
+                        directory = os.open(self.path.parent, os.O_RDONLY)
+                        try:
+                            os.fsync(directory)
+                        finally:
+                            os.close(directory)
+                        handle.truncate(offset)
+                        data = data[:offset]
+                        break
+                    if not isinstance(row, dict) or not isinstance(row.get("operation_id"), str):
+                        raise JournalError("invalid fill operation record")
+                    key = row["operation_id"]
+                    if key in existing:
+                        raise JournalError("duplicate durable fill operation")
+                    existing[key] = row
+                    offset += len(line)
+                if data and not data.endswith(b"\n"):
+                    handle.write(b"\n")
+                for row, payload in zip(records, encoded):
+                    key = row["operation_id"]
+                    if key in existing:
+                        if existing[key] != row:
+                            raise JournalError("conflicting durable fill operation")
+                        continue
+                    handle.write(payload + b"\n")
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                    existing[key] = row
+                handle.flush()
+                os.fsync(handle.fileno())
+                directory = os.open(self.path.parent, os.O_RDONLY)
+                try:
+                    os.fsync(directory)
+                finally:
+                    os.close(directory)

@@ -10,12 +10,10 @@ Account model (single shared account for every strategy):
     fight over a book — one strategy can hold same-direction tranches only.
   * `equity = balance_usd + sum(unrealized PnL of open positions)`.
 
-Sizing is fixed-fractional on risk, faithful to the validated shadow model
-(`scripts/portfolio_shadow`): a position is sized so that price moving one
-`atr_risk` (typically 2*ATR) against the entry equals `risk_pct` of the equity
-snapshot passed in at entry. That preserves each trade's R, so per-strategy
-attribution stays meaningful. This is spot-style paper with no leverage/margin
-check and no cash lock-up — the account tracks a PnL stream, not settlement.
+Sizing is fixed-fractional on the configured risk basis. Historical replay can
+still use `atr_risk`; the active paper portfolio uses the frozen entry-to-stop
+`risk_distance`. This is spot-style paper with no cash lock-up — the account
+tracks a PnL stream, not settlement.
 
 Intents map to actions by comparing against the strategy's current position:
   LONG/SHORT while flat -> open
@@ -43,6 +41,7 @@ class Position:
     atr_risk: float
     position_id: str = ""
     risk_distance: float = 0.0
+    risk_sizing_basis: str = "atr"
     opened_ts: object = None
     entry_reason: str = ""
     exit_policy: str = "strategy_signal"
@@ -53,6 +52,8 @@ class Position:
     reward_risk_ratio: float | None = None
     last_monitor_candle_ts: object = None
     dynamic_exit: dict | None = None
+    execution_method: str = "legacy_v1"
+    pending_session_exit: bool = False
 
     def unrealized_usd(self, price: float) -> float:
         direction = 1.0 if self.side == "long" else -1.0
@@ -64,8 +65,13 @@ class Position:
 
     @property
     def budget_risk_usd(self) -> float:
-        """Historical portfolio budget: price moving one 2×ATR unit."""
-        return self.qty * self.atr_risk
+        """Dollar risk on the basis frozen when the position was opened."""
+        distance = (
+            self.risk_distance
+            if self.risk_sizing_basis == "actual_stop"
+            else self.atr_risk
+        )
+        return self.qty * distance
 
 
 @dataclass
@@ -74,12 +80,16 @@ class Account:
     positions: dict[str, Position] = field(default_factory=dict)
     processed_candles: dict[str, object] = field(default_factory=dict)
     pending_fills: list[dict] = field(default_factory=list)
+    market_cursors: dict[str, int] = field(default_factory=dict)
+    last_event_ts: int | None = None
 
     def to_dict(self) -> dict:
         payload = {
             "balance_usd": self.balance_usd,
             "positions": {},
             "processed_candles": self.processed_candles,
+            "market_cursors": self.market_cursors,
+            "last_event_ts": self.last_event_ts,
         }
         for sid, position in self.positions.items():
             raw = asdict(position)
@@ -115,6 +125,11 @@ class Account:
             normalized.setdefault(
                 "risk_distance", normalized.get("atr_risk", 0.0)
             )
+            normalized.setdefault("risk_sizing_basis", "atr")
+            if normalized["risk_sizing_basis"] not in ("atr", "actual_stop"):
+                raise ValueError(
+                    f"unknown risk_sizing_basis for {position_id}"
+                )
             for key in (
                 "qty", "entry_px", "notional_usd", "risk_pct", "atr_risk",
                 "risk_distance",
@@ -171,6 +186,8 @@ class Account:
             balance_usd=float(data["balance_usd"]),
             positions=positions,
             processed_candles=dict(data.get("processed_candles") or {}),
+            market_cursors=dict(data.get("market_cursors") or {}),
+            last_event_ts=data.get("last_event_ts"),
             pending_fills=[
                 dict(item)
                 for item in (data.get("pending_fills") or [])
@@ -217,6 +234,8 @@ class PaperBroker:
         sl_basis: str = "",
         reward_risk_ratio: float | None = None,
         max_leverage: float | None = None,
+        max_notional_usd: float | None = None,
+        risk_sizing_basis: str = "atr",
         dynamic_exit: dict | None = None,
     ) -> dict | None:
         """Open one directional tranche, failing closed on malformed risk data."""
@@ -227,6 +246,8 @@ class PaperBroker:
         if position_key in account.positions:
             return None  # already holding: intent is a hold, not a re-entry
         if side not in ("long", "short"):
+            return None
+        if risk_sizing_basis not in ("atr", "actual_stop"):
             return None
         try:
             price = float(price)
@@ -281,7 +302,12 @@ class PaperBroker:
         ):
             return None
         risk_usd = risk_pct * equity_for_sizing
-        qty = risk_usd / atr_risk
+        sizing_distance = (
+            audited_stop_distance
+            if risk_sizing_basis == "actual_stop"
+            else atr_risk
+        )
+        qty = risk_usd / sizing_distance
         notional = qty * price
         # Notional cap: with a tight stop the risk-based size implies leverage
         # (notional > equity). The cap only ever SHRINKS qty — the SL/TP price
@@ -291,13 +317,27 @@ class PaperBroker:
             qty = (max_leverage * equity_for_sizing) / price
             notional = qty * price
             leverage_capped = True
+        symbol_notional_capped = False
+        if max_notional_usd is not None:
+            try:
+                max_notional_usd = float(max_notional_usd)
+            except (TypeError, ValueError):
+                return None
+            if not isfinite(max_notional_usd) or max_notional_usd <= 0:
+                return None
+            if notional > max_notional_usd:
+                qty = max_notional_usd / price
+                notional = qty * price
+                symbol_notional_capped = True
         fee = notional * self.fee_rt / 2
         account.balance_usd -= fee
         account.positions[position_key] = Position(
             strategy_id=strategy_id, symbol=symbol, side=side, qty=qty,
             entry_px=price, notional_usd=notional, risk_pct=risk_pct,
             atr_risk=atr_risk, position_id=position_key,
-            risk_distance=audited_stop_distance, opened_ts=ts, entry_reason=entry_reason,
+            risk_distance=audited_stop_distance,
+            risk_sizing_basis=risk_sizing_basis,
+            opened_ts=ts, entry_reason=entry_reason,
             exit_policy=exit_policy, monitor_timeframe=monitor_timeframe,
             stop_loss_price=stop_loss_price, take_profit_price=take_profit_price,
             sl_basis=sl_basis, reward_risk_ratio=reward_risk_ratio,
@@ -309,11 +349,13 @@ class PaperBroker:
             "side": side, "price": price, "qty": qty, "notional_usd": notional,
             "fee_usd": fee, "risk_pct": risk_pct, "atr_risk": atr_risk,
             "risk_distance": audited_stop_distance,
+            "risk_sizing_basis": risk_sizing_basis,
             "balance_usd": account.balance_usd, "reason": entry_reason,
             "exit_policy": exit_policy, "monitor_timeframe": monitor_timeframe,
             "stop_loss_price": stop_loss_price, "take_profit_price": take_profit_price,
             "sl_basis": sl_basis, "reward_risk_ratio": reward_risk_ratio,
             "leverage_capped": leverage_capped,
+            "symbol_notional_capped": symbol_notional_capped,
         }
         if dynamic_exit is not None:
             fill["dynamic_exit"] = dict(dynamic_exit)

@@ -79,6 +79,11 @@ class LearningProcessor:
         if existing_outcome is None and not candles:
             return LearningResult(original_decision_id, "missing_candles")
         if existing_outcome is None:
+            intervals = {"5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000}
+            step = intervals.get(self.decision_timeframe)
+            expected = int(opening["candle_ts"]) + (step or 0)
+            if step is None or any(int(row["ts"]) != expected + i * step for i, row in enumerate(candles)) or int(candles[-1]["ts"]) != fill.candle_ts:
+                return LearningResult(original_decision_id, "incomplete_candles")
             outcome = self.evaluator.evaluate_fills(
                 decision_id=original_decision_id, lane=fill.lane, symbol=fill.symbol,
                 side=fill.side,
@@ -100,7 +105,8 @@ class LearningProcessor:
             outcome_id=str(outcome_mapping["outcome_id"]),
         )
         postmortem = existing_postmortem or self.postmortem.review(
-            decision=decision, outcome=outcome_mapping
+            decision=({**decision, "provided_lessons": decision_record.get("provided_lessons", [])}
+                      if decision.get("lane") == "llm_evolving" else decision), outcome=outcome_mapping
         )
         if fill.lane != "llm_evolving":
             return LearningResult(
@@ -117,9 +123,22 @@ class LearningProcessor:
             entry_price,
             self.decision_timeframe,
         )
+        provided = {item.get("lesson_id") for item in decision_record.get("provided_lessons", [])}
+        cited = set(decision.get("lesson_ids", []))
+        contradictions = getattr(postmortem, "contradicted_lesson_ids", ())
+        if set(contradictions) - (provided & cited):
+            raise ValueError("postmortem contradicts an unused lesson")
+        if getattr(postmortem, "adjustment_key", None) and any(
+            item.get("lesson_id") in contradictions and item.get("adjustment_key") == postmortem.adjustment_key
+            for item in decision_record.get("provided_lessons", [])
+        ):
+            raise ValueError("cannot support and contradict the same hypothesis")
+        for lesson_id in contradictions:
+            self.lessons.record_counterexample(lesson_id, original_decision_id)
         lesson = self.lessons.record(LessonCandidate(
             error_category=postmortem.primary_error, conditions=case,
             adjustment=postmortem.lesson_adjustment_fr,
+            adjustment_key=getattr(postmortem, "adjustment_key", None),
             decision_id=original_decision_id,
             evidence_strength=postmortem.lesson_evidence_strength,
             created_at=self._clock().astimezone(UTC),

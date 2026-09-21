@@ -131,3 +131,26 @@ def test_partial_legacy_outcome_without_fill_ledger_fails_closed(tmp_path):
     )
 
     assert processor.process(fill=_fill("stop", CLOSE_TS, 97_000), snapshot=_snapshot()).status == "missing_entry"
+
+
+def test_closed_trade_records_cited_counterexample_once_and_keeps_observation(tmp_path):
+    from orum.llm.lessons import LessonCandidate, MarketCase
+    fills = JsonlJournal(tmp_path / 'fills.jsonl')
+    fills.append(_fill('open', OPEN_TS, 100_000).to_mapping())
+    close = _fill('stop', CLOSE_TS, 97_000)
+    fills.append(close.to_mapping())
+    lessons = LessonBook(JsonlJournal(tmp_path / 'lessons.jsonl'), clock=lambda: NOW)
+    case = MarketCase('BTC/USDT','range','unknown','long','unknown','unknown','unknown','unknown','unknown')
+    for ident in ('support-a','support-b'):
+        active = lessons.record(LessonCandidate('poor_timing',case,'Confirmer',ident,.8,NOW,NOW+timedelta(days=90),'confirm_entry'))
+    decisions = JsonlJournal(tmp_path / 'decisions.jsonl')
+    decisions.append({'kind':'proposed_decision','status':'valid','provided_lessons':[active.to_mapping()], 'decision':{'decision_id':'dec-1','lane':'llm_evolving','symbol':'BTC/USDT','action':'open_long','equity_fraction':.25,'confidence':.7,'lesson_ids':[active.lesson_id]}})
+    class Contradicting:
+        def review(self, **kwargs):
+            return SimpleNamespace(primary_error='poor_timing',lesson_adjustment_fr='Observation non classée.',lesson_evidence_strength=.7,adjustment_key=None,contradicted_lesson_ids=(active.lesson_id,))
+    processor = LearningProcessor(fills=fills,decisions=decisions,briefs=JsonlJournal(tmp_path/'briefs.jsonl'),outcomes=JsonlJournal(tmp_path/'outcomes.jsonl'),evaluator=OutcomeEvaluator(fee_rate=0),postmortem=Contradicting(),lessons=lessons,decision_timeframe='15m',clock=lambda: NOW)
+    assert processor.process(fill=close,snapshot=_snapshot()).status == 'learned'
+    assert lessons._latest()[active.lesson_id].counterexample_decision_ids == ('dec-1',)
+    before = lessons.journal.path.read_bytes()
+    assert processor.process(fill=close,snapshot=_snapshot()).status == 'already_learned'
+    assert lessons.journal.path.read_bytes() == before

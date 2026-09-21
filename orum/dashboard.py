@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextvars import ContextVar
 import json
 import math
 import os
@@ -37,22 +38,47 @@ def _read_yaml(path: Path) -> dict:
     return yaml.safe_load(path.read_text()) or {}
 
 
+_snapshot_errors = ContextVar("snapshot_errors", default=None)
+
+
+def _read_error(path: Path, exc: Exception) -> None:
+    errors = _snapshot_errors.get()
+    if errors is not None:
+        errors.append({"source": path.name, "error": type(exc).__name__})
+
+
 def _read_json(path: Path) -> dict:
     if not path.exists():
         return {}
-    return json.loads(path.read_text())
+    try:
+        data = json.loads(path.read_text())
+        if not isinstance(data, dict):
+            raise ValueError("expected object")
+        return data
+    except (OSError, ValueError) as exc:
+        _read_error(path, exc)
+        return {}
 
 
 def _read_optional_json(path: Path) -> dict:
-    if not path.exists():
-        return {}
-    return json.loads(path.read_text() or "{}") or {}
+    return _read_json(path)
 
 
 def _read_jsonl(path: Path) -> list[dict]:
     if not path.exists():
         return []
-    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    out = []
+    try:
+        for line in path.read_text().splitlines():
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            if not isinstance(row, dict):
+                raise ValueError("expected object")
+            out.append(row)
+    except (OSError, ValueError) as exc:
+        _read_error(path, exc)
+    return out
 
 
 def _read_jsonl_tail(path: Path, *, limit: int, max_bytes: int = 1_048_576) -> list[dict]:
@@ -338,7 +364,19 @@ def _llm_lab_state(state_dir: Path, *, now: datetime | None = None) -> dict:
     fill_records = _read_jsonl_tail(state_dir / "llm_paper_fills.jsonl", limit=160)
     outcome_records = _read_jsonl_tail(state_dir / "llm_outcomes.jsonl", limit=40)
     postmortem_records = _read_jsonl_tail(state_dir / "llm_postmortems.jsonl", limit=20)
-    lesson_records = _read_jsonl_tail(state_dir / "llm_lessons.jsonl", limit=100)
+    from orum.llm.journal import JsonlJournal, JournalError
+    from orum.llm.lessons import LessonBook
+    lesson_book = LessonBook(JsonlJournal(state_dir / "llm_lessons.jsonl"), clock=lambda: now_utc)
+    lesson_error = None
+    try:
+        lesson_records = lesson_book.journal.read()
+    except JournalError as exc:
+        lesson_records = []
+        lesson_error = str(exc)
+    try:
+        eligible_lessons = sum(lesson_book.is_eligible(item, now=now_utc) for item in lesson_book._latest().values())
+    except (ValueError, KeyError, TypeError, JournalError):
+        eligible_lessons = None
 
     valid_briefs = [
         item for item in brief_records
@@ -406,14 +444,26 @@ def _llm_lab_state(state_dir: Path, *, now: datetime | None = None) -> dict:
     ][-10:][::-1]
     latest_lessons: dict[str, dict] = {}
     for item in lesson_records:
-        lesson = item.get("lesson")
-        if isinstance(lesson, Mapping) and isinstance(lesson.get("lesson_id"), str):
-            latest_lessons[str(lesson["lesson_id"])] = dict(lesson)
+        for lesson in item.get("lessons", []) + ([item["lesson"]] if isinstance(item.get("lesson"), Mapping) else []):
+            if isinstance(lesson, Mapping) and isinstance(lesson.get("lesson_id"), str):
+                latest_lessons[str(lesson["lesson_id"])] = dict(lesson)
     lessons = sorted(
-        latest_lessons.values(),
-        key=lambda item: str(item.get("updated_at") or item.get("created_at") or ""),
+        (item for item in latest_lessons.values() if item.get("state") != "superseded"),
+        key=lambda item: (item.get("state") == "active", str(item.get("updated_at") or item.get("created_at") or "")),
         reverse=True,
     )[:20]
+    latest_evolving = next((item for item in reversed(decision_records)
+                            if item.get("kind") == "proposed_decision" and item.get("lane") == "llm_evolving"), {})
+    learning_status = {
+        "eligible_count": eligible_lessons,
+        "error": lesson_error,
+        "counts": {state: sum(item.get("state") == state for item in latest_lessons.values())
+                   for state in ("candidate", "active", "rejected", "superseded")},
+        "provided_lessons": latest_evolving.get("provided_lessons"),
+        "cited_lesson_ids": (latest_evolving.get("decision") or {}).get("lesson_ids", []),
+        "decision_status": latest_evolving.get("status"),
+        "recorded_at": latest_evolving.get("recorded_at"),
+    }
     accounts = {
         "llm_reference": _llm_account_state(
             state_dir / "llm_reference_account.json", "llm_reference"
@@ -506,6 +556,7 @@ def _llm_lab_state(state_dir: Path, *, now: datetime | None = None) -> dict:
         "outcomes": outcomes,
         "postmortems": postmortems,
         "lessons": lessons,
+        "learning_status": learning_status,
         "comparison": comparison,
         "alerts": alerts[:12],
     }
@@ -654,23 +705,31 @@ def _paper_closed_trades() -> list[dict]:
     consumer already keys off net_pnl_usd / entry_price / exit_price / ts, so
     no downstream helper changes — only the source does."""
     out: list[dict] = []
-    open_ts: dict[str, str] = {}
+    entries: dict[str, dict] = {}
     for f in _read_jsonl(STATE_DIR / "paper_fills.jsonl"):
         sid = f.get("strategy_id")
         position_id = f.get("position_id", sid)
         if f.get("action") == "open":
-            open_ts[position_id] = f.get("ts")
+            entries[position_id] = f
             continue
         if f.get("action") != "close":
             continue
         entry = float(f.get("entry_px", 0.0) or 0.0)
         exit_px = float(f.get("price", 0.0) or 0.0)
-        realized = float(f.get("realized_pnl_usd", 0.0) or 0.0)
+        opening = entries.pop(position_id, None)
+        entry_fee = float(opening.get("fee_usd", 0.0) or 0.0) if opening else None
+        # Unknown legacy entry fees cannot be certified as net performance.
+        if opening is None:
+            _read_error(STATE_DIR / "paper_fills.jsonl", ValueError("missing opening fill"))
+            continue
+        realized = float(f.get("realized_pnl_usd", 0.0) or 0.0) - entry_fee
         notional = float(f.get("qty", 0.0) or 0.0) * entry
         closed_dt = _parse_ts(f.get("ts"))
         out.append({
             "ts": f.get("ts"),
-            "opened_at": open_ts.pop(position_id, f.get("ts")),
+            "opened_at": opening.get("ts", f.get("ts")),
+            "entry_fee_usd": entry_fee,
+            "execution_method": (opening.get("execution_method", "legacy_v1") if opening.get("execution_method", "legacy_v1") == f.get("execution_method", "legacy_v1") else "transition_v1_v2"),
             "candle_ts": int(closed_dt.timestamp() * 1000) if closed_dt else None,  # exit time in ms
             "strategy_id": sid,
             "position_id": position_id,
@@ -1195,17 +1254,17 @@ def _paper_logs() -> list[dict]:
 
 
 def _paper_worker() -> dict:
-    """Health of the 15-minute launchd paper engine, keyed off its equity journal.
-
-    Three missed cycles make the worker stale.  This replaces the retired
-    mono-asset worker's heartbeat/pid liveness.
-    """
-    recs = _read_jsonl(STATE_DIR / "paper_equity.jsonl")
-    last = _parse_ts(recs[-1].get("ts")) if recs else None
+    """A heartbeat is insufficient: the last cycle must report successful work."""
+    status = _read_json(STATE_DIR / "paper_runtime_status.json")
+    last = _parse_ts(status.get("ts"))
     age = (datetime.now(UTC) - last).total_seconds() if last else None
-    stale = age is None or age > 2700
+    stale = age is None or age < 0 or age > 900
+    health = "stale" if stale else status.get("status", "unknown")
     return {"heartbeat_age_seconds": age, "stale": stale, "running": not stale,
-            "pid": None, "mode": "paper_15m"}
+            "healthy": not stale and health == "ok", "status": health,
+            "errors": status.get("errors", {}), "error": status.get("error"),
+            "pid": None, "mode": "paper_5m", "execution_method": status.get("execution_method"),
+            "config_sha256": status.get("config_sha256")}
 
 
 # --- retired engine process control -----------------------------------------
@@ -1766,7 +1825,36 @@ def _market_signals(goal: dict) -> dict:
     return out
 
 
+def _strategy_accounts_state() -> dict:
+    path = STATE_DIR / "strategy_accounts" / "v1" / "summary.json"
+    if not path.exists():
+        return {"status": "not_started", "accounts": []}
+    data = _read_json(path)
+    if not data or not isinstance(data.get("accounts"), list):
+        return {"status": "error", "accounts": [], "runner_error": "Synthèse de recherche illisible"}
+    try:
+        stamp = datetime.fromisoformat(data["ts"])
+        age = (datetime.now(UTC) - stamp).total_seconds()
+        data["age_seconds"] = max(0, age)
+        data["stale"] = age > 900 or age < -60
+    except (KeyError, TypeError, ValueError):
+        data["age_seconds"], data["stale"] = None, True
+    return data
+
+
 def build_snapshot() -> dict:
+    errors = []
+    token = _snapshot_errors.set(errors)
+    try:
+        result = _build_snapshot()
+        result["source_errors"] = errors
+        result["partial"] = bool(errors)
+        return result
+    finally:
+        _snapshot_errors.reset(token)
+
+
+def _build_snapshot() -> dict:
     goal = _read_yaml(STATE_DIR / "goal.yaml")
     strategy = _read_yaml(STATE_DIR / "strategy.yaml")
     heartbeat = _read_json(STATE_DIR / "heartbeat.json")
@@ -1794,14 +1882,45 @@ def build_snapshot() -> dict:
     progress = min(len(pending_trades), reflection_every) if reflection_every else 0
     remaining = max(0, reflection_every - len(pending_trades)) if reflection_every else 0
 
-    paper = _paper_state(goal)
+    config = _portfolio_config()
+    paper = _paper_state({**goal, "starting_balance_usd": config["starting_balance_usd"]})
+    curve = paper["equity_curve"]
+    peak = max([1.0] + [point["equity"] for point in curve])
+    current = paper["equity_usd"] / paper["starting_balance_usd"]
+    active_dd = max(0.0, 1.0 - current / peak)
+    scale = config["entry_drawdown_risk_scale"]
+    start, halt, floor = scale.get("start_pct", .1), scale.get("halt_pct", .2), scale.get("floor_multiplier", .1)
+    multiplier = 0.0 if active_dd >= halt else 1.0 if active_dd <= start else 1.0 - (active_dd - start) / (halt - start) * (1.0 - floor)
+    active_guardrail = {"status": "kill" if multiplier == 0 else "caution" if multiplier < 1 else "normal",
+                        "label": "Entrées suspendues" if multiplier == 0 else "Risque réduit" if multiplier < 1 else "Paper actif",
+                        "detail": "Protections maintenues", "drawdown": active_dd, "risk_multiplier": multiplier,
+                        "start_pct": start, "halt_pct": halt, "source": "paper_portfolio"}
+    runtime = _read_json(STATE_DIR / "paper_runtime_status.json")
+    for position in paper["open_positions"]:
+        mark = runtime.get("marks", {}).get(position["symbol"])
+        position["mark_price"] = mark
+        position["unrealized_pnl_usd"] = ((1 if position["side"] == "long" else -1) * position["qty"] * (mark - position["entry_px"])) if mark is not None else None
+    gross = runtime.get("gross_notional_usd")
+    paper["gross_notional_usd"] = gross
+    paper["exposure_ratio"] = gross / paper["equity_usd"] if gross is not None and paper["equity_usd"] > 0 else None
+    paper["valuation_complete"] = runtime.get("valuation_complete", False)
+    legacy = {"strategy": strategy, "heartbeat": heartbeat, "goal": goal,
+              "open_position": _open_position(open_position, heartbeat, strategy),
+              "guardrail": _guardrail_status(drawdown, goal), "source": "retired_worker", "retired": True}
+    performance_methods = {}
+    for trade in trades:
+        group = performance_methods.setdefault(trade["execution_method"], {"trade_count": 0, "net_pnl_usd": 0.0})
+        group["trade_count"] += 1
+        group["net_pnl_usd"] += trade["net_pnl_usd"]
     return {
+        "performance_methods": performance_methods,
         "asset": goal.get("asset", "BTC/USDT"),
         "mode": "paper",
         "paper": paper,
         "llm_lab": _llm_lab_state(STATE_DIR),
         "legacy_audit": _legacy_audit(),
-        "signal_source": str(goal.get("signal_source", "native")),
+        "signal_source": "native",
+        "legacy": legacy,
         "external": _external_feed(events, goal),
         "logs": _paper_logs() + _logs(events),  # live paper heartbeat on top, old worker events as history
         "price_series": _binance_15m_candles(goal.get("asset", "BTC/USDT")) or _price_series(),
@@ -1810,26 +1929,27 @@ def build_snapshot() -> dict:
         "trade_markers": _trade_markers(trades),
         "signals": _signal_markers(ext_records, events, open_position.get("external_signal_id")),
         "worker": _paper_worker(),
-        "portfolio_config": _portfolio_config(),
-        "portfolio": _portfolio(trades, goal),
+        "portfolio_config": config,
+        "portfolio": {key: paper[key] for key in ("starting_balance_usd", "balance_usd", "pnl_usd", "pnl_pct")},
         "research_portfolio": _portfolio_shadow(),
+        "strategy_accounts": _strategy_accounts_state(),
         "shadow_terminal": _shadow_terminal(),
         "llm_fade_shadow": _llm_fade_shadow(),
-        "open_position": _open_position(open_position, heartbeat, strategy),
-        "last_price": float(heartbeat.get("last_price", 0.0) or (trades[-1].get("exit_price", 0.0) if trades else 0.0)),
+        "open_position": {"active": bool(paper["open_count"]), "positions": paper["open_positions"], "source": "paper_portfolio"},
+        "last_price": runtime.get("marks", {}).get(goal.get("asset", "BTC/USDT")),
         "candles": _candles_from_trades(trades),
-        "equity_curve": _equity_curve(trades, goal),
+        "equity_curve": paper["equity_curve"],
         "trade_count": len(trades),
-        "pnl_compound": _compound_return(trades, goal),
+        "pnl_compound": paper["pnl_pct"],
         "avg_trade": mean(returns) if returns else 0.0,
         "win_rate": (len(wins) / len(trades)) if trades else 0.0,
         "best_trade": max(returns) if returns else 0.0,
         "worst_trade": min(returns) if returns else 0.0,
-        "drawdown": drawdown,
+        "drawdown": active_dd,
         "score": score(trades, goal),
         "goal": goal,
-        "strategy": strategy,
-        "heartbeat": heartbeat,
+        "strategy": {"source": "portfolio", "strategies": config["strategies"]},
+        "heartbeat": {"ts": runtime.get("ts"), "last_price": runtime.get("marks", {}).get(goal.get("asset", "BTC/USDT"))},
         "latest_trades": trades[-16:][::-1],
         "latest_hypothesis": hypotheses[-1] if hypotheses else {},
         "engine": _engine_status(hypotheses, watcher),
@@ -1837,7 +1957,7 @@ def build_snapshot() -> dict:
         "decisions": _decisions(hypotheses),
         "hypotheses": hypotheses[-8:][::-1],
         "history_versions": [path.name for path in history],
-        "guardrail": _guardrail_status(drawdown, goal),
+        "guardrail": active_guardrail,
         "champion_reaudit": _champion_reaudit_status(STATE_DIR),
         "reflection": {
             "every": reflection_every,
@@ -1946,16 +2066,21 @@ def _portfolio_config() -> dict:
     return {
         "source": "state/portfolio.yaml" if source == runtime else "config/portfolio.yaml",
         "max_leverage": doc.get("max_leverage"),
+        "leverage_cap_scope": "per_tranche",
+        "execution_mode": doc.get("execution_mode"),
+        "starting_balance_usd": float(doc.get("starting_balance_usd", 10000)),
+        "entry_drawdown_risk_scale": doc.get("entry_drawdown_risk_scale", {"start_pct": .1, "halt_pct": .2, "floor_multiplier": .1}),
         "risk_bounds": {
             "min": float(goal.get("risk_per_trade_min", 0.005)),
             "max": float(goal.get("risk_per_trade_max", 0.02)),
         },
         "strategies": [
             {
-                key: s.get(key)
+                "risk_bounds": {"min": .0025 if s.get("symbol") == "NVDA" else float(goal.get("risk_per_trade_min", .005)), "max": float(goal.get("risk_per_trade_max", .02))},
+                **{key: s.get(key)
                 for key in ("id", "engine", "symbol", "timeframe", "risk_pct",
                             "entry_enabled", "exit_policy", "monitor_timeframe",
-                            "reward_risk_ratio", "dynamic_exit")
+                            "reward_risk_ratio", "dynamic_exit")}
             }
             for s in (doc.get("strategies") or [])
         ],
@@ -2036,16 +2161,18 @@ def set_strategy_risk(strategy_id, value) -> dict:
     runtime portfolio override. Clamped to goal.yaml's risk_per_trade band and
     snapped to 0.25% steps."""
     goal = _read_yaml(STATE_DIR / "goal.yaml")
-    lo = float(goal.get("risk_per_trade_min", 0.005))
-    hi = float(goal.get("risk_per_trade_max", 0.02))
+    strategy = next((item for item in _portfolio_config()["strategies"] if item["id"] == strategy_id), None)
+    if strategy is None:
+        raise ValueError("unknown strategy")
+    lo, hi = strategy["risk_bounds"]["min"], strategy["risk_bounds"]["max"]
     try:
         risk = float(value)
     except (TypeError, ValueError):
         raise ValueError("risk_pct must be a number")
     if math.isnan(risk) or math.isinf(risk):
         raise ValueError("risk_pct must be finite")
-    risk = round(round(risk / RISK_PCT_STEP) * RISK_PCT_STEP, 4)
-    risk = max(lo, min(hi, risk))
+    if not lo <= risk <= hi or not math.isclose(risk / RISK_PCT_STEP, round(risk / RISK_PCT_STEP), abs_tol=1e-8):
+        raise ValueError(f"risk_pct must be within [{lo}, {hi}] in steps of {RISK_PCT_STEP}")
     _edit_portfolio_strategy_field(str(strategy_id or ""), "risk_pct", f"{risk:.4f}".rstrip("0").rstrip("."))
     return {"ok": True, "strategy_id": strategy_id, "risk_pct": risk,
             "note": "written to state/portfolio.yaml; effective at the engine's next cycle"}
@@ -2100,6 +2227,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
             path = urlparse(self.path).path
             if path == "/":
                 self._send(200, (STATIC_DIR / "dashboard.html").read_bytes(), "text/html; charset=utf-8")
+            elif path == "/strategy-accounts":
+                self._send(200, (STATIC_DIR / "strategy_accounts.html").read_bytes(), "text/html; charset=utf-8")
+            elif path == "/assets/strategy-accounts.js":
+                self._send(200, (STATIC_DIR / "strategy_accounts.js").read_bytes(), "application/javascript")
+            elif path == "/api/strategy-accounts":
+                self._send_json(200, _strategy_accounts_state())
             elif path == "/bot":
                 self._send(200, (STATIC_DIR / "bot.html").read_bytes(), "text/html; charset=utf-8")
             elif path == "/opening-range":

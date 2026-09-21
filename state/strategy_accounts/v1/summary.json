@@ -1,0 +1,4412 @@
+{
+  "accounts": [
+    {
+      "balance_usd": 10000.0,
+      "closed_trades": 0,
+      "curve": [
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-05T13:42:14+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-05T17:48:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-05T21:54:09+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T02:00:11+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T06:06:01+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T10:11:48+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T14:17:32+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T18:23:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T22:29:02+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T02:34:57+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T06:40:45+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T10:46:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T14:54:54+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T19:03:08+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T23:11:06+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T03:19:13+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T07:27:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T11:36:36+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T15:42:33+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T19:48:21+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T23:54:26+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T04:00:33+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T08:06:39+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T12:14:30+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T16:20:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T20:26:10+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T00:32:42+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T04:40:01+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T08:47:16+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T12:54:38+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T17:00:21+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T21:05:59+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T01:11:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T05:17:46+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T09:23:37+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T13:29:14+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T17:35:07+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T21:41:10+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-12T01:47:14+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-12T05:53:11+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-12T09:58:59+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-12T14:04:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-12T18:10:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-12T22:16:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-13T02:23:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-13T06:29:45+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-13T10:36:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-13T14:42:00+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-13T18:47:58+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-13T22:53:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-14T02:59:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-14T07:05:44+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-14T11:11:35+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-14T15:16:40+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-14T19:25:17+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-14T23:30:16+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-15T03:35:12+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-15T07:40:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-15T11:45:58+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-15T15:51:58+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-15T19:54:06+00:00",
+          "unrealized_by_strategy": {}
+        }
+      ],
+      "drawdown": 0,
+      "equity_usd": 10000.0,
+      "errors": {},
+      "fatal_error": null,
+      "fees_usd": 0,
+      "id": "btc_ak_macd_4h",
+      "intents": {
+        "btc_ak_macd_4h": "duplicate_candle"
+      },
+      "marks": {
+        "BTC/USDT": 75897.53,
+        "ETH/USDT": 2404.52,
+        "NVDA": 212.02999877929688,
+        "PAXG/USDT": 4309.23
+      },
+      "max_drawdown": 0.0,
+      "open_positions": [],
+      "pnl_pct": 0.0,
+      "positions": {},
+      "reference": false,
+      "risk_pct": 0.02,
+      "status": "ok",
+      "ts": "2026-09-15T19:54:06+00:00"
+    },
+    {
+      "balance_usd": 9984.273140650306,
+      "closed_trades": 1,
+      "curve": [
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-05T21:13:12+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T00:58:42+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T04:44:04+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T08:29:23+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T12:14:39+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T15:59:53+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T19:45:13+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T23:30:33+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T03:15:53+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T07:01:10+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T10:46:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T14:34:08+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T18:21:56+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T22:09:09+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T01:56:25+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T05:43:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T09:33:36+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T13:19:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T17:04:34+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T20:49:45+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T00:35:28+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T04:21:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T08:06:39+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T11:54:00+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T15:39:19+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T19:24:35+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T23:10:16+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T02:56:57+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T06:43:41+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T10:30:16+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T14:16:34+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T18:01:48+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T21:47:00+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T01:32:22+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T05:17:46+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T09:03:08+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T12:48:20+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 9996.9595,
+          "open_positions": 1,
+          "ts": "2026-09-11T16:33:37+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -1.8877
+          }
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 9990.7391,
+          "open_positions": 1,
+          "ts": "2026-09-11T20:19:02+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -8.1081
+          }
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 9983.822,
+          "open_positions": 1,
+          "ts": "2026-09-12T00:04:41+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -15.0252
+          }
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 9984.4244,
+          "open_positions": 1,
+          "ts": "2026-09-12T03:50:11+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -14.4228
+          }
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 9986.3551,
+          "open_positions": 1,
+          "ts": "2026-09-12T07:35:41+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -12.4921
+          }
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 9986.8418,
+          "open_positions": 1,
+          "ts": "2026-09-12T11:20:58+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -12.0053
+          }
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 9990.8085,
+          "open_positions": 1,
+          "ts": "2026-09-12T15:06:25+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -8.0386
+          }
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 9982.4661,
+          "open_positions": 1,
+          "ts": "2026-09-12T18:51:48+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -16.381
+          }
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 9983.1193,
+          "open_positions": 1,
+          "ts": "2026-09-12T22:43:35+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -15.7279
+          }
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 9985.4329,
+          "open_positions": 1,
+          "ts": "2026-09-13T02:28:59+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -13.4143
+          }
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 9986.6787,
+          "open_positions": 1,
+          "ts": "2026-09-13T06:14:21+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -12.1685
+          }
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 9971.4325,
+          "open_positions": 1,
+          "ts": "2026-09-13T10:00:11+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -27.4146
+          }
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 9970.317,
+          "open_positions": 1,
+          "ts": "2026-09-13T13:45:38+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -28.5302
+          }
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 9986.0858,
+          "open_positions": 1,
+          "ts": "2026-09-13T17:31:05+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -12.7614
+          }
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 9987.8889,
+          "open_positions": 1,
+          "ts": "2026-09-13T21:16:32+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -10.9583
+          }
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 9971.4322,
+          "open_positions": 1,
+          "ts": "2026-09-14T01:01:58+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -27.4149
+          }
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 9995.9531,
+          "open_positions": 1,
+          "ts": "2026-09-14T04:47:30+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -2.8941
+          }
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 9999.6703,
+          "open_positions": 1,
+          "ts": "2026-09-14T08:32:42+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": 0.8231
+          }
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 10001.7866,
+          "open_positions": 1,
+          "ts": "2026-09-14T12:18:12+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": 2.9395
+          }
+        },
+        {
+          "balance_usd": 9998.8472,
+          "equity_usd": 10041.8443,
+          "open_positions": 1,
+          "ts": "2026-09-14T18:59:39+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": 42.9971
+          }
+        },
+        {
+          "balance_usd": 9984.2731,
+          "equity_usd": 9984.2731,
+          "open_positions": 0,
+          "ts": "2026-09-15T11:20:22+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9984.2731,
+          "equity_usd": 9984.2731,
+          "open_positions": 0,
+          "ts": "2026-09-15T15:05:51+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9984.2731,
+          "equity_usd": 9984.2731,
+          "open_positions": 0,
+          "ts": "2026-09-15T18:51:16+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9984.2731,
+          "equity_usd": 9984.2731,
+          "open_positions": 0,
+          "ts": "2026-09-15T19:54:06+00:00",
+          "unrealized_by_strategy": {}
+        }
+      ],
+      "drawdown": 0.005733126070247341,
+      "equity_usd": 9984.273140650306,
+      "errors": {},
+      "fatal_error": null,
+      "fees_usd": 2.298964210076708,
+      "id": "btc_ema_cross",
+      "intents": {
+        "btc_ema_cross": "duplicate_candle"
+      },
+      "marks": {
+        "BTC/USDT": 75897.53,
+        "ETH/USDT": 2404.52,
+        "NVDA": 212.02999877929688,
+        "PAXG/USDT": 4309.23
+      },
+      "max_drawdown": 0.0057331301183389805,
+      "open_positions": [],
+      "pnl_pct": -0.0015726859349693978,
+      "positions": {},
+      "reference": false,
+      "risk_pct": 0.005,
+      "status": "ok",
+      "ts": "2026-09-15T19:54:06+00:00"
+    },
+    {
+      "balance_usd": 9892.804360001082,
+      "closed_trades": 1,
+      "curve": [
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-05T13:42:14+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-05T17:48:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-05T21:54:09+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T02:00:11+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T06:06:01+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T10:11:48+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T14:17:32+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T18:23:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T22:29:02+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9996.3772,
+          "equity_usd": 9968.436,
+          "open_positions": 1,
+          "ts": "2026-09-07T02:34:57+00:00",
+          "unrealized_by_strategy": {
+            "btc_ha_trend_4h": -27.9412
+          }
+        },
+        {
+          "balance_usd": 9996.3772,
+          "equity_usd": 9940.0665,
+          "open_positions": 1,
+          "ts": "2026-09-07T06:40:45+00:00",
+          "unrealized_by_strategy": {
+            "btc_ha_trend_4h": -56.3107
+          }
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-07T10:46:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-07T14:54:54+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-07T19:03:08+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-07T23:11:06+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-08T03:19:13+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-08T07:27:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-08T11:36:36+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-08T15:42:33+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-08T19:48:21+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-08T23:54:26+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-09T04:00:33+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-09T08:06:39+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-09T12:14:30+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-09T16:20:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-09T20:26:10+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-10T00:32:42+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-10T04:40:01+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-10T08:47:16+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-10T12:54:38+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-10T17:00:21+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-10T21:05:59+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-11T01:11:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-11T05:17:46+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-11T09:23:37+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-11T13:29:14+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-11T17:35:07+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-11T21:41:10+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-12T01:47:14+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-12T05:53:11+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-12T09:58:59+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-12T14:04:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-12T18:10:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-12T22:16:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-13T02:23:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-13T06:29:45+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-13T10:36:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-13T14:42:00+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-13T18:47:58+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-13T22:53:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-14T02:59:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-14T07:05:44+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-14T11:11:35+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-14T15:16:40+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-14T19:25:17+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-14T23:30:16+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-15T03:35:12+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-15T07:40:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-15T11:45:58+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-15T15:51:58+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9892.8044,
+          "equity_usd": 9892.8044,
+          "open_positions": 0,
+          "ts": "2026-09-15T19:54:06+00:00",
+          "unrealized_by_strategy": {}
+        }
+      ],
+      "drawdown": 0.010719563999891712,
+      "equity_usd": 9892.804360001082,
+      "errors": {},
+      "fatal_error": null,
+      "fees_usd": 7.195639998917767,
+      "id": "btc_ha_trend_4h",
+      "intents": {
+        "btc_ha_trend_4h": "duplicate_candle"
+      },
+      "marks": {
+        "BTC/USDT": 75897.53,
+        "ETH/USDT": 2404.52,
+        "NVDA": 212.02999877929688,
+        "PAXG/USDT": 4309.23
+      },
+      "max_drawdown": 0.010719559999999961,
+      "open_positions": [],
+      "pnl_pct": -0.010719563999891712,
+      "positions": {},
+      "reference": false,
+      "risk_pct": 0.01,
+      "status": "ok",
+      "ts": "2026-09-15T19:54:06+00:00"
+    },
+    {
+      "balance_usd": 9927.042133969757,
+      "closed_trades": 1,
+      "curve": [
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-05T13:42:14+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9995.0,
+          "equity_usd": 10008.3343,
+          "open_positions": 1,
+          "ts": "2026-09-05T17:48:15+00:00",
+          "unrealized_by_strategy": {
+            "btc_utbot_m15_h1": 13.3343
+          }
+        },
+        {
+          "balance_usd": 9995.0,
+          "equity_usd": 9992.6569,
+          "open_positions": 1,
+          "ts": "2026-09-05T21:54:09+00:00",
+          "unrealized_by_strategy": {
+            "btc_utbot_m15_h1": -2.3431
+          }
+        },
+        {
+          "balance_usd": 9995.0,
+          "equity_usd": 9996.8327,
+          "open_positions": 1,
+          "ts": "2026-09-06T02:00:11+00:00",
+          "unrealized_by_strategy": {
+            "btc_utbot_m15_h1": 1.8327
+          }
+        },
+        {
+          "balance_usd": 9995.0,
+          "equity_usd": 10001.5539,
+          "open_positions": 1,
+          "ts": "2026-09-06T06:06:01+00:00",
+          "unrealized_by_strategy": {
+            "btc_utbot_m15_h1": 6.5539
+          }
+        },
+        {
+          "balance_usd": 9995.0,
+          "equity_usd": 9988.6237,
+          "open_positions": 1,
+          "ts": "2026-09-06T10:11:48+00:00",
+          "unrealized_by_strategy": {
+            "btc_utbot_m15_h1": -6.3763
+          }
+        },
+        {
+          "balance_usd": 9995.0,
+          "equity_usd": 9971.639,
+          "open_positions": 1,
+          "ts": "2026-09-06T14:17:32+00:00",
+          "unrealized_by_strategy": {
+            "btc_utbot_m15_h1": -23.361
+          }
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-06T18:23:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-06T22:29:02+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-07T02:34:57+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-07T06:40:45+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-07T10:46:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-07T14:54:54+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-07T19:03:08+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-07T23:11:06+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-08T03:19:13+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-08T07:27:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-08T11:36:36+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-08T15:42:33+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-08T19:48:21+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-08T23:54:26+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-09T04:00:33+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-09T08:06:39+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-09T12:14:30+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-09T16:20:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-09T20:26:10+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-10T00:32:42+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-10T04:40:01+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-10T08:47:16+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-10T12:54:38+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-10T17:00:21+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-10T21:05:59+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-11T01:11:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-11T05:17:46+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-11T09:23:37+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-11T13:29:14+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-11T17:35:07+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-11T21:41:10+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-12T01:47:14+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-12T05:53:11+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-12T09:58:59+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-12T14:04:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-12T18:10:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-12T22:16:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-13T02:23:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-13T06:29:45+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-13T10:36:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-13T14:42:00+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-13T18:47:58+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-13T22:53:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-14T02:59:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-14T07:05:44+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-14T11:11:35+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-14T15:16:40+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-14T19:25:17+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-14T23:30:16+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-15T03:35:12+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-15T07:40:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-15T11:45:58+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-15T15:51:58+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-15T19:54:06+00:00",
+          "unrealized_by_strategy": {}
+        }
+      ],
+      "drawdown": 0.009220435354122869,
+      "equity_usd": 9927.042133969757,
+      "errors": {},
+      "fatal_error": null,
+      "fees_usd": 9.968505319644702,
+      "id": "btc_utbot_m15_h1",
+      "intents": {
+        "btc_utbot_m15_h1": "duplicate_candle"
+      },
+      "marks": {
+        "BTC/USDT": 75897.53,
+        "ETH/USDT": 2404.52,
+        "NVDA": 212.02999877929688,
+        "PAXG/USDT": 4309.23
+      },
+      "max_drawdown": 0.009220438744512505,
+      "open_positions": [],
+      "pnl_pct": -0.0072957866030243235,
+      "positions": {},
+      "reference": false,
+      "risk_pct": 0.01,
+      "status": "ok",
+      "ts": "2026-09-15T19:54:06+00:00"
+    },
+    {
+      "balance_usd": 9998.075800739201,
+      "closed_trades": 0,
+      "curve": [
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-05T21:13:12+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T00:58:42+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T04:44:04+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T08:29:23+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T12:14:39+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T15:59:53+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T19:45:13+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T23:30:33+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T03:15:53+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T07:01:10+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T10:46:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T14:34:08+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T18:21:56+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T22:09:09+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T01:56:25+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T05:43:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T09:33:36+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T13:19:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T17:04:34+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T20:49:45+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T00:35:28+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T04:21:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T08:06:39+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T11:54:00+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T15:39:19+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T19:24:35+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T23:10:16+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T02:56:57+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T06:43:41+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T10:30:16+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T14:16:34+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T18:01:48+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T21:47:00+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T01:32:22+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T05:17:46+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T09:03:08+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T12:48:20+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T16:33:37+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T20:19:02+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9998.7396,
+          "equity_usd": 9998.7396,
+          "open_positions": 1,
+          "ts": "2026-09-12T00:04:41+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": 0.0
+          }
+        },
+        {
+          "balance_usd": 9998.7396,
+          "equity_usd": 9995.1033,
+          "open_positions": 1,
+          "ts": "2026-09-12T03:50:11+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": -3.6363
+          }
+        },
+        {
+          "balance_usd": 9998.7396,
+          "equity_usd": 10005.5514,
+          "open_positions": 1,
+          "ts": "2026-09-12T07:35:41+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": 6.8118
+          }
+        },
+        {
+          "balance_usd": 9998.7396,
+          "equity_usd": 10014.5369,
+          "open_positions": 1,
+          "ts": "2026-09-12T11:20:58+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": 15.7973
+          }
+        },
+        {
+          "balance_usd": 9998.7396,
+          "equity_usd": 10022.2001,
+          "open_positions": 1,
+          "ts": "2026-09-12T15:06:25+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": 23.4605
+          }
+        },
+        {
+          "balance_usd": 9998.7396,
+          "equity_usd": 10006.513,
+          "open_positions": 1,
+          "ts": "2026-09-12T18:51:48+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": 7.7734
+          }
+        },
+        {
+          "balance_usd": 9998.7396,
+          "equity_usd": 10003.4177,
+          "open_positions": 1,
+          "ts": "2026-09-12T22:43:35+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": 4.6781
+          }
+        },
+        {
+          "balance_usd": 9998.0758,
+          "equity_usd": 10003.3157,
+          "open_positions": 2,
+          "ts": "2026-09-13T02:28:59+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": 5.2399
+          }
+        },
+        {
+          "balance_usd": 9998.0758,
+          "equity_usd": 10002.3841,
+          "open_positions": 2,
+          "ts": "2026-09-13T06:14:21+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": 4.3082
+          }
+        },
+        {
+          "balance_usd": 9998.0758,
+          "equity_usd": 9945.3538,
+          "open_positions": 2,
+          "ts": "2026-09-13T10:00:11+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": -52.7221
+          }
+        },
+        {
+          "balance_usd": 9998.0758,
+          "equity_usd": 9931.3329,
+          "open_positions": 2,
+          "ts": "2026-09-13T13:45:38+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": -66.7429
+          }
+        },
+        {
+          "balance_usd": 9998.0758,
+          "equity_usd": 9976.389,
+          "open_positions": 2,
+          "ts": "2026-09-13T17:31:05+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": -21.6868
+          }
+        },
+        {
+          "balance_usd": 9998.0758,
+          "equity_usd": 9990.2571,
+          "open_positions": 2,
+          "ts": "2026-09-13T21:16:32+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": -7.8187
+          }
+        },
+        {
+          "balance_usd": 9998.0758,
+          "equity_usd": 9944.193,
+          "open_positions": 2,
+          "ts": "2026-09-14T01:01:58+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": -53.8828
+          }
+        },
+        {
+          "balance_usd": 9998.0758,
+          "equity_usd": 9992.4412,
+          "open_positions": 2,
+          "ts": "2026-09-14T04:47:30+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": -5.6346
+          }
+        },
+        {
+          "balance_usd": 9998.0758,
+          "equity_usd": 10001.2386,
+          "open_positions": 2,
+          "ts": "2026-09-14T08:32:42+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": 3.1627
+          }
+        },
+        {
+          "balance_usd": 9998.0758,
+          "equity_usd": 9986.5152,
+          "open_positions": 2,
+          "ts": "2026-09-14T12:18:12+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": -11.5606
+          }
+        },
+        {
+          "balance_usd": 9998.0758,
+          "equity_usd": 10027.9667,
+          "open_positions": 2,
+          "ts": "2026-09-14T18:59:39+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": 29.8909
+          }
+        },
+        {
+          "balance_usd": 9998.0758,
+          "equity_usd": 9941.0925,
+          "open_positions": 2,
+          "ts": "2026-09-15T11:20:22+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": -56.9833
+          }
+        },
+        {
+          "balance_usd": 9998.0758,
+          "equity_usd": 9828.0705,
+          "open_positions": 2,
+          "ts": "2026-09-15T15:05:51+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": -170.0052
+          }
+        },
+        {
+          "balance_usd": 9998.0758,
+          "equity_usd": 9795.9051,
+          "open_positions": 2,
+          "ts": "2026-09-15T18:51:16+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": -202.1708
+          }
+        },
+        {
+          "balance_usd": 9998.0758,
+          "equity_usd": 9822.1598,
+          "open_positions": 2,
+          "ts": "2026-09-15T19:54:06+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": -175.916
+          }
+        }
+      ],
+      "drawdown": 0.020584466611501262,
+      "equity_usd": 9822.159762231166,
+      "errors": {},
+      "fatal_error": null,
+      "fees_usd": 1.9241992607993725,
+      "id": "eth_donchian",
+      "intents": {
+        "eth_donchian": "duplicate_candle"
+      },
+      "marks": {
+        "BTC/USDT": 75897.53,
+        "ETH/USDT": 2404.52,
+        "NVDA": 212.02999877929688,
+        "PAXG/USDT": 4309.23
+      },
+      "max_drawdown": 0.023202447242599344,
+      "open_positions": [
+        "eth_donchian",
+        "eth_donchian::t2"
+      ],
+      "pnl_pct": -0.017784023776883484,
+      "positions": {
+        "eth_donchian": {
+          "atr_risk": 199.65453583712022,
+          "entry_px": 2516.43,
+          "entry_reason": "close 2516 > 20-bar channel high 2514",
+          "execution_method": "observed_mark_v2",
+          "exit_policy": "donchian_signal",
+          "last_monitor_candle_ts": 1789495200000,
+          "monitor_timeframe": "1h",
+          "notional_usd": 2520.784203022489,
+          "opened_ts": "2026-09-12T00:04:41+00:00",
+          "pending_session_exit": false,
+          "position_id": "eth_donchian",
+          "qty": 1.001730309614211,
+          "reward_risk_ratio": null,
+          "risk_distance": 199.65453583712022,
+          "risk_pct": 0.02,
+          "risk_sizing_basis": "actual_stop",
+          "side": "long",
+          "sl_basis": "",
+          "stop_loss_price": null,
+          "strategy_id": "eth_donchian",
+          "symbol": "ETH/USDT",
+          "take_profit_price": null
+        },
+        "eth_donchian::t2": {
+          "atr_risk": 190.73206899997822,
+          "entry_px": 2525.93,
+          "entry_reason": "close 2526 > 20-bar channel high 2516",
+          "execution_method": "observed_mark_v2",
+          "exit_policy": "donchian_signal",
+          "last_monitor_candle_ts": 1789495200000,
+          "monitor_timeframe": "1h",
+          "notional_usd": 1327.614318576256,
+          "opened_ts": "2026-09-13T00:00:25+00:00",
+          "pending_session_exit": false,
+          "position_id": "eth_donchian::t2",
+          "qty": 0.5255942637271247,
+          "reward_risk_ratio": null,
+          "risk_distance": 190.73206899997822,
+          "risk_pct": 0.0100164984704668,
+          "risk_sizing_basis": "actual_stop",
+          "side": "long",
+          "sl_basis": "",
+          "stop_loss_price": null,
+          "strategy_id": "eth_donchian",
+          "symbol": "ETH/USDT",
+          "take_profit_price": null
+        }
+      },
+      "reference": false,
+      "risk_pct": 0.02,
+      "status": "ok",
+      "ts": "2026-09-15T19:54:06+00:00"
+    },
+    {
+      "balance_usd": 10000.0,
+      "closed_trades": 0,
+      "curve": [
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-05T13:42:14+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-05T17:48:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-05T21:54:09+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T02:00:11+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T06:06:01+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T10:11:48+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T14:17:32+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T18:23:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T22:29:02+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T02:34:57+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T06:40:45+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T10:46:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T14:54:54+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T19:03:08+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T23:11:06+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T03:19:13+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T07:27:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T11:36:36+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T15:42:33+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T19:48:21+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T23:54:26+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T04:00:33+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T08:06:39+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T12:14:30+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T16:20:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T20:26:10+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T00:32:42+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T04:40:01+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T08:47:16+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T12:54:38+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T17:00:21+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T21:05:59+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T01:11:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T05:17:46+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T09:23:37+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T13:29:14+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T17:35:07+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T21:41:10+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-12T01:47:14+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-12T05:53:11+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-12T09:58:59+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-12T14:04:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-12T18:10:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-12T22:16:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-13T02:23:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-13T06:29:45+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-13T10:36:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-13T14:42:00+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-13T18:47:58+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-13T22:53:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-14T02:59:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-14T07:05:44+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-14T11:11:35+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-14T15:16:40+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-14T19:25:17+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-14T23:30:16+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-15T03:35:12+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-15T07:40:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-15T11:45:58+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-15T15:51:58+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-15T19:54:06+00:00",
+          "unrealized_by_strategy": {}
+        }
+      ],
+      "drawdown": 0,
+      "equity_usd": 10000.0,
+      "errors": {},
+      "fatal_error": null,
+      "fees_usd": 0,
+      "id": "eth_ema_cross",
+      "intents": {
+        "eth_ema_cross": "duplicate_candle"
+      },
+      "marks": {
+        "BTC/USDT": 75897.53,
+        "ETH/USDT": 2404.52,
+        "NVDA": 212.02999877929688,
+        "PAXG/USDT": 4309.23
+      },
+      "max_drawdown": 0.0,
+      "open_positions": [],
+      "pnl_pct": 0.0,
+      "positions": {},
+      "reference": false,
+      "risk_pct": 0.005,
+      "status": "ok",
+      "ts": "2026-09-15T19:54:06+00:00"
+    },
+    {
+      "balance_usd": 10000.0,
+      "closed_trades": 0,
+      "curve": [
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-05T13:42:14+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-05T17:48:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-05T21:54:09+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T02:00:11+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T06:06:01+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T10:11:48+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T14:17:32+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T18:23:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T22:29:02+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T02:34:57+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T06:40:45+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T10:46:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T14:54:54+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T19:03:08+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T23:11:06+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T03:19:13+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T07:27:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T11:36:36+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T15:42:33+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T19:48:21+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T23:54:26+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T04:00:33+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T08:06:39+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T12:14:30+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T16:20:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-09T20:26:10+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T00:32:42+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T04:40:01+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T08:47:16+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T12:54:38+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T17:00:21+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-10T21:05:59+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T01:11:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T05:17:46+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T09:23:37+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T13:29:14+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T17:35:07+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-11T21:41:10+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-12T01:47:14+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-12T05:53:11+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-12T09:58:59+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-12T14:04:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-12T18:10:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-12T22:16:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-13T02:23:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-13T06:29:45+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-13T10:36:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-13T14:42:00+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-13T18:47:58+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-13T22:53:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-14T02:59:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-14T07:05:44+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-14T11:11:35+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-14T15:16:40+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-14T19:25:17+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-14T23:30:16+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-15T03:35:12+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-15T07:40:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-15T11:45:58+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-15T15:51:58+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-15T19:54:06+00:00",
+          "unrealized_by_strategy": {}
+        }
+      ],
+      "drawdown": 0,
+      "equity_usd": 10000.0,
+      "errors": {},
+      "fatal_error": null,
+      "fees_usd": 0,
+      "id": "gold_cot",
+      "intents": {
+        "gold_cot": "duplicate_candle"
+      },
+      "marks": {
+        "BTC/USDT": 75897.53,
+        "ETH/USDT": 2404.52,
+        "NVDA": 212.02999877929688,
+        "PAXG/USDT": 4309.23
+      },
+      "max_drawdown": 0.0,
+      "open_positions": [],
+      "pnl_pct": 0.0,
+      "positions": {},
+      "reference": false,
+      "risk_pct": 0.02,
+      "status": "ok",
+      "ts": "2026-09-15T19:54:06+00:00"
+    },
+    {
+      "balance_usd": 9937.440073338137,
+      "closed_trades": 2,
+      "curve": [
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-05T13:42:14+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-05T17:48:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-05T21:54:09+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T02:00:11+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T06:06:01+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T10:11:48+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T14:17:32+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T18:23:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-06T22:29:02+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T02:34:57+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T06:40:45+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T10:46:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T14:54:54+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T19:03:08+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-07T23:11:06+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T03:19:13+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T07:27:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 10000.0,
+          "equity_usd": 10000.0,
+          "open_positions": 0,
+          "ts": "2026-09-08T11:36:36+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9970.6121,
+          "equity_usd": 9970.6121,
+          "open_positions": 0,
+          "ts": "2026-09-08T15:42:33+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9970.6121,
+          "equity_usd": 9970.6121,
+          "open_positions": 0,
+          "ts": "2026-09-08T19:48:21+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9970.6121,
+          "equity_usd": 9970.6121,
+          "open_positions": 0,
+          "ts": "2026-09-08T23:54:26+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9970.6121,
+          "equity_usd": 9970.6121,
+          "open_positions": 0,
+          "ts": "2026-09-09T04:00:33+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9970.6121,
+          "equity_usd": 9970.6121,
+          "open_positions": 0,
+          "ts": "2026-09-09T08:06:39+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9970.6121,
+          "equity_usd": 9970.6121,
+          "open_positions": 0,
+          "ts": "2026-09-09T12:14:30+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9970.6121,
+          "equity_usd": 9970.6121,
+          "open_positions": 0,
+          "ts": "2026-09-09T16:20:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9970.6121,
+          "equity_usd": 9970.6121,
+          "open_positions": 0,
+          "ts": "2026-09-09T20:26:10+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9970.6121,
+          "equity_usd": 9970.6121,
+          "open_positions": 0,
+          "ts": "2026-09-10T00:32:42+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9970.6121,
+          "equity_usd": 9970.6121,
+          "open_positions": 0,
+          "ts": "2026-09-10T04:40:01+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9970.6121,
+          "equity_usd": 9970.6121,
+          "open_positions": 0,
+          "ts": "2026-09-10T08:47:16+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9970.6121,
+          "equity_usd": 9970.6121,
+          "open_positions": 0,
+          "ts": "2026-09-10T12:54:38+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-10T17:00:21+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-10T21:05:59+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-11T01:11:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-11T05:17:46+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-11T09:23:37+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-11T13:29:14+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-11T17:35:07+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-11T21:41:10+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-12T01:47:14+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-12T05:53:11+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-12T09:58:59+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-12T14:04:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-12T18:10:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-12T22:16:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-13T02:23:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-13T06:29:45+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-13T10:36:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-13T14:42:00+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-13T18:47:58+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-13T22:53:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-14T02:59:52+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-14T07:05:44+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-14T11:11:35+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-14T15:16:40+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-14T19:25:17+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-14T23:30:16+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-15T03:35:12+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-15T07:40:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-15T11:45:58+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-15T15:51:58+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9937.4401,
+          "equity_usd": 9937.4401,
+          "open_positions": 0,
+          "ts": "2026-09-15T19:54:06+00:00",
+          "unrealized_by_strategy": {}
+        }
+      ],
+      "drawdown": 0.006255992666186261,
+      "equity_usd": 9937.440073338137,
+      "errors": {},
+      "fatal_error": null,
+      "fees_usd": 12.633396305199787,
+      "id": "nvda_opening_range",
+      "intents": {
+        "nvda_opening_range": "no_trade"
+      },
+      "marks": {
+        "BTC/USDT": 75897.53,
+        "ETH/USDT": 2404.52,
+        "NVDA": 212.02999877929688,
+        "PAXG/USDT": 4309.23
+      },
+      "max_drawdown": 0.006255989999999989,
+      "open_positions": [],
+      "pnl_pct": -0.006255992666186261,
+      "positions": {},
+      "reference": false,
+      "risk_pct": 0.0025,
+      "status": "ok",
+      "ts": "2026-09-15T19:54:06+00:00"
+    },
+    {
+      "balance_usd": 9741.967518373285,
+      "closed_trades": 5,
+      "curve": [
+        {
+          "balance_usd": 9995.0,
+          "equity_usd": 9970.1166,
+          "open_positions": 1,
+          "ts": "2026-09-05T21:13:12+00:00",
+          "unrealized_by_strategy": {
+            "btc_utbot_m15_h1": -24.8834
+          }
+        },
+        {
+          "balance_usd": 9995.0,
+          "equity_usd": 9987.9031,
+          "open_positions": 1,
+          "ts": "2026-09-06T00:58:42+00:00",
+          "unrealized_by_strategy": {
+            "btc_utbot_m15_h1": -7.0969
+          }
+        },
+        {
+          "balance_usd": 9995.0,
+          "equity_usd": 9994.407,
+          "open_positions": 1,
+          "ts": "2026-09-06T04:44:04+00:00",
+          "unrealized_by_strategy": {
+            "btc_utbot_m15_h1": -0.593
+          }
+        },
+        {
+          "balance_usd": 9995.0,
+          "equity_usd": 9987.0887,
+          "open_positions": 1,
+          "ts": "2026-09-06T08:29:23+00:00",
+          "unrealized_by_strategy": {
+            "btc_utbot_m15_h1": -7.9113
+          }
+        },
+        {
+          "balance_usd": 9995.0,
+          "equity_usd": 9992.802,
+          "open_positions": 1,
+          "ts": "2026-09-06T12:14:39+00:00",
+          "unrealized_by_strategy": {
+            "btc_utbot_m15_h1": -2.198
+          }
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-06T15:59:53+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-06T19:45:13+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9927.0421,
+          "equity_usd": 9927.0421,
+          "open_positions": 0,
+          "ts": "2026-09-06T23:30:33+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9923.4457,
+          "equity_usd": 9874.2908,
+          "open_positions": 1,
+          "ts": "2026-09-07T03:15:53+00:00",
+          "unrealized_by_strategy": {
+            "btc_ha_trend_4h": -49.1549
+          }
+        },
+        {
+          "balance_usd": 9923.4457,
+          "equity_usd": 9862.3381,
+          "open_positions": 1,
+          "ts": "2026-09-07T07:01:10+00:00",
+          "unrealized_by_strategy": {
+            "btc_ha_trend_4h": -61.1077
+          }
+        },
+        {
+          "balance_usd": 9820.6286,
+          "equity_usd": 9820.6286,
+          "open_positions": 0,
+          "ts": "2026-09-07T10:46:15+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9820.6286,
+          "equity_usd": 9820.6286,
+          "open_positions": 0,
+          "ts": "2026-09-07T14:34:08+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9820.6286,
+          "equity_usd": 9820.6286,
+          "open_positions": 0,
+          "ts": "2026-09-07T18:21:56+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9820.6286,
+          "equity_usd": 9820.6286,
+          "open_positions": 0,
+          "ts": "2026-09-07T22:09:09+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9820.6286,
+          "equity_usd": 9820.6286,
+          "open_positions": 0,
+          "ts": "2026-09-08T01:56:25+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9820.6286,
+          "equity_usd": 9820.6286,
+          "open_positions": 0,
+          "ts": "2026-09-08T05:43:50+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9820.6286,
+          "equity_usd": 9820.6286,
+          "open_positions": 0,
+          "ts": "2026-09-08T09:33:36+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9820.6286,
+          "equity_usd": 9820.6286,
+          "open_positions": 0,
+          "ts": "2026-09-08T13:19:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9791.7678,
+          "equity_usd": 9791.7678,
+          "open_positions": 0,
+          "ts": "2026-09-08T17:04:34+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9791.7678,
+          "equity_usd": 9791.7678,
+          "open_positions": 0,
+          "ts": "2026-09-08T20:49:45+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9791.7678,
+          "equity_usd": 9791.7678,
+          "open_positions": 0,
+          "ts": "2026-09-09T00:35:28+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9791.7678,
+          "equity_usd": 9791.7678,
+          "open_positions": 0,
+          "ts": "2026-09-09T04:21:03+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9791.7678,
+          "equity_usd": 9791.7678,
+          "open_positions": 0,
+          "ts": "2026-09-09T08:06:39+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9791.7678,
+          "equity_usd": 9791.7678,
+          "open_positions": 0,
+          "ts": "2026-09-09T11:54:00+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9791.7678,
+          "equity_usd": 9791.7678,
+          "open_positions": 0,
+          "ts": "2026-09-09T15:39:19+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9791.7678,
+          "equity_usd": 9791.7678,
+          "open_positions": 0,
+          "ts": "2026-09-09T19:24:35+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9791.7678,
+          "equity_usd": 9791.7678,
+          "open_positions": 0,
+          "ts": "2026-09-09T23:10:16+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9791.7678,
+          "equity_usd": 9791.7678,
+          "open_positions": 0,
+          "ts": "2026-09-10T02:56:57+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9791.7678,
+          "equity_usd": 9791.7678,
+          "open_positions": 0,
+          "ts": "2026-09-10T06:43:41+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9791.7678,
+          "equity_usd": 9791.7678,
+          "open_positions": 0,
+          "ts": "2026-09-10T10:30:16+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9759.1908,
+          "equity_usd": 9759.1908,
+          "open_positions": 0,
+          "ts": "2026-09-10T14:16:34+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9759.1908,
+          "equity_usd": 9759.1908,
+          "open_positions": 0,
+          "ts": "2026-09-10T18:01:48+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9759.1908,
+          "equity_usd": 9759.1908,
+          "open_positions": 0,
+          "ts": "2026-09-10T21:47:00+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9759.1908,
+          "equity_usd": 9759.1908,
+          "open_positions": 0,
+          "ts": "2026-09-11T01:32:22+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9759.1908,
+          "equity_usd": 9759.1908,
+          "open_positions": 0,
+          "ts": "2026-09-11T05:17:46+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9759.1908,
+          "equity_usd": 9759.1908,
+          "open_positions": 0,
+          "ts": "2026-09-11T09:03:08+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9759.1908,
+          "equity_usd": 9759.1908,
+          "open_positions": 0,
+          "ts": "2026-09-11T12:48:20+00:00",
+          "unrealized_by_strategy": {}
+        },
+        {
+          "balance_usd": 9758.0657,
+          "equity_usd": 9756.2235,
+          "open_positions": 1,
+          "ts": "2026-09-11T16:33:37+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -1.8422
+          }
+        },
+        {
+          "balance_usd": 9758.0657,
+          "equity_usd": 9750.1529,
+          "open_positions": 1,
+          "ts": "2026-09-11T20:19:02+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -7.9128
+          }
+        },
+        {
+          "balance_usd": 9756.8377,
+          "equity_usd": 9742.1743,
+          "open_positions": 2,
+          "ts": "2026-09-12T00:04:41+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -14.6634,
+            "eth_donchian": 0.0
+          }
+        },
+        {
+          "balance_usd": 9756.8377,
+          "equity_usd": 9739.2192,
+          "open_positions": 2,
+          "ts": "2026-09-12T03:50:11+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -14.0754,
+            "eth_donchian": -3.543
+          }
+        },
+        {
+          "balance_usd": 9756.8377,
+          "equity_usd": 9751.2834,
+          "open_positions": 2,
+          "ts": "2026-09-12T07:35:41+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -12.1912,
+            "eth_donchian": 6.637
+          }
+        },
+        {
+          "balance_usd": 9756.8377,
+          "equity_usd": 9760.5134,
+          "open_positions": 2,
+          "ts": "2026-09-12T11:20:58+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -11.7162,
+            "eth_donchian": 15.3919
+          }
+        },
+        {
+          "balance_usd": 9756.8377,
+          "equity_usd": 9771.8511,
+          "open_positions": 2,
+          "ts": "2026-09-12T15:06:25+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -7.8451,
+            "eth_donchian": 22.8585
+          }
+        },
+        {
+          "balance_usd": 9756.8377,
+          "equity_usd": 9748.4251,
+          "open_positions": 2,
+          "ts": "2026-09-12T18:51:48+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -15.9866,
+            "eth_donchian": 7.574
+          }
+        },
+        {
+          "balance_usd": 9756.8377,
+          "equity_usd": 9746.0466,
+          "open_positions": 2,
+          "ts": "2026-09-12T22:43:35+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -15.3491,
+            "eth_donchian": 4.558
+          }
+        },
+        {
+          "balance_usd": 9756.1906,
+          "equity_usd": 9748.2042,
+          "open_positions": 3,
+          "ts": "2026-09-13T02:28:59+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -13.0912,
+            "eth_donchian": 5.1048
+          }
+        },
+        {
+          "balance_usd": 9756.1906,
+          "equity_usd": 9748.512,
+          "open_positions": 3,
+          "ts": "2026-09-13T06:14:21+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -11.8754,
+            "eth_donchian": 4.1969
+          }
+        },
+        {
+          "balance_usd": 9756.1906,
+          "equity_usd": 9678.0571,
+          "open_positions": 3,
+          "ts": "2026-09-13T10:00:11+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -26.7544,
+            "eth_donchian": -51.379
+          }
+        },
+        {
+          "balance_usd": 9756.1906,
+          "equity_usd": 9663.3051,
+          "open_positions": 3,
+          "ts": "2026-09-13T13:45:38+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -27.8432,
+            "eth_donchian": -65.0423
+          }
+        },
+        {
+          "balance_usd": 9756.1906,
+          "equity_usd": 9722.6012,
+          "open_positions": 3,
+          "ts": "2026-09-13T17:31:05+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -12.4541,
+            "eth_donchian": -21.1353
+          }
+        },
+        {
+          "balance_usd": 9756.1906,
+          "equity_usd": 9737.8754,
+          "open_positions": 3,
+          "ts": "2026-09-13T21:16:32+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -10.6944,
+            "eth_donchian": -7.6208
+          }
+        },
+        {
+          "balance_usd": 9756.1906,
+          "equity_usd": 9676.9256,
+          "open_positions": 3,
+          "ts": "2026-09-14T01:01:58+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -26.7547,
+            "eth_donchian": -52.5102
+          }
+        },
+        {
+          "balance_usd": 9756.1906,
+          "equity_usd": 9747.8737,
+          "open_positions": 3,
+          "ts": "2026-09-14T04:47:30+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": -2.8244,
+            "eth_donchian": -5.4924
+          }
+        },
+        {
+          "balance_usd": 9756.1906,
+          "equity_usd": 9760.0745,
+          "open_positions": 3,
+          "ts": "2026-09-14T08:32:42+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": 0.8033,
+            "eth_donchian": 3.0806
+          }
+        },
+        {
+          "balance_usd": 9756.1906,
+          "equity_usd": 9747.792,
+          "open_positions": 3,
+          "ts": "2026-09-14T12:18:12+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": 2.8687,
+            "eth_donchian": -11.2673
+          }
+        },
+        {
+          "balance_usd": 9756.1906,
+          "equity_usd": 9827.2795,
+          "open_positions": 3,
+          "ts": "2026-09-14T18:59:39+00:00",
+          "unrealized_by_strategy": {
+            "btc_ema_cross": 41.9617,
+            "eth_donchian": 29.1271
+          }
+        },
+        {
+          "balance_usd": 9741.9675,
+          "equity_usd": 9686.4359,
+          "open_positions": 2,
+          "ts": "2026-09-15T11:20:22+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": -55.5316
+          }
+        },
+        {
+          "balance_usd": 9741.9675,
+          "equity_usd": 9576.2961,
+          "open_positions": 2,
+          "ts": "2026-09-15T15:05:51+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": -165.6714
+          }
+        },
+        {
+          "balance_usd": 9741.9675,
+          "equity_usd": 9544.951,
+          "open_positions": 2,
+          "ts": "2026-09-15T18:51:16+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": -197.0166
+          }
+        },
+        {
+          "balance_usd": 9741.9675,
+          "equity_usd": 9570.5361,
+          "open_positions": 2,
+          "ts": "2026-09-15T19:54:06+00:00",
+          "unrealized_by_strategy": {
+            "eth_donchian": -171.4314
+          }
+        }
+      ],
+      "drawdown": 0.044801916647402185,
+      "equity_usd": 9570.536129413953,
+      "errors": {},
+      "fatal_error": null,
+      "fees_usd": 33.63716947404516,
+      "id": "shared_reference",
+      "intents": {
+        "btc_ak_macd_4h": "duplicate_candle",
+        "btc_ema_cross": "duplicate_candle",
+        "btc_ha_trend_4h": "duplicate_candle",
+        "btc_utbot_m15_h1": "duplicate_candle",
+        "eth_donchian": "duplicate_candle",
+        "eth_ema_cross": "duplicate_candle",
+        "gold_cot": "duplicate_candle",
+        "nvda_opening_range": "no_trade"
+      },
+      "marks": {
+        "BTC/USDT": 75897.53,
+        "ETH/USDT": 2404.52,
+        "NVDA": 212.02999877929688,
+        "PAXG/USDT": 4309.23
+      },
+      "max_drawdown": 0.04735546915982902,
+      "open_positions": [
+        "eth_donchian",
+        "eth_donchian::t2"
+      ],
+      "pnl_pct": -0.04294638705860465,
+      "positions": {
+        "eth_donchian": {
+          "atr_risk": 199.65453583712022,
+          "entry_px": 2516.43,
+          "entry_reason": "close 2516 > 20-bar channel high 2514",
+          "execution_method": "observed_mark_v2",
+          "exit_policy": "donchian_signal",
+          "last_monitor_candle_ts": 1789495200000,
+          "monitor_timeframe": "1h",
+          "notional_usd": 2456.1014727307625,
+          "opened_ts": "2026-09-12T00:04:41+00:00",
+          "pending_session_exit": false,
+          "position_id": "eth_donchian",
+          "qty": 0.9760261452656194,
+          "reward_risk_ratio": null,
+          "risk_distance": 199.65453583712022,
+          "risk_pct": 0.02,
+          "risk_sizing_basis": "actual_stop",
+          "side": "long",
+          "sl_basis": "",
+          "stop_loss_price": null,
+          "strategy_id": "eth_donchian",
+          "symbol": "ETH/USDT",
+          "take_profit_price": null
+        },
+        "eth_donchian::t2": {
+          "atr_risk": 190.73206899997822,
+          "entry_px": 2525.93,
+          "entry_reason": "close 2526 > 20-bar channel high 2516",
+          "execution_method": "observed_mark_v2",
+          "exit_policy": "donchian_signal",
+          "last_monitor_candle_ts": 1789495200000,
+          "monitor_timeframe": "1h",
+          "notional_usd": 1294.1579374395808,
+          "opened_ts": "2026-09-13T00:00:25+00:00",
+          "pending_session_exit": false,
+          "position_id": "eth_donchian::t2",
+          "qty": 0.5123490902121519,
+          "reward_risk_ratio": null,
+          "risk_distance": 190.73206899997822,
+          "risk_pct": 0.0100196438065985,
+          "risk_sizing_basis": "actual_stop",
+          "side": "long",
+          "sl_basis": "",
+          "stop_loss_price": null,
+          "strategy_id": "eth_donchian",
+          "symbol": "ETH/USDT",
+          "take_profit_price": null
+        }
+      },
+      "reference": true,
+      "risk_pct": null,
+      "status": "ok",
+      "ts": "2026-09-15T19:54:06+00:00"
+    }
+  ],
+  "completed_at": "2026-09-15T19:54:15.875721+00:00",
+  "config_sha256": "ad7c07399105a757f31375bb9b9f4b0f059987443c1fb68cc662a5e90285395b",
+  "cycle_id": "20260915T195406493559Z",
+  "fee_roundtrip": 0.001,
+  "input_sha256": "811cc2ef8380ef86ee49faef3bed84e79ecda0e4fdb598f42d9224463e665651",
+  "method_changed": true,
+  "research_only": true,
+  "source_sha256": "a975365454e9609191ad42b07874adbe3153d2952a26de3f7f0997a3f9154692",
+  "started_at": "2026-09-05T13:42:14.166809+00:00",
+  "starting_balance_usd": 10000.0,
+  "status": "ok",
+  "ts": "2026-09-15T19:54:06.493559+00:00",
+  "version": 1
+}

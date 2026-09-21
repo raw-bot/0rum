@@ -239,7 +239,7 @@ def test_llm_dashboard_static_surface_is_read_only_responsive_and_escapes_model_
     assert 'id="bot-equity"' not in bot_html
     assert 'id="bot-decisions"' in bot_html
     assert 'id="bot-learning"' in bot_html
-    assert "/assets/bot.js?v=3" in bot_html
+    assert "/assets/bot.js?v=20260905-lessons2" in bot_html
     assert 'fetch("/api/state"' in bot_js
     assert "method: \"POST\"" not in bot_js
     assert "const esc = (value)" in bot_js
@@ -431,3 +431,23 @@ def test_llm_lab_discards_valid_json_with_wrong_optional_types(tmp_path):
     assert state["timeline"][0]["reasons"] == []
     assert state["outcomes"] == []
     json.dumps(state, allow_nan=False)
+
+
+def test_learning_counts_materialize_migration_and_current_expiration(tmp_path):
+    from dataclasses import replace
+    from datetime import timedelta
+    from orum.llm.lessons import LessonBook, LessonCandidate, MarketCase
+    from orum.llm.journal import JsonlJournal
+    book = LessonBook(JsonlJournal(tmp_path / 'llm_lessons.jsonl'), clock=lambda: NOW)
+    case = MarketCase('BTC/USDT','range','unknown','long','unknown','unknown','unknown','unknown','unknown')
+    candidate = LessonCandidate('poor_timing', case, 'Confirmer', 'one', .8, NOW, NOW+timedelta(days=1), 'confirm_entry')
+    book.record(candidate)
+    active = book.record(replace(candidate, decision_id='two', expires_at=NOW+timedelta(days=90)))
+    book.journal.append({'kind':'lesson_migration','lessons':[active.to_mapping()]})
+    _write_jsonl(tmp_path / 'llm_decisions.jsonl', [{'kind':'proposed_decision','lane':'llm_evolving','status':'valid','provided_lessons':[active.to_mapping()], 'decision':{'lesson_ids':[active.lesson_id]}}])
+    status = dashboard._llm_lab_state(tmp_path, now=NOW)['learning_status']
+    assert status['counts']['active'] == status['eligible_count'] == 1
+    assert len(status['provided_lessons']) == len(status['cited_lesson_ids']) == 1
+    later = dashboard._llm_lab_state(tmp_path, now=NOW+timedelta(days=2))['learning_status']
+    assert later['counts']['active'] == 1 and later['eligible_count'] == 0
+    assert dashboard._llm_lab_state(tmp_path)['learning_status']['eligible_count'] == 0

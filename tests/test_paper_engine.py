@@ -2,6 +2,8 @@ import json
 import tempfile
 import unittest
 from datetime import datetime, timezone
+from unittest.mock import patch
+from orum.strategies.cot_gate import read_gate as actual_read_gate
 from pathlib import Path
 from unittest.mock import patch
 
@@ -29,12 +31,15 @@ def _fresh_gate(gate_on: bool) -> dict:
     return {
         "report_date": "2026-06-30", "usable_from": "2026-07-03",
         "cot_index": 12.0 if gate_on else 53.9, "gate_on": gate_on,
-        "threshold": 20.0, "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "threshold": 20.0, "updated_at": "2026-07-08T00:00:00+00:00",
     }
 
 
 class PaperEngineTests(unittest.TestCase):
     def setUp(self) -> None:
+        gate_clock = patch("orum.strategies.gold_cot.read_gate", side_effect=lambda *a, **kw: actual_read_gate(*a, now=datetime(2026, 7, 8, tzinfo=timezone.utc), **kw))
+        gate_clock.start()
+        self.addCleanup(gate_clock.stop)
         self._dir = tempfile.TemporaryDirectory()
         d = Path(self._dir.name)
         self.positions_path = d / "paper_positions.json"
@@ -50,7 +55,10 @@ class PaperEngineTests(unittest.TestCase):
     def _provider(self, symbol: str, timeframe: str, limit: int) -> list[dict]:
         if symbol in self.raise_for:
             raise RuntimeError(f"provider boom for {symbol}")
-        return self.market.get(symbol, [])
+        rows = self.market.get(symbol, [])
+        if symbol == "PAXG/USDT":
+            return [{**row, "ts": 1783382400000 + i * 1000} for i, row in enumerate(rows)]
+        return rows
 
     def _engine(self, strategies=None) -> PaperEngine:
         config = {

@@ -1,0 +1,13 @@
+{
+  "balance_usd": 10000.0,
+  "last_event_ts": 1789502046000,
+  "market_cursors": {
+    "PAXG/USDT:1d": 1789344000000,
+    "PAXG/USDT:1h": 1789495200000
+  },
+  "positions": {},
+  "processed_candles": {
+    "gold_cot": 1789344000000
+  },
+  "updated_at": "2026-09-15T19:54:15+00:00"
+}

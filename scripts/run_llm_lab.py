@@ -258,10 +258,8 @@ def _lesson_provider(book: LessonBook, decision_timeframe: str):
         )
         lane_accounts = snapshot.paper_account.get("llm_accounts")
         lane_accounts = lane_accounts if isinstance(lane_accounts, Mapping) else {}
-        has_position = any(
-            isinstance(account, Mapping) and bool(account.get("positions"))
-            for account in lane_accounts.values()
-        )
+        account = lane_accounts.get("llm_evolving", {})
+        has_position = isinstance(account, Mapping) and bool(account.get("positions"))
         case = MarketCase(
             symbol=snapshot.symbol, regime=brief.regime,
             volatility_bucket=volatility, side="unknown", action="unknown",
@@ -474,7 +472,9 @@ def main(
         print(f"LLM cycle failed: {exc}", file=sys.stderr)
         return 1
     _print_result(result)
-    return 0
+    for error in result.errors:
+        print(error, file=sys.stderr)
+    return 1 if result.errors or any(lane.status in {"model_error", "monitor_error"} for lane in result.lanes) else 0
 
 
 if __name__ == "__main__":

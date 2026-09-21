@@ -32,7 +32,7 @@ function renderUnified(snapshot) {
   const worker = snapshot.worker || {};
   const guardrail = snapshot.guardrail || {};
   const positions = list(unified.open_positions);
-  const workerState = worker.running ? worker.stale ? "silencieux" : "actif" : "arrêté";
+  const workerState = worker.healthy ? "actif" : worker.status || "inconnu";
   const positionRows = positions.map((position) => `<tr>
     <td>${esc(position.strategy_id || "stratégie inconnue")}</td>
     <td>${esc(position.symbol || "actif inconnu")}</td>
@@ -42,7 +42,7 @@ function renderUnified(snapshot) {
     <td>${num(position.stop_loss_price)}</td>
     <td>${num(position.take_profit_price)}</td>
   </tr>`).join("") || `<tr><td colspan="7">Aucune position paper ouverte.</td></tr>`;
-  $("bot-unified").innerHTML = `<div class="bot-card-head"><div><p class="eyebrow">PORTEFEUILLE UNIFIÉ</p><h2>Paper opérationnel</h2></div><span class="llm-badge ${worker.running && !worker.stale ? "good" : "bad"}">${esc(workerState)}</span></div>
+  $("bot-unified").innerHTML = `<div class="bot-card-head"><div><p class="eyebrow">PORTEFEUILLE UNIFIÉ</p><h2>Paper opérationnel</h2></div><span class="llm-badge ${worker.healthy ? "good" : "bad"}">${esc(workerState)}</span></div>
     <div class="bot-metrics"><div><span>Solde</span><b>${usd(unified.balance_usd)}</b></div><div><span>Equity</span><b>${usd(unified.equity_usd)}</b></div><div><span>P&amp;L</span><b class="${signClass(unified.pnl_usd)}">${usd(unified.pnl_usd)} · ${pct(unified.pnl_pct)}</b></div><div><span>Positions</span><b>${num(unified.open_count, 0)}</b></div><div><span>Garde-fou</span><b>${esc(guardrail.status || "—")}</b></div></div>
     <div class="bot-table-wrap"><table class="mini-table"><thead><tr><th>Stratégie</th><th>Actif</th><th>Sens</th><th>Quantité</th><th>Entrée</th><th>SL</th><th>TP</th></tr></thead><tbody>${positionRows}</tbody></table></div>
     <p class="bot-meta">Dernière écriture du portefeuille : ${esc(localTime(unified.updated_at))} · mode ${esc(worker.mode || "paper")}</p>`;
@@ -51,10 +51,11 @@ function renderUnified(snapshot) {
 function renderRuntime(snapshot) {
   const lab = snapshot.llm_lab || {};
   const runtime = lab.runtime || {};
-  const state = runtime.running ? "cycle en cours" : runtime.enabled ? "agent actif" : "agent désactivé";
+  const failed = runtime.last_result && runtime.last_result !== "ok";
+  const state = runtime.running ? "cycle en cours" : failed ? "dernier cycle en erreur" : runtime.enabled ? "agent actif" : "agent désactivé";
   const alerts = list(lab.alerts).map((alert) => `<div class="llm-alert ${statusClass(alert.level)}"><b>${esc(alert.kind || "alerte")}</b><span>${esc(alert.message || "Aucun détail")}</span></div>`).join("") || empty("Aucune alerte LLM.");
   const error = runtime.last_error ? `<div class="llm-alert error"><b>runtime</b><span>${esc(runtime.last_error)}</span></div>` : "";
-  $("bot-runtime").innerHTML = `<div class="bot-card-head"><div><p class="eyebrow">LLM PAPER</p><h2>Runtime et contrôles</h2></div><span class="llm-badge ${runtime.running ? "info" : runtime.enabled ? "good" : "neutral"}">${esc(state)}</span></div>
+  $("bot-runtime").innerHTML = `<div class="bot-card-head"><div><p class="eyebrow">LLM PAPER</p><h2>Runtime et contrôles</h2></div><span class="llm-badge ${runtime.running ? "info" : failed ? "bad" : runtime.enabled ? "good" : "neutral"}">${esc(state)}</span></div>
     <div class="llm-metrics"><span>modèle ${esc(runtime.model || "modèle inconnu")}</span><span>cadence ${num(runtime.interval_minutes, 0)} min</span><span>résultat ${esc(runtime.last_result || "non démarré")}</span><span>dernier cycle ${esc(localTime(runtime.last_cycle_completed_at))}</span></div>
     ${error}<div class="llm-alerts">${alerts}</div>`;
 }
@@ -89,12 +90,15 @@ function renderDecisions(snapshot) {
 function renderLearning(snapshot) {
   const lab = snapshot.llm_lab || {};
   const opinion = lab.opinion || {};
+  const learning = lab.learning_status || {};
+  const counts = learning.counts || {};
+  const tracking = learning.provided_lessons == null ? "Dernière décision : traçage antérieur indisponible" : `Dernière décision : ${list(learning.provided_lessons).length} fournie(s), ${list(learning.cited_lesson_ids).length} citée(s)`;
   const outcomes = list(lab.outcomes).slice(0, 6).map((item) => `<div class="llm-row"><span>${esc(laneName(item.lane))} · ${esc(item.side || "—")}</span><b class="${signClass(item.net_return_on_margin)}">${pct(item.net_return_on_margin)}</b><span>${esc(item.exit_reason || "—")}</span><small>${esc(item.decision_id || "—")} → ${esc(item.outcome_id || "—")}</small></div>`).join("") || empty("Aucun outcome fermé.");
   const postmortems = list(lab.postmortems).slice(0, 3).map((item) => `<div class="llm-postmortem"><b>${esc(item.process_quality || "qualité non renseignée")} · ${esc(item.primary_error || "sans erreur classée")}</b><p>${esc(item.memo_fr || "Aucun mémo")}</p><small>${esc(item.postmortem_id || "—")} · outcome ${esc(item.outcome_id || "—")}</small></div>`).join("") || empty("Aucun post-mortem validé.");
-  const lessons = list(lab.lessons).slice(0, 6).map((item) => `<div class="llm-lesson"><span class="llm-badge ${item.state === "active" ? "good" : "neutral"}">${esc(item.state || "—")}</span><b>${esc(item.error_category || "sans catégorie")}</b><span>${esc(item.adjustment || "Ajustement non renseigné")}</span><small>${esc(item.lesson_id || "—")} · force ${num(item.evidence_strength, 2)}</small></div>`).join("") || empty("Aucune leçon candidate ou active.");
+  const lessons = list(lab.lessons).slice(0, 6).map((item) => `<div class="llm-lesson"><span class="llm-badge ${item.state === "active" ? "good" : "neutral"}">${esc(item.state || "—")}</span><b>${esc(item.error_category || "sans catégorie")}</b><span>${esc(item.adjustment || "Ajustement non renseigné")}</span><small>${esc(item.conditions?.regime || "—")} · ${esc(item.conditions?.side || "—")} · ${list(item.supporting_decision_ids).length} observations · v${esc(item.version || "—")} · ${esc(item.lesson_id || "—")}</small></div>`).join("") || empty("Aucune leçon candidate ou active.");
   $("bot-learning").innerHTML = `<div class="bot-card-head"><div><p class="eyebrow">LECTURE ET APPRENTISSAGE</p><h2>Avis du marché, outcomes et leçons</h2></div><span class="llm-badge info">${esc(opinion.bias || "sans biais")}</span></div>
     <div class="llm-lab-grid"><section class="llm-panel llm-opinion"><h3>Avis analyste</h3><div class="llm-metrics"><span>${esc(opinion.regime || "régime inconnu")}</span><span>confiance ${pct(opinion.confidence, 0)}</span><span>${esc(opinion.model || "modèle inconnu")}</span><span>${esc(localTime(opinion.recorded_at))}</span></div><p class="llm-copy">${esc(opinion.memo_fr || "Aucun mémo disponible.")}</p><p class="llm-subcopy"><b>Lecture</b> ${esc(opinion.interpretation || "—")} · <b>Invalidation</b> ${esc(opinion.invalidation || "—")}</p><p class="llm-id">brief ${esc(opinion.brief_id || "—")} · snapshot ${esc(opinion.snapshot_id || "—")}</p></section>
-      <section class="llm-panel"><h3>Outcomes</h3>${outcomes}</section><section class="llm-panel"><h3>Post-mortems</h3>${postmortems}</section><section class="llm-panel"><h3>Leçons falsifiables</h3>${lessons}</section></div>`;
+      <section class="llm-panel"><h3>Outcomes</h3>${outcomes}</section><section class="llm-panel"><h3>Post-mortems</h3>${postmortems}</section><section class="llm-panel"><h3>Hypothèses d’apprentissage</h3><p>${learning.eligible_count == null ? "—" : learning.eligible_count} disponibles · ${counts.active || 0} actives au journal · ${counts.candidate || 0} candidates · ${counts.superseded || 0} regroupées · ${counts.rejected || 0} rejetées</p><p>${esc(tracking)}</p><small>Disponible = hypothèse non expirée et non opposée, utilisable si le contexte correspond. Une citation ne prouve ni application ni rentabilité.</small>${lessons}</section></div>`;
 }
 
 function render(snapshot) {

@@ -1,7 +1,7 @@
 #!/bin/bash
 # 0rum WATCHDOG — pure bash on purpose: it must keep working even if uv/python
 # breaks. Checks the vital signs every 5 min (launchd com.0rum.watchdog):
-#   1. paper_equity.jsonl fresher than 45 min (paper portfolio runs every 15 min)
+#   1. paper_runtime_status.json fresher than 15 min (paper portfolio runs every 5 min)
 #   2. com.0rum.paper launchd job last exit == 0
 #   3. > 2 GB free disk
 # (Pre-2026-07-08 it watched the retired mono-asset worker + AK producer.)
@@ -17,8 +17,11 @@ age_of() { # seconds since mtime, or huge if missing
   if [ -f "$1" ]; then echo $(( NOW - $(stat -f %m "$1") )); else echo 9999999; fi
 }
 
-PAPER_AGE=$(age_of "$STATE/paper_equity.jsonl")
-[ "$PAPER_AGE" -gt 2700 ] && FAILS+=("paper_equity.jsonl vieux de ${PAPER_AGE}s (>2700)")
+PAPER_AGE=$(age_of "$STATE/paper_runtime_status.json")
+[ "$PAPER_AGE" -gt 900 ] && FAILS+=("paper_runtime_status.json vieux de ${PAPER_AGE}s (>900)")
+
+HEALTH=$(/usr/bin/plutil -extract status raw -o - "$STATE/paper_runtime_status.json" 2>/dev/null || true)
+[ "$HEALTH" != "ok" ] && FAILS+=("paper cycle status=${HEALTH:-unknown}")
 
 PAPER_STATUS=$(launchctl list 2>/dev/null | awk '$3=="com.0rum.paper"{print $2}')
 if [ -n "${PAPER_STATUS:-}" ] && [ "$PAPER_STATUS" != "0" ] && [ "$PAPER_STATUS" != "-" ]; then

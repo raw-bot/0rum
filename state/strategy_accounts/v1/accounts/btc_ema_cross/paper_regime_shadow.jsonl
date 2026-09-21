@@ -1,0 +1,1 @@
+{"ts": "2026-09-11T16:02:54+00:00", "strategy_id": "btc_ema_cross", "symbol": "BTC/USDT", "direction": "long", "signal_candle_ts": 1789138800000, "timeframe": "4h", "ema_period": 200, "close": 77732.25, "ema": 74175.77349528606, "passed": true, "reason": "above_ema", "enforced": false}

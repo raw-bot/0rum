@@ -25,6 +25,7 @@ touches the other strategies.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from orum.paths import COT_GATE_PATH
 from orum.strategies.base import Side, Signal, StrategyContext
 from orum.strategies.cot_gate import DEFAULT_MAX_AGE_DAYS, read_gate
@@ -39,6 +40,7 @@ class GoldCotEngine:
     def __init__(self) -> None:
         self._gate_path = str(COT_GATE_PATH)
         self._max_age_days = DEFAULT_MAX_AGE_DAYS
+        self._gate_reference_time = None
         self.warmup_period = 0  # the decision is the gate, not candle history
 
     def init(self, config: dict) -> None:
@@ -50,12 +52,22 @@ class GoldCotEngine:
         gate_path = cfg.get("gate_path")
         if isinstance(gate_path, str) and gate_path:
             self._gate_path = gate_path
+        reference = cfg.get("gate_reference_time")
+        self._gate_reference_time = datetime.fromisoformat(reference) if reference else None
+        if self._gate_reference_time is not None and self._gate_reference_time.tzinfo is None:
+            raise ValueError("gate_reference_time must be timezone aware")
         max_age = cfg.get("max_age_days")
         if isinstance(max_age, (int, float)) and not isinstance(max_age, bool) and max_age > 0:
             self._max_age_days = float(max_age)
 
     def on_candle(self, candle: dict, context: StrategyContext) -> Signal | None:
-        gate = read_gate(self._gate_path, max_age_days=self._max_age_days)
+        duration_ms = {"1d": 86_400_000, "4h": 14_400_000, "1h": 3_600_000}.get(context.timeframe)
+        if duration_ms is None:
+            return None
+        asof = datetime.fromtimestamp((float(candle["ts"]) + duration_ms) / 1000, timezone.utc)
+        clock = {"now": self._gate_reference_time} if self._gate_reference_time is not None else {}
+        gate = read_gate(self._gate_path, max_age_days=self._max_age_days, asof=asof, **clock)
+        self.data_error = "cot_gate_unavailable_or_stale" if gate is None else None
         if gate is None:
             return None  # cache absent / malformed / stale -> no-trade, never invented
 

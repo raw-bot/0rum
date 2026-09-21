@@ -20,6 +20,12 @@ state/*.out
 state/*.err
 state/*.pid
 state/*.lock
+state/**/*.log
+state/**/*.out
+state/**/*.err
+state/**/*.pid
+state/**/*.lock
+state/**/cycles/
 state/*.bak*
 state/*_shadow.jsonl
 state/heartbeat.json

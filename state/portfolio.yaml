@@ -1,26 +1,34 @@
-# Multi-strategy paper portfolio — ONE shared account, all paper, no live, no
-# TradingView. Read by scripts/run_paper_portfolio.py -> orum.portfolio.PaperEngine.
-# This file is intentionally separate from goal.yaml (the old mono-asset worker)
-# so bringing the portfolio up changes nothing about the running system until the
-# worker is retired in the follow-up step.
+# Unified paper portfolio; com.0rum.paper is the operational service.
+# Operator configuration, read by each com.0rum.paper --once invocation; overrides config/.
+# See docs/OPERATING-MODES.md for configuration and experiment boundaries.
 starting_balance_usd: 10000.0
 candles_limit: 300            # bars fetched per strategy per cycle
 max_total_stop_risk_pct: 0.05
 max_symbol_stop_risk_pct: 0.03
+allowed_entry_sides: [long]
+risk_sizing_basis: actual_stop
+execution_mode: observed_mark
+entry_drawdown_risk_scale:
+  start_pct: 0.10
+  halt_pct: 0.20
+  floor_multiplier: 0.10
+dynamic_risk_shadow:
+  enabled: true
+  artifact_path: backtests/reports/dynamic_risk_shadow_v1.json
+max_open_positions_by_symbol:
+  BTC/USDT: 1
+max_symbol_notional_pct:
+  BTC/USDT: 1.0
+shadow_regime_filters:
+  BTC/USDT:
+    timeframe: "4h"
+    ema_period: 200
+    enforce: false
 reentry_policy: topup
 merit_order:
   - btc_utbot_m15_h1
   - btc_ak_macd_4h
 min_topup_fraction: 0.0
-
-# Paper-only calibrated forecast gate. It affects NEW entries only after the
-# fixed walk-forward quality lock passes; otherwise the baseline size is kept.
-forecast_gate:
-  enabled: false   # 2026-07-17 : verrouillé 310/311 sur 2,5 ans de replay (aucune influence) ;
-                   # hors du chemin de décision, recherche offline via le harnais uniquement.
-  history_limit: 900
-  min_evaluations: 250
-  neighbour_count: 80
 
 max_leverage: 3.0   # notional cap (× equity) — set via dashboard slider
 
@@ -49,7 +57,7 @@ strategies:
       target_step_r: 1.0
       target_strength_min: 3
     params:
-      allow_short: true      # paper-only short experiment; long-only champion baseline is unchanged.
+      allow_short: false     # main paper account is long-only; shorts live in the isolated experiment.
 
   - id: btc_utbot_m15_h1
     engine: utbot_mtf
@@ -89,7 +97,7 @@ strategies:
       adx_period: 14
       adx_threshold: 20.0
       swing_lookback: 8
-      allow_short: true
+      allow_short: false
       require_adx_rising: true
       slope_lookback: 3
       min_ema_gap_atr: 0.20

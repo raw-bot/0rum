@@ -8,11 +8,13 @@ the portfolio up and retiring the worker are deliberately separate steps.
 Usage:
   uv run python scripts/run_paper_portfolio.py --dry     # offline: build + list, no fetch
   uv run python scripts/run_paper_portfolio.py --once    # one cycle (launchd/cron)
-  uv run python scripts/run_paper_portfolio.py --loop    # 15-minute loop (nohup)
+  uv run python scripts/run_paper_portfolio.py --loop    # 5-minute loop (nohup)
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import sys
 import time
@@ -20,6 +22,7 @@ import fcntl
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from math import isfinite
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -28,7 +31,8 @@ import yaml  # noqa: E402
 
 from data_layer import fetch_klines  # noqa: E402
 from orum.adapters.us_equity import fetch_us_equity_candles  # noqa: E402
-from orum.paths import STATE_DIR  # noqa: E402
+from orum.paths import STATE_DIR
+from orum.fsio import atomic_write_json  # noqa: E402
 from orum.portfolio.paper_engine import PaperEngine  # noqa: E402
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -58,7 +62,15 @@ def run_guarded_cycle(engine: PaperEngine) -> dict | None:
         if not acquired:
             print("paper cycle skipped: another cycle is already running", file=sys.stderr)
             return None
-        return engine.run_cycle()
+        try:
+            summary = engine.run_cycle()
+        except Exception as exc:
+            atomic_write_json(STATE_DIR / "paper_runtime_status.json", {"status": "error", "ts": datetime.now(timezone.utc).isoformat(), "error": f"{type(exc).__name__}: {exc}"})
+            raise
+        summary["config_sha256"] = hashlib.sha256(json.dumps(engine._config, sort_keys=True).encode()).hexdigest()
+        summary["source_sha256"] = hashlib.sha256(Path(sys.modules[PaperEngine.__module__].__file__).read_bytes()).hexdigest()
+        atomic_write_json(STATE_DIR / "paper_runtime_status.json", {**summary, "status": "degraded" if summary.get("errors") else "ok"})
+        return summary
 
 
 def _interval_ms(timeframe: str) -> int:
@@ -84,7 +96,21 @@ def binance_provider(symbol: str, timeframe: str, limit: int) -> list[dict]:
     ]
     now_ms = int(time.time() * 1000)
     interval_ms = _interval_ms(timeframe)
-    return [row for row in normalized if row["ts"] + interval_ms <= now_ms][-limit:]
+    closed = [row for row in normalized if row["ts"] + interval_ms <= now_ms][-limit:]
+    if not closed:
+        raise ValueError("no closed Binance candles")
+    for row in closed:
+        values = [float(row[key]) for key in ("open", "high", "low", "close", "volume")]
+        opn, high, low, close, volume = values
+        if not all(isfinite(value) for value in values) or min(opn, high, low, close) <= 0 or volume < 0 or high < max(opn, close) or low > min(opn, close) or low > high:
+            raise ValueError("invalid Binance OHLCV bounds")
+        if row["ts"] % interval_ms:
+            raise ValueError("misaligned Binance candle")
+    if any(right["ts"] - left["ts"] != interval_ms for left, right in zip(closed, closed[1:])):
+        raise ValueError("duplicate, reversed or missing Binance candles")
+    if now_ms - (closed[-1]["ts"] + interval_ms) >= interval_ms + 60_000:
+        raise ValueError("stale Binance candles")
+    return closed
 
 
 def paper_market_provider(symbol: str, timeframe: str, limit: int) -> list[dict]:
@@ -93,10 +119,15 @@ def paper_market_provider(symbol: str, timeframe: str, limit: int) -> list[dict]
     return binance_provider(symbol, timeframe, limit)
 
 
-def load_config(path: Path | None = None) -> dict:
+def load_config_snapshot(path: Path | None = None) -> tuple[Path, dict]:
+    """Read one complete config and return its actual source; never merge files."""
     candidate = path or PORTFOLIO_PATH
     source = candidate if candidate.exists() else DEFAULT_PORTFOLIO_PATH
-    return yaml.safe_load(source.read_text()) or {}
+    return source, yaml.safe_load(source.read_text()) or {}
+
+
+def load_config(path: Path | None = None) -> dict:
+    return load_config_snapshot(path)[1]
 
 
 def build_engine(provider=paper_market_provider) -> PaperEngine:
@@ -115,9 +146,11 @@ def _print_summary(summary: dict) -> None:
 def main() -> int:
     args = set(sys.argv[1:])
     if "--dry" in args:
-        cfg = load_config()
-        engine = build_engine(provider=lambda *a, **k: [])  # no fetch
-        print(f"portfolio.yaml: {PORTFOLIO_PATH}")
+        source, cfg = load_config_snapshot()
+        engine = PaperEngine(cfg, candle_provider=lambda *a, **k: [])  # no fetch
+        print(f"portfolio.yaml: {source}")
+        print("config_source: " + ("complete fallback" if source == DEFAULT_PORTFOLIO_PATH else "operator config"))
+        print(f"config_sha256: {hashlib.sha256(json.dumps(cfg, sort_keys=True).encode()).hexdigest()}")
         print(f"starting_balance_usd={cfg.get('starting_balance_usd')}  "
               f"candles_limit={cfg.get('candles_limit')}")
         for sc in engine._strategies:  # noqa: SLF001 - dry-run introspection only
@@ -134,11 +167,12 @@ def main() -> int:
                     _print_summary(summary)
             except Exception as exc:  # noqa: BLE001 - keep the loop alive across transient fetch errors
                 print(f"[{datetime.now(timezone.utc).isoformat(timespec='seconds')}] cycle error: {exc}", file=sys.stderr)
-            time.sleep(float(os.environ.get("ORUM_PAPER_INTERVAL_SECONDS", "900")))
+            time.sleep(float(os.environ.get("ORUM_PAPER_INTERVAL_SECONDS", "300")))
     else:  # --once (default)
         summary = run_guarded_cycle(engine)
         if summary is not None:
             _print_summary(summary)
+            return 1 if summary.get("errors") else 0
     return 0
 
 

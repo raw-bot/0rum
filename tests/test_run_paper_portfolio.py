@@ -4,7 +4,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from scripts import run_paper_portfolio
+from orum.paths import PAPER_POSITIONS_PATH
+from scripts import run_paper_portfolio, run_paper_short_experiment
 
 
 class PaperPortfolioRuntimeTests(unittest.TestCase):
@@ -21,9 +22,9 @@ class PaperPortfolioRuntimeTests(unittest.TestCase):
 
     def test_binance_provider_drops_forming_candle(self):
         rows = [
-            {"time": 0, "open": 1, "high": 2, "low": 0, "close": 1, "volume": 1},
-            {"time": 900, "open": 1, "high": 2, "low": 0, "close": 1, "volume": 1},
-            {"time": 1800, "open": 1, "high": 2, "low": 0, "close": 1, "volume": 1},
+            {"time": 0, "open": 1, "high": 2, "low": 0.5, "close": 1, "volume": 1},
+            {"time": 900, "open": 1, "high": 2, "low": 0.5, "close": 1, "volume": 1},
+            {"time": 1800, "open": 1, "high": 2, "low": 0.5, "close": 1, "volume": 1},
         ]
         with patch.object(run_paper_portfolio, "fetch_klines", return_value=rows), \
              patch.object(run_paper_portfolio.time, "time", return_value=1800.0):
@@ -119,14 +120,15 @@ class PaperPortfolioRuntimeTests(unittest.TestCase):
         self.assertEqual(sleeve["exit_policy"], "structural_bracket")
         self.assertEqual(sleeve["monitor_timeframe"], "15m")
 
-    def test_ak_paper_sleeve_enables_short_candidates_in_both_configs(self):
+    def test_main_paper_portfolio_is_long_only_in_both_configs(self):
         for path in (
             run_paper_portfolio.DEFAULT_PORTFOLIO_PATH,
             run_paper_portfolio.PORTFOLIO_PATH,
         ):
             config = run_paper_portfolio.load_config(path=path)
             sleeve = {row["id"]: row for row in config["strategies"]}["btc_ak_macd_4h"]
-            self.assertIs(sleeve["params"]["allow_short"], True)
+            self.assertEqual(config["allowed_entry_sides"], ["long"])
+            self.assertIs(sleeve["params"]["allow_short"], False)
 
     def test_ema_cross_btc_and_eth_are_enabled_paper_experiments(self):
         for path in (
@@ -147,7 +149,7 @@ class PaperPortfolioRuntimeTests(unittest.TestCase):
                 self.assertEqual(sleeve["exit_policy"], "signal_or_stop")
                 self.assertEqual(sleeve["risk_pct"], 0.005)
                 self.assertTrue(sleeve["entry_enabled"])
-                self.assertTrue(sleeve["params"]["allow_short"])
+                self.assertFalse(sleeve["params"]["allow_short"])
                 self.assertEqual(sleeve["params"]["min_ema_gap_atr"], 0.20)
                 self.assertEqual(sleeve["params"]["min_slow_slope_atr"], 0.05)
                 self.assertTrue(sleeve["params"]["require_adx_rising"])
@@ -155,6 +157,47 @@ class PaperPortfolioRuntimeTests(unittest.TestCase):
                 self.assertEqual(
                     sleeve["dynamic_exit"]["version"], "mfe_ratchet_v1"
                 )
+
+    def test_active_safety_overrides_are_explicit_in_both_configs(self):
+        for path in (
+            run_paper_portfolio.DEFAULT_PORTFOLIO_PATH,
+            run_paper_portfolio.PORTFOLIO_PATH,
+        ):
+            config = run_paper_portfolio.load_config(path=path)
+            self.assertEqual(config["risk_sizing_basis"], "actual_stop")
+            self.assertEqual(config["execution_mode"], "observed_mark")
+            self.assertNotIn("entry_drawdown_kill_pct", config)
+            self.assertEqual(config["entry_drawdown_risk_scale"], {
+                "start_pct": 0.10,
+                "halt_pct": 0.20,
+                "floor_multiplier": 0.10,
+            })
+            self.assertEqual(config["dynamic_risk_shadow"], {
+                "enabled": True,
+                "artifact_path": "backtests/reports/dynamic_risk_shadow_v1.json",
+            })
+            self.assertEqual(
+                config["max_open_positions_by_symbol"]["BTC/USDT"], 1
+            )
+            self.assertEqual(
+                config["max_symbol_notional_pct"]["BTC/USDT"], 1.0
+            )
+            shadow = config["shadow_regime_filters"]["BTC/USDT"]
+            self.assertEqual(shadow["timeframe"], "4h")
+            self.assertEqual(shadow["ema_period"], 200)
+            self.assertIs(shadow["enforce"], False)
+
+    def test_short_experiment_is_isolated_and_not_part_of_main_runner(self):
+        config = run_paper_short_experiment.load_config()
+        self.assertEqual(config["allowed_entry_sides"], ["short"])
+        self.assertEqual(config["risk_sizing_basis"], "actual_stop")
+        self.assertEqual(config["execution_mode"], "next_open")
+        self.assertEqual(len(config["strategies"]), 1)
+        self.assertTrue(config["strategies"][0]["params"]["allow_short"])
+        self.assertNotEqual(
+            run_paper_short_experiment.POSITIONS_PATH,
+            PAPER_POSITIONS_PATH,
+        )
 
     def test_overlapping_once_cycle_is_skipped(self):
         class Engine:

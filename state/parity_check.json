@@ -1,7 +1,7 @@
 {
-  "ts": "2026-09-01T09:26:22.858088+00:00",
+  "ts": "2026-09-14T13:53:00.996025+00:00",
   "status": "ALERT",
-  "lab_buys_900bars": 6,
+  "lab_buys_900bars": 4,
   "producer_bars": 777,
   "producer_buys": 13,
   "window_utc": [

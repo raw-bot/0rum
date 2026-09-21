@@ -4,104 +4,34 @@
 > Après toute modification opérationnelle autorisée, recharger immédiatement le composant paper concerné dans le même passage et vérifier son état réellement chargé (configuration, heartbeat, code de sortie et erreurs). Ne jamais remettre l'activation à plus tard sans présenter explicitement le blocage à l'utilisateur. Cette règle n'autorise aucun ordre broker/live.
 > Ne pas confondre avec ~/Documents/00-code/0rum (moteur de recherche, Docker :8008).
 
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
+## Analyse d'impact et vérification
 
-This project is indexed by GitNexus as **0rum-trading** (4797 symbols, 13545 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+- Utiliser en priorité le graphe local `codebase-memory-mcp` pour découvrir les symboles, lire leur code et tracer leurs appelants; utiliser `rg` pour les chaînes, configurations et fichiers non indexés.
+- Avant de modifier un symbole de trading, risque, exécution, persistance ou scheduler, analyser ses appelants directs et les flux concernés. Prévenir l'utilisateur avant de poursuivre si l'impact est élevé ou critique.
+- Avant de terminer, examiner le diff complet, vérifier qu'il ne touche que la portée demandée et exécuter les tests ciblés couvrant les appelants affectés.
+- Ne jamais ignorer un appelant direct cassé, un test en échec, une dérive d'état persisté ou un risque de double exécution.
 
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
+## Contrat paper après audit du 5 septembre 2026
 
-## Always Do
+- Portefeuille principal : `observed_mark` (ADR-018), cycle 300 s; COT dans un service séparé. `next_open` est réservé à un replay aligné sans retour avant les événements du compte.
+- Compte LLM v2 : récupérer les outboxes engagées avant validation; ne jamais restaurer un ancien compte par-dessus des fills. Toute divergence legacy échoue explicitement.
+- `max_leverage` reste par tranche; exposition agrégée affichée séparément. BTC 1× et DynamicRiskShadow observationnel restent inchangés.
+- Calendriers Nasdaq/CFTC vérifiés pour 2026 seulement; les réviser avant 2027. Les résultats v1, transition et v2 ne constituent pas une série de validation homogène.
 
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
+## Comptes de recherche par stratégie (ADR-019)
 
-## When Debugging
+- `scripts/run_strategy_accounts.py` : huit comptes virtuels natifs et un témoin partagé, 10 000 USD chacun, état exclusif sous `state/strategy_accounts/v1`, service 300 s.
+- Les neuf comptes ont un risque nominal sans DDscale/kill, mais gardent les autres plafonds/sorties/frais. Le principal et les LLM conservent leurs politiques distinctes. Ne pas sommer les capitaux fictifs pour afficher un rendement comparable à un seul compte.
+- Configuration figée à l'initialisation ; bougies clôturées et COT archivés par cycle avant exécution. Reprise sur les mêmes entrées, outbox distincte par compte. Aucun reset implicite des comptes.
+- Une dérive de code reste signalée comme rupture méthodologique sans bloquer les sorties. Ne pas présenter une série mélangeant plusieurs méthodes comme une validation homogène.
 
-1. `gitnexus_query({query: "<error or symptom>"})` — find execution flows related to the issue
-2. `gitnexus_context({name: "<suspect function>"})` — see all callers, callees, and process participation
-3. `READ gitnexus://repo/0rum-trading/process/{processName}` — trace the full execution flow step by step
-4. For regressions: `gitnexus_detect_changes({scope: "compare", base_ref: "main"})` — see what your branch changed
+## Evolving lesson hypotheses v2 (2026-09-05)
 
-## When Refactoring
+`llm_evolving` uses the controlled qualitative catalog in `orum/llm/lesson_rules.py` (ADR-020). Active means repeated paper hypothesis, not profitability validation. Unclassified observations are never injected. Preserve original observations, distinct support IDs, per-support expiry, rejection and migration aliases. Never apply lessons to `llm_reference`. The `/bot` surface must distinguish journal state, current eligibility, provided versions and model citations. Do not collapse supplied/cited into causal effectiveness.
 
-- **Renaming**: MUST use `gitnexus_rename({symbol_name: "old", new_name: "new", dry_run: true})` first. Review the preview — graph edits are safe, text_search edits need manual review. Then run with `dry_run: false`.
-- **Extracting/Splitting**: MUST run `gitnexus_context({name: "target"})` to see all incoming/outgoing refs, then `gitnexus_impact({target: "target", direction: "upstream"})` to find all external callers before moving code.
-- After any refactor: run `gitnexus_detect_changes({scope: "all"})` to verify only expected files changed.
+## Consolidation du 9 septembre 2026 (ADR-021)
 
-## Never Do
-
-- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
-- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
-
-## Tools Quick Reference
-
-| Tool | When to use | Command |
-|------|-------------|---------|
-| `query` | Find code by concept | `gitnexus_query({query: "auth validation"})` |
-| `context` | 360-degree view of one symbol | `gitnexus_context({name: "validateUser"})` |
-| `impact` | Blast radius before editing | `gitnexus_impact({target: "X", direction: "upstream"})` |
-| `detect_changes` | Pre-commit scope check | `gitnexus_detect_changes({scope: "staged"})` |
-| `rename` | Safe multi-file rename | `gitnexus_rename({symbol_name: "old", new_name: "new", dry_run: true})` |
-| `cypher` | Custom graph queries | `gitnexus_cypher({query: "MATCH ..."})` |
-
-## Impact Risk Levels
-
-| Depth | Meaning | Action |
-|-------|---------|--------|
-| d=1 | WILL BREAK — direct callers/importers | MUST update these |
-| d=2 | LIKELY AFFECTED — indirect deps | Should test |
-| d=3 | MAY NEED TESTING — transitive | Test if critical path |
-
-## Resources
-
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/0rum-trading/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/0rum-trading/clusters` | All functional areas |
-| `gitnexus://repo/0rum-trading/processes` | All execution flows |
-| `gitnexus://repo/0rum-trading/process/{name}` | Step-by-step execution trace |
-
-## Self-Check Before Finishing
-
-Before completing any code modification task, verify:
-1. `gitnexus_impact` was run for all modified symbols
-2. No HIGH/CRITICAL risk warnings were ignored
-3. `gitnexus_detect_changes()` confirms changes match expected scope
-4. All d=1 (WILL BREAK) dependents were updated
-
-## Keeping the Index Fresh
-
-After committing code changes, the GitNexus index becomes stale. Re-run analyze to update it:
-
-```bash
-npx gitnexus analyze
-```
-
-If the index previously included embeddings, preserve them by adding `--embeddings`:
-
-```bash
-npx gitnexus analyze --embeddings
-```
-
-To check whether embeddings exist, inspect `.gitnexus/meta.json` — the `stats.embeddings` field shows the count (0 means no embeddings). **Running analyze without `--embeddings` will delete any previously generated embeddings.**
-
-> Claude Code users: A PostToolUse hook handles this automatically after `git commit` and `git merge`.
-
-## CLI
-
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-
-<!-- gitnexus:end -->
+- `state/portfolio.yaml` est la configuration opérateur complète ; `config/portfolio.yaml` est le secours complet si elle manque, sans fusion par clé. Préserver les différences volontaires. `--dry` affiche source et empreinte d'une lecture unique ; `--once` relit à chaque invocation, `--loop` conserve sa configuration.
+- Les anciens lanceurs mono-actifs et `scripts/0rum start/stop/restart` sont retirés et refusent toute action. Les modules restent disponibles aux imports/replays ; ne pas les réactiver par nettoyage ou erreur de routage.
+- Chaque expérience reste séparée ; tout retrait traite explicitement positions et preuves. Toute nouvelle expérience définit question, témoin, coût, budget, critère d'utilité et règle d'arrêt (voir `docs/OPERATING-MODES.md`).
+- Après publication, vérifier un nouveau processus/cycle démarré après les remplacements. Un hash du disque ne prouve pas le code précédemment importé. Préserver les indicateurs de changement de méthode des comptes de recherche.

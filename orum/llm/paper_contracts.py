@@ -234,7 +234,8 @@ class LlmPaperAccount:
     positions: Mapping[str, LlmPaperPosition] = field(default_factory=dict)
     processed_decision_ids: tuple[str, ...] = ()
     last_processed_candles: Mapping[str, int] = field(default_factory=dict)
-    schema_version: int = 1
+    schema_version: int = 2
+    pending_fills: tuple[LlmPaperFill, ...] = ()
 
     def __post_init__(self) -> None:
         lane = _text(self.lane, "lane")
@@ -243,8 +244,15 @@ class LlmPaperAccount:
         object.__setattr__(self, "lane", lane)
         object.__setattr__(self, "starting_balance_usd", _number(self.starting_balance_usd, "starting_balance_usd", minimum=0))
         object.__setattr__(self, "balance_usd", _number(self.balance_usd, "balance_usd", minimum=0))
-        if self.schema_version != 1:
+        if self.schema_version not in (1, 2):
             raise PaperContractError("unsupported paper account schema_version")
+        object.__setattr__(self, "schema_version", 2)
+        pending = tuple(self.pending_fills)
+        if any(not isinstance(fill, LlmPaperFill) or fill.lane != lane for fill in pending):
+            raise PaperContractError("invalid pending fills for account lane")
+        if len({fill.operation_id for fill in pending}) != len(pending):
+            raise PaperContractError("duplicate pending fill operation")
+        object.__setattr__(self, "pending_fills", pending)
         normalized_positions: dict[str, LlmPaperPosition] = {}
         for key, position in self.positions.items():
             position_key = _text(key, "position key")
@@ -304,11 +312,13 @@ class LlmPaperAccount:
             processed_decision_ids=tuple(raw.get("processed_decision_ids", [])),
             last_processed_candles=raw.get("last_processed_candles", {}),
             schema_version=raw.get("schema_version", 1),
+            pending_fills=tuple(LlmPaperFill.from_mapping(item) for item in raw.get("pending_fills", [])),
         )
 
     def to_mapping(self) -> dict[str, object]:
         return {
             "schema_version": self.schema_version,
+            "pending_fills": [fill.to_mapping() for fill in self.pending_fills],
             "lane": self.lane,
             "starting_balance_usd": self.starting_balance_usd,
             "balance_usd": self.balance_usd,

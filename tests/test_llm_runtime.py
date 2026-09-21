@@ -604,3 +604,15 @@ def test_snapshot_account_reader_labels_native_and_both_llm_lanes(tmp_path):
     assert result["native"]["balance_usd"] == 10_000
     assert result["llm_accounts"]["llm_reference"]["lane"] == "llm_reference"
     assert result["llm_accounts"]["llm_evolving"]["lane"] == "llm_evolving"
+
+
+def test_lesson_retrieval_failure_does_not_block_reference_or_paper_experiment(tmp_path):
+    runtime, _, _, reference, evolving, journal = _runtime(tmp_path, LlmMode.SHADOW)
+    def fail(*args):
+        raise ValueError('broken lesson journal')
+    runtime.lesson_provider = fail
+    result = runtime.run_once()
+    assert len(reference.calls) == len(evolving.calls) == 1
+    assert reference.calls[0]['lessons'] == evolving.calls[0]['lessons'] == []
+    assert result.errors[0].startswith('lesson_retrieval:')
+    assert journal.read()[0]['fallback'] == 'evolving_without_lessons'

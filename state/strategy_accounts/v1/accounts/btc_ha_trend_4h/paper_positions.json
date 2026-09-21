@@ -1,0 +1,13 @@
+{
+  "balance_usd": 9892.804360001082,
+  "last_event_ts": 1789502046000,
+  "market_cursors": {
+    "BTC/USDT:15m": 1789500600000,
+    "BTC/USDT:4h": 1789473600000
+  },
+  "positions": {},
+  "processed_candles": {
+    "btc_ha_trend_4h": 1789473600000
+  },
+  "updated_at": "2026-09-15T19:54:14+00:00"
+}

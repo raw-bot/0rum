@@ -1,8 +1,10 @@
 {
-  "report_date": "2026-06-23",
-  "usable_from": "2026-06-26",
-  "cot_index": 53.9,
+  "report_date": "2026-09-08",
+  "usable_from": "2026-09-11",
+  "published_at": "2026-09-11T15:30:00-04:00",
+  "cot_index": 27.9,
   "gate_on": false,
   "threshold": 20.0,
-  "updated_at": "2026-09-01T22:36:32+00:00"
+  "updated_at": "2026-09-15T19:53:17+00:00",
+  "calendar_version": "cftc_2026_20260905"
 }

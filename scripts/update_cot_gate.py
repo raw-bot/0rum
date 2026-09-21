@@ -17,17 +17,20 @@ Usage:
 
 from __future__ import annotations
 
+import csv
 import json
 import os
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from data_layer import cot_index, fetch_cot  # noqa: E402
+from data_layer import cot_index, fetch_cot, CACHE_DIR  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from orum.paths import COT_GATE_PATH  # noqa: E402
+from orum.paths import COT_GATE_PATH
+from orum.fsio import atomic_write_json
+from orum.strategies.cot_calendar import publication_at  # noqa: E402
 
 MARKET = "GOLD - COMMODITY EXCHANGE"
 LOOKBACK = 156
@@ -35,19 +38,47 @@ THRESHOLD = 20.0
 
 
 def compute_gate() -> dict:
-    cot = fetch_cot(range(2006, datetime.now(timezone.utc).year + 1), MARKET)
-    if not cot:
-        raise RuntimeError("fetch_cot returned no rows")
-    idx = cot_index([r["comm_net"] for r in cot], LOOKBACK)
-    last, value = cot[-1], round(idx[-1], 1)
-    return {
-        "report_date": last["report_date"],
-        "usable_from": last["usable_from"],
-        "cot_index": value,
-        "gate_on": value <= THRESHOLD,
-        "threshold": THRESHOLD,
-        "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    }
+    now = datetime.now(timezone.utc)
+    year = now.year
+    # Reuse the long-history cache already present. Bootstrap only three
+    # completed years if absent; refresh the current year independently.
+    key = MARKET.lower().replace(" ", "_").replace("-", "")[:24]
+    legacy = os.path.join(CACHE_DIR, f"cot_{key}_2006_{year}.csv")
+    if os.path.exists(legacy):
+        with open(legacy) as handle:
+            history = list(csv.DictReader(handle))
+        history = [row for row in history if int(row["report_date"][:4]) < year]
+    else:
+        history = fetch_cot(range(year - 3, year), MARKET)
+    refresh_path = COT_GATE_PATH.with_name("cot_current_year.json")
+    current = None
+    try:
+        cached = json.loads(refresh_path.read_text())
+        fetched = datetime.fromisoformat(cached["fetched_at"])
+        if cached["year"] == year and timedelta(0) <= now - fetched < timedelta(hours=6):
+            current = cached["rows"]
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    if current is None:
+        current = fetch_cot(range(year, year + 1), MARKET, cache=False)
+        if not current:
+            raise RuntimeError("current-year COT refresh failed")
+        atomic_write_json(refresh_path, {"year": year, "fetched_at": now.isoformat(), "rows": current})
+    current = [row for row in current if publication_at(row["report_date"]) <= now]
+    combined = {row["report_date"]: row for row in history + current}
+    cot = [combined[key] for key in sorted(combined)]
+    if len(cot) < LOOKBACK:
+        raise RuntimeError("insufficient COT history")
+    last = cot[-1]
+    report = datetime.fromisoformat(last["report_date"]).replace(tzinfo=timezone.utc)
+    if not timedelta(0) <= now - report <= timedelta(days=10):
+        raise RuntimeError(f"stale economic COT report {last['report_date']}")
+    value = round(cot_index([float(row["comm_net"]) for row in cot], LOOKBACK)[-1], 1)
+    published = publication_at(last["report_date"])
+    return {"report_date": last["report_date"], "usable_from": published.date().isoformat(),
+            "published_at": published.isoformat(), "cot_index": value,
+            "gate_on": value <= THRESHOLD, "threshold": THRESHOLD,
+            "updated_at": now.isoformat(timespec="seconds"), "calendar_version": "cftc_2026_20260905"}
 
 
 def write_gate(gate: dict, path=COT_GATE_PATH) -> None:
@@ -67,8 +98,10 @@ def main() -> int:
         gate = compute_gate()
     except Exception as exc:  # noqa: BLE001 - a failed fetch must leave the old cache intact
         print(f"cot gate update FAILED (cache left untouched): {exc}", file=sys.stderr)
+        atomic_write_json(COT_GATE_PATH.with_name("cot_refresh_status.json"), {"status": "error", "ts": datetime.now(timezone.utc).isoformat(), "error": str(exc)})
         return 1
     write_gate(gate)
+    atomic_write_json(COT_GATE_PATH.with_name("cot_refresh_status.json"), {"status": "ok", "ts": gate["updated_at"], "report_date": gate["report_date"]})
     print(f"cot gate written -> {COT_GATE_PATH}  "
           f"(index {gate['cot_index']} {'<=' if gate['gate_on'] else '>'} {THRESHOLD} "
           f"=> gate_{'ON' if gate['gate_on'] else 'OFF'}, report {gate['report_date']})")

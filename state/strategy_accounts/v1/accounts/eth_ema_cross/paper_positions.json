@@ -1,0 +1,13 @@
+{
+  "balance_usd": 10000.0,
+  "last_event_ts": 1789502046000,
+  "market_cursors": {
+    "ETH/USDT:15m": 1789500600000,
+    "ETH/USDT:1h": 1789495200000
+  },
+  "positions": {},
+  "processed_candles": {
+    "eth_ema_cross": 1789495200000
+  },
+  "updated_at": "2026-09-15T19:54:15+00:00"
+}

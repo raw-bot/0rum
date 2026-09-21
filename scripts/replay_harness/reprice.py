@@ -83,7 +83,7 @@ def reprice(trades: list[dict], provider: SnapshotProvider, *, symbol: str,
     done: list[dict] = []
     skipped = {"gap_through_entry": 0, "position_still_open": 0, "no_bar": 0}
     curve: list[tuple[int, float]] = []
-    peak, max_dd = 0.0, 0.0
+    peak, max_dd = starting_balance, 0.0
 
     def close_position(sid: str, price: float, bar_ts: int, reason: str) -> None:
         nonlocal balance
@@ -100,29 +100,17 @@ def reprice(trades: list[dict], provider: SnapshotProvider, *, symbol: str,
         bar_close_ts = bar["ts"] + step
         opn, hi, lo = float(bar["open"]), float(bar["high"]), float(bar["low"])
 
-        # -- exits first (protective SL-first, then due signal exits) --------
+        # Signal exits at the open precede entries and intrabar excursions.
         for sid in list(open_pos):
             pos = open_pos[sid]
-            if bar["ts"] < pos["from_ts"]:
-                continue
-            stop, tp = pos["trade"]["stop"], pos["trade"]["tp"]
             side = pos["trade"].get("side", "long")
-            if side == "long":
-                if stop is not None and lo <= stop:
-                    price = (opn if opn <= stop else stop) * (1 - slip)
-                    close_position(sid, price, bar["ts"], "stop_loss")
-                    continue
-                if tp is not None and hi >= tp:
-                    close_position(sid, opn if opn >= tp else tp, bar["ts"], "take_profit")
-                    continue
-            else:
-                if stop is not None and hi >= stop:
-                    price = (opn if opn >= stop else stop) * (1 + slip)
-                    close_position(sid, price, bar["ts"], "stop_loss")
-                    continue
-                if tp is not None and lo <= tp:
-                    close_position(sid, opn if opn <= tp else tp, bar["ts"], "take_profit")
-                    continue
+            stop, target = pos["trade"]["stop"], pos["trade"]["tp"]
+            gap_stop = stop is not None and (opn <= stop if side == "long" else opn >= stop)
+            gap_target = target is not None and (opn >= target if side == "long" else opn <= target)
+            if gap_stop or gap_target:
+                price = opn * ((1 - slip if side == "long" else 1 + slip) if gap_stop else 1)
+                close_position(sid, price, bar["ts"], "stop_loss" if gap_stop else "take_profit")
+                continue
             if (pos["trade"]["close_reason"] not in ("stop_loss", "take_profit")
                     and bar["ts"] >= pos["signal_exit_ts"]):
                 exit_slip = 1 - slip if side == "long" else 1 + slip
@@ -149,7 +137,7 @@ def reprice(trades: list[dict], provider: SnapshotProvider, *, symbol: str,
                 continue
             equity = balance + sum(
                 (1.0 if p["trade"].get("side", "long") == "long" else -1.0)
-                * p["qty"] * (float(bar["close"]) - p["entry"])
+                * p["qty"] * (opn - p["entry"])
                 for p in open_pos.values()
             )
             qty = trade["risk_pct"] * equity / trade["atr_risk"]
@@ -159,10 +147,31 @@ def reprice(trades: list[dict], provider: SnapshotProvider, *, symbol: str,
             balance -= entry_fee
             open_pos[position_id] = {
                 "trade": trade, "entry": entry, "qty": qty,
-                "entry_fee": entry_fee, "from_ts": bar["ts"] + 1,
+                "entry_fee": entry_fee, "from_ts": bar["ts"],
                 "signal_exit_ts": trade["close_ts"],
             }
 
+        # First entry bar is protected too, using only the stop known at its open.
+        for sid in list(open_pos):
+            pos = open_pos[sid]
+            stop, tp = pos["trade"]["stop"], pos["trade"]["tp"]
+            side = pos["trade"].get("side", "long")
+            if side == "long":
+                if stop is not None and lo <= stop:
+                    price = (opn if opn <= stop else stop) * (1 - slip)
+                    close_position(sid, price, bar["ts"], "stop_loss")
+                    continue
+                if tp is not None and hi >= tp:
+                    close_position(sid, opn if opn >= tp else tp, bar["ts"], "take_profit")
+                    continue
+            else:
+                if stop is not None and hi >= stop:
+                    price = (opn if opn >= stop else stop) * (1 + slip)
+                    close_position(sid, price, bar["ts"], "stop_loss")
+                    continue
+                if tp is not None and lo <= tp:
+                    close_position(sid, opn if opn <= tp else tp, bar["ts"], "take_profit")
+                    continue
         equity = balance + sum(
             (1.0 if p["trade"].get("side", "long") == "long" else -1.0)
             * p["qty"] * (float(bar["close"]) - p["entry"])
@@ -177,10 +186,14 @@ def reprice(trades: list[dict], provider: SnapshotProvider, *, symbol: str,
     for sid in list(open_pos):
         close_position(sid, float(bars[-1]["close"]), bars[-1]["ts"], "end_of_data")
 
+    if curve:
+        curve[-1] = (curve[-1][0], balance)
+        if peak > 0:
+            max_dd = max(max_dd, (peak - balance) / peak)
+    skipped["no_bar"] = len(pending) - next_trade
     by_sid: dict[str, float] = {}
     for t in done:
         by_sid[t["sid"]] = by_sid.get(t["sid"], 0.0) + t["real_net"]
-    final = curve[-1][1] if curve else starting_balance
     return {
         "slippage_bps": slippage_bps,
         "final_equity": round(balance, 2),

@@ -39,6 +39,7 @@ class LlmRunResult:
     snapshot_id: str | None
     brief_id: str | None
     lanes: tuple[LaneRunResult, ...]
+    errors: tuple[str, ...] = ()
 
 
 class LlmLabRuntime:
@@ -79,18 +80,37 @@ class LlmLabRuntime:
             raise LlmRuntimeError("paper_autonomous requires an isolated paper executor")
 
         snapshot = self.snapshot_factory()
+        errors: list[str] = []
         if mode is LlmMode.PAPER_AUTONOMOUS:
             candles = snapshot.candles.get(self.config.decision_timeframe)
             if not isinstance(candles, list) or not candles:
                 raise LlmRuntimeError("decision timeframe has no closed candle")
+            closed_for_learning = []
+            failed_monitor_lanes = set()
             for candle in candles:
                 monitored_candle = self._with_close_timestamp(candle)
                 for lane in ("llm_reference", "llm_evolving"):
-                    closed_fills = self.paper_executor.monitor(lane=lane, candle=monitored_candle)
-                    for fill in closed_fills:
-                        if self.learning_processor is None:
-                            continue
-                        self.learning_processor.process(fill=fill, snapshot=snapshot)
+                    if lane in failed_monitor_lanes:
+                        continue
+                    try:
+                        closed_for_learning.extend(self.paper_executor.monitor(lane=lane, candle=monitored_candle))
+                    except Exception as exc:
+                        failed_monitor_lanes.add(lane)
+                        errors.append(f"monitor:{lane}: {type(exc).__name__}: {exc}")
+            # Mechanical exits of all lanes finish before any remote learning call.
+            if self.learning_processor is not None:
+                replay = getattr(self.paper_executor, "learning_fills", None)
+                if callable(replay):
+                    closed_for_learning = replay()
+                for fill in closed_for_learning:
+                    try:
+                        learned = self.learning_processor.process(fill=fill, snapshot=snapshot)
+                        if getattr(learned, "status", "") in {"missing_entry", "missing_decision", "missing_candles", "incomplete_candles"}:
+                            errors.append(f"learning:{fill.fill_id}: {learned.status}")
+                    except Exception as exc:
+                        errors.append(f"learning:{fill.fill_id}: {type(exc).__name__}: {exc}")
+            if errors:
+                self.decision_journal.append({"kind": "cycle_protection_errors", "snapshot_id": snapshot.snapshot_id, "errors": errors})
             # Refresh account state without moving the market-data cutoff.
             snapshot = self.account_refresher(snapshot)
         brief: MarketBrief = self.analyst.analyze(snapshot)
@@ -105,18 +125,28 @@ class LlmLabRuntime:
         if mode not in {LlmMode.SHADOW, LlmMode.PAPER_AUTONOMOUS}:
             raise LlmRuntimeError(f"unsupported LLM laboratory mode: {mode.value}")
 
-        lessons = tuple(
-            self.lesson_provider(snapshot, brief, self.config.max_retrieved_lessons)
-        )
+        try:
+            lessons = tuple(self.lesson_provider(snapshot, brief, self.config.max_retrieved_lessons))
+        except Exception as exc:
+            lessons = ()
+            errors.append(f"lesson_retrieval: {type(exc).__name__}: {exc}")
+            self.decision_journal.append({"kind": "lesson_retrieval_error", "snapshot_id": snapshot.snapshot_id,
+                                          "error": str(exc), "fallback": "evolving_without_lessons"})
+        def run_lane(**kwargs):
+            lane = kwargs["lane"]
+            if any(error.startswith(f"monitor:{lane}:") for error in errors):
+                return LaneRunResult(lane, "monitor_error", None, error="protective monitoring failed")
+            return self._run_lane(**kwargs)
+
         lane_results = (
-            self._run_lane(
+            run_lane(
                 lane="llm_reference",
                 trader=self.reference_trader,
                 snapshot=snapshot,
                 brief=brief,
                 lessons=(),
             ),
-            self._run_lane(
+            run_lane(
                 lane="llm_evolving",
                 trader=self.evolving_trader,
                 snapshot=snapshot,
@@ -129,6 +159,7 @@ class LlmLabRuntime:
             snapshot_id=snapshot.snapshot_id,
             brief_id=brief.brief_id,
             lanes=lane_results,
+            errors=tuple(errors),
         )
 
     def _run_lane(

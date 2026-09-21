@@ -65,3 +65,24 @@ def test_postmortem_rejects_invented_provenance_and_journals_error(tmp_path):
         )
 
     assert journal.read()[0]["status"] == "model_error"
+
+
+def test_evolving_only_accepts_compatible_rule_and_cited_counterexample(tmp_path):
+    journal = JsonlJournal(tmp_path / 'postmortems.jsonl')
+    payload = _payload(adjustment_key='confirm_entry', contradicted_lesson_ids=['lesson-used'])
+    service = PostMortemService(client=Client(payload), journal=journal, clock=lambda: NOW)
+    decision = {'decision_id':'dec-1', 'lane':'llm_evolving', 'lesson_ids':['lesson-used'], 'provided_lessons':[{'lesson_id':'lesson-used','version':2}]}
+    result = service.review(decision=decision, outcome={'outcome_id':'out-1','decision_id':'dec-1'})
+    assert result.adjustment_key == 'confirm_entry'
+    assert result.contradicted_lesson_ids == ('lesson-used',)
+    with pytest.raises(PostMortemError):
+        service.review(decision={**decision, 'lesson_ids':[]}, outcome={'outcome_id':'out-1','decision_id':'dec-1'})
+    service.client = Client(_payload(adjustment_key='stop_beyond_noise'))
+    with pytest.raises(PostMortemError):
+        service.review(decision=decision, outcome={'outcome_id':'out-1','decision_id':'dec-1'})
+
+
+def test_contradicting_and_supporting_same_rule_is_rejected(tmp_path):
+    service = PostMortemService(client=Client(_payload(adjustment_key='confirm_entry', contradicted_lesson_ids=['used'])), journal=JsonlJournal(tmp_path / 'postmortems.jsonl'), clock=lambda: NOW)
+    with pytest.raises(PostMortemError, match='support and contradict'):
+        service.review(decision={'decision_id':'dec-1','lane':'llm_evolving','lesson_ids':['used'],'provided_lessons':[{'lesson_id':'used','adjustment_key':'confirm_entry'}]}, outcome={'outcome_id':'out-1','decision_id':'dec-1'})

@@ -56,6 +56,7 @@ from orum.paths import (
     PAPER_FILLS_PATH,
     PAPER_POSITIONS_PATH,
 )
+from orum.portfolio.dynamic_risk import DynamicRiskShadow
 from orum.portfolio.paper_broker import Account, PaperBroker
 from orum.portfolio.position_manager import (
     DynamicExitPolicy,
@@ -99,6 +100,16 @@ def _atr(candles: list[dict], n: int = _ATR_LEN) -> float:
     return atr
 
 
+def _ema_last(values: list[float], period: int) -> float | None:
+    if period <= 0 or len(values) < period:
+        return None
+    alpha = 2.0 / (period + 1.0)
+    current = sum(values[:period]) / period
+    for value in values[period:]:
+        current = alpha * value + (1.0 - alpha) * current
+    return current
+
+
 def _entry_risk_distance(
     entry_price: float,
     stop_loss_price: float | None,
@@ -106,13 +117,11 @@ def _entry_risk_distance(
     *,
     side: str = "long",
 ) -> float | None:
-    """Freeze the actual entry-to-stop distance for display/audit only.
+    """Freeze the actual entry-to-stop distance.
 
-    Sizing, portfolio/thesis risk caps, and R-multiple still use `atr_risk`
-    (ADR-005: the operator kept the ATR-based basis after replay showed
-    +390.91% ATR-based vs +118.23% actual-stop-based). This value only feeds
-    `Position.risk_distance` / the dashboard's `stop_risk_usd`, and still
-    catches a malformed explicit stop (`invalid_stop`) before an entry opens.
+    The active paper portfolio uses it for sizing and caps; historical configs
+    can still select the legacy ATR basis. A malformed explicit stop fails
+    closed before an entry can open.
     """
     if side not in ("long", "short"):
         return None
@@ -218,15 +227,34 @@ class PaperEngine:
         fills_path: Path = PAPER_FILLS_PATH,
         equity_path: Path = PAPER_EQUITY_PATH,
         dynamic_exit_path: Path | None = None,
+        shadow_regime_path: Path | None = None,
+        dynamic_risk_shadow_path: Path | None = None,
+        valuation_marks: dict[str, float] | None = None,
     ) -> None:
         self._config = config or {}
         self._provider = candle_provider
+        # Optional common valuation for isolated research accounts. Execution and
+        # protective prices still come from each strategy's native monitor bars.
+        self._valuation_marks = dict(valuation_marks) if valuation_marks is not None else None
+        if self._valuation_marks is not None:
+            if config.get("execution_mode") != "observed_mark" or config.get("reentry_policy") is None:
+                raise ValueError("common valuation requires the observed_mark auction")
+            if any(not isfinite(value) or value <= 0 for value in self._valuation_marks.values()):
+                raise ValueError("invalid common valuation mark")
         self._broker = broker or PaperBroker()
         self._positions_path = Path(positions_path)
         self._fills_path = Path(fills_path)
         self._equity_path = Path(equity_path)
         self._dynamic_exit_path = Path(
             dynamic_exit_path or self._fills_path.with_name("paper_dynamic_exits.jsonl")
+        )
+        self._shadow_regime_path = Path(
+            shadow_regime_path
+            or self._equity_path.with_name("paper_regime_shadow.jsonl")
+        )
+        self._dynamic_risk_shadow_path = Path(
+            dynamic_risk_shadow_path
+            or self._equity_path.with_name("paper_dynamic_risk_shadow.jsonl")
         )
         self._dynamic_decision_ids: set[str] | None = None
         self._candles_limit = int(self._config.get("candles_limit", 300))
@@ -237,6 +265,113 @@ class PaperEngine:
         self._max_symbol_stop_risk_pct = float(
             self._config.get("max_symbol_stop_risk_pct", 1.0)
         )
+        self._risk_sizing_basis = str(
+            self._config.get("risk_sizing_basis", "atr")
+        )
+        if self._risk_sizing_basis not in ("atr", "actual_stop"):
+            raise ValueError(
+                f"unknown risk_sizing_basis {self._risk_sizing_basis!r}"
+            )
+        self._execution_mode = str(
+            self._config.get("execution_mode", "signal_close")
+        )
+        if self._execution_mode not in ("signal_close", "next_open", "observed_mark"):
+            raise ValueError(f"unknown execution_mode {self._execution_mode!r}")
+        raw_sides = self._config.get(
+            "allowed_entry_sides", ["long", "short"]
+        )
+        if (
+            not isinstance(raw_sides, list)
+            or not raw_sides
+            or any(side not in ("long", "short") for side in raw_sides)
+        ):
+            raise ValueError("allowed_entry_sides must contain long and/or short")
+        self._allowed_entry_sides = frozenset(raw_sides)
+        raw_drawdown = self._config.get("entry_drawdown_kill_pct")
+        self._entry_drawdown_kill_pct = (
+            float(raw_drawdown) if raw_drawdown is not None else None
+        )
+        if (
+            self._entry_drawdown_kill_pct is not None
+            and not 0 < self._entry_drawdown_kill_pct < 1
+        ):
+            raise ValueError("entry_drawdown_kill_pct must be between 0 and 1")
+        raw_drawdown_scale = self._config.get("entry_drawdown_risk_scale")
+        if raw_drawdown_scale is not None and self._entry_drawdown_kill_pct is not None:
+            raise ValueError(
+                "entry_drawdown_kill_pct and entry_drawdown_risk_scale are mutually exclusive"
+            )
+        self._entry_drawdown_risk_scale = None
+        if raw_drawdown_scale is not None:
+            if not isinstance(raw_drawdown_scale, dict):
+                raise ValueError("entry_drawdown_risk_scale must be a mapping")
+            try:
+                start_pct = float(raw_drawdown_scale["start_pct"])
+                halt_pct = float(raw_drawdown_scale["halt_pct"])
+                floor_multiplier = float(raw_drawdown_scale["floor_multiplier"])
+            except (KeyError, TypeError, ValueError):
+                raise ValueError("invalid entry_drawdown_risk_scale") from None
+            if not all(isfinite(value) for value in (
+                start_pct, halt_pct, floor_multiplier
+            )) or not (0 <= start_pct < halt_pct < 1) or not (
+                0 < floor_multiplier <= 1
+            ):
+                raise ValueError("invalid entry_drawdown_risk_scale")
+            self._entry_drawdown_risk_scale = {
+                "start_pct": start_pct,
+                "halt_pct": halt_pct,
+                "floor_multiplier": floor_multiplier,
+            }
+        raw_dynamic_risk = self._config.get("dynamic_risk_shadow")
+        self._dynamic_risk_shadow = None
+        if raw_dynamic_risk is not None:
+            if not isinstance(raw_dynamic_risk, dict):
+                raise ValueError("dynamic_risk_shadow must be a mapping")
+            if raw_dynamic_risk.get("enabled", False):
+                artifact_path = Path(str(raw_dynamic_risk.get("artifact_path", "")))
+                if not artifact_path.is_absolute():
+                    artifact_path = Path(__file__).resolve().parents[2] / artifact_path
+                self._dynamic_risk_shadow = DynamicRiskShadow.from_path(artifact_path)
+        self._max_open_positions_by_symbol = {
+            str(symbol): int(limit)
+            for symbol, limit in (
+                self._config.get("max_open_positions_by_symbol") or {}
+            ).items()
+        }
+        if any(
+            limit <= 0
+            for limit in self._max_open_positions_by_symbol.values()
+        ):
+            raise ValueError("max_open_positions_by_symbol limits must be positive")
+        self._max_symbol_notional_pct = {
+            str(symbol): float(limit)
+            for symbol, limit in (
+                self._config.get("max_symbol_notional_pct") or {}
+            ).items()
+        }
+        if any(
+            not isfinite(limit) or limit <= 0
+            for limit in self._max_symbol_notional_pct.values()
+        ):
+            raise ValueError("max_symbol_notional_pct limits must be positive")
+        self._shadow_regime_filters = {}
+        for symbol, raw_filter in (
+            self._config.get("shadow_regime_filters") or {}
+        ).items():
+            if not isinstance(raw_filter, dict):
+                raise ValueError("shadow_regime_filters entries must be mappings")
+            timeframe = str(raw_filter.get("timeframe", "4h"))
+            ema_period = int(raw_filter.get("ema_period", 200))
+            enforce = raw_filter.get("enforce", False)
+            if timeframe not in _TIMEFRAME_MS or ema_period <= 0:
+                raise ValueError("invalid shadow regime filter")
+            if enforce is not False:
+                raise ValueError("shadow regime filters cannot be enforced")
+            self._shadow_regime_filters[str(symbol)] = {
+                "timeframe": timeframe,
+                "ema_period": ema_period,
+                "enforce": False,
+            }
         # Optional notional cap (× equity). Absent/None keeps the historical
         # behaviour byte-for-byte: pure risk-based sizing, no cap.
         raw_leverage = self._config.get("max_leverage")
@@ -328,6 +463,68 @@ class PaperEngine:
         with path.open("a") as f:
             f.write(json.dumps(record, default=str) + "\n")
 
+    def _entry_drawdown(self, current_equity: float) -> float:
+        peak = max(self._starting_balance, current_equity)
+        try:
+            lines = self._equity_path.read_text().splitlines()
+        except OSError:
+            lines = []
+        for line in lines:
+            try:
+                value = float(json.loads(line).get("equity_usd"))
+            except (AttributeError, TypeError, ValueError):
+                continue
+            if isfinite(value):
+                peak = max(peak, value)
+        return max(0.0, (peak - current_equity) / peak) if peak > 0 else 0.0
+
+    def _entry_drawdown_multiplier(self, drawdown: float) -> float:
+        if self._entry_drawdown_risk_scale is None:
+            if (
+                self._entry_drawdown_kill_pct is not None
+                and drawdown >= self._entry_drawdown_kill_pct
+            ):
+                return 0.0
+            return 1.0
+        start = self._entry_drawdown_risk_scale["start_pct"]
+        halt = self._entry_drawdown_risk_scale["halt_pct"]
+        floor = self._entry_drawdown_risk_scale["floor_multiplier"]
+        if drawdown < start:
+            return 1.0
+        if drawdown >= halt:
+            return 0.0
+        progress = (drawdown - start) / (halt - start)
+        return 1.0 - progress * (1.0 - floor)
+
+    def _shadow_regime(self, plan: dict, direction: str) -> dict | None:
+        sc: StrategyConfig = plan["sc"]
+        config = self._shadow_regime_filters.get(sc.symbol)
+        if config is None:
+            return None
+        timeframe = config["timeframe"]
+        candles = plan["signal_candles_by_timeframe"].get(timeframe, [])
+        closes = [float(candle["close"]) for candle in candles]
+        ema = _ema_last(closes, config["ema_period"])
+        if ema is None:
+            return {
+                "timeframe": timeframe,
+                "ema_period": config["ema_period"],
+                "passed": None,
+                "reason": "insufficient_history",
+                "enforced": False,
+            }
+        close = closes[-1]
+        passed = close > ema if direction == "long" else close < ema
+        return {
+            "timeframe": timeframe,
+            "ema_period": config["ema_period"],
+            "close": close,
+            "ema": ema,
+            "passed": passed,
+            "reason": "above_ema" if close > ema else "below_or_equal_ema",
+            "enforced": False,
+        }
+
     @staticmethod
     def _repair_jsonl_tail(path: Path) -> None:
         """Remove only a torn final record left by a process crash."""
@@ -394,6 +591,7 @@ class PaperEngine:
     def _commit_fills(self, account: Account, fills: list[dict]) -> None:
         """Commit one cycle's account mutation and fills through one outbox."""
         for fill in fills:
+            fill.setdefault("execution_method", self._execution_mode + "_v2")
             fill.setdefault(
                 "fill_id",
                 self._dynamic_id(
@@ -494,6 +692,13 @@ class PaperEngine:
                 position.sl_basis = "atr_fallback_migration"
 
     @staticmethod
+    def _gap_stop_price(position, stop: float, candle: dict) -> float:
+        opn = float(candle.get("open", stop))
+        if not isfinite(opn) or opn <= 0:
+            raise ValueError("invalid monitor open")
+        return min(stop, opn) if position.side == "long" else max(stop, opn)
+
+    @staticmethod
     def _static_protective_exit(position, candle: dict) -> tuple[str, float] | None:
         try:
             low = float(candle["low"])
@@ -502,16 +707,25 @@ class PaperEngine:
             raise ValueError("monitor candle requires numeric high and low") from None
         if not isfinite(low) or not isfinite(high) or low > high:
             raise ValueError("monitor candle has invalid high/low")
+        opn = float(candle.get("open", (low + high) / 2))
         if position.side == "long":
+            if position.stop_loss_price is not None and opn <= position.stop_loss_price:
+                return "stop_loss", opn
+            if position.take_profit_price is not None and opn >= position.take_profit_price:
+                return "take_profit", opn
             if position.stop_loss_price is not None and low <= position.stop_loss_price:
-                return "stop_loss", float(position.stop_loss_price)
+                return "stop_loss", PaperEngine._gap_stop_price(position, float(position.stop_loss_price), candle)
             if position.take_profit_price is not None and high >= position.take_profit_price:
-                return "take_profit", float(position.take_profit_price)
+                return "take_profit", (max(float(position.take_profit_price), float(candle.get("open", position.take_profit_price))) if position.side == "long" else min(float(position.take_profit_price), float(candle.get("open", position.take_profit_price))))
         elif position.side == "short":
+            if position.stop_loss_price is not None and opn >= position.stop_loss_price:
+                return "stop_loss", opn
+            if position.take_profit_price is not None and opn <= position.take_profit_price:
+                return "take_profit", opn
             if position.stop_loss_price is not None and high >= position.stop_loss_price:
-                return "stop_loss", float(position.stop_loss_price)
+                return "stop_loss", PaperEngine._gap_stop_price(position, float(position.stop_loss_price), candle)
             if position.take_profit_price is not None and low <= position.take_profit_price:
-                return "take_profit", float(position.take_profit_price)
+                return "take_profit", (max(float(position.take_profit_price), float(candle.get("open", position.take_profit_price))) if position.side == "long" else min(float(position.take_profit_price), float(candle.get("open", position.take_profit_price))))
         return None
 
     @staticmethod
@@ -523,6 +737,8 @@ class PaperEngine:
             return None
         low = float(candle.get("low", candle.get("close", 0.0)))
         high = float(candle.get("high", candle.get("close", 0.0)))
+        if not isfinite(low) or not isfinite(high) or low <= 0 or low > high:
+            raise ValueError("invalid monitor high/low")
         stop_price = float(position.stop_loss_price) if position.stop_loss_price is not None else None
         stop_reason = "stop_loss"
         if position.dynamic_exit is not None:
@@ -549,10 +765,15 @@ class PaperEngine:
                 float(position.take_profit_price)
                 if position.take_profit_price is not None else None
             )
+        opn = float(candle.get("open", (low + high) / 2))
+        if stop_price is not None and opn <= stop_price:
+            return stop_reason, opn
+        if target_price is not None and opn >= target_price:
+            return "take_profit", opn
         if stop_price is not None and low <= stop_price:
-            return stop_reason, stop_price
+            return stop_reason, PaperEngine._gap_stop_price(position, stop_price, candle)
         if target_price is not None and high >= target_price:
-            return "take_profit", target_price
+            return "take_profit", max(target_price, float(candle.get("open", target_price)))
         return None
 
     @staticmethod
@@ -592,6 +813,15 @@ class PaperEngine:
         prices: dict[str, float] = {}
         errors: dict[str, str] = {}
         for sc in self._strategies:
+            monitor_rows = []
+            if sc.monitor_timeframe:
+                try:
+                    monitor_rows = self._provider(sc.symbol, sc.monitor_timeframe, self._candles_limit)
+                    if monitor_rows:
+                        prices[sc.symbol] = float(monitor_rows[-1]["close"])
+                except Exception as exc:
+                    errors[f"{sc.id}:monitor"] = f"{type(exc).__name__}: {exc}"
+            plans.append({"sc": sc, "signal": None, "duplicate": True, "candle_ts": account.processed_candles.get(sc.id), "monitor_candles": monitor_rows})
             try:
                 engine = self._engines[sc.id]
                 required_timeframes = list(
@@ -615,18 +845,21 @@ class PaperEngine:
                 mark_candle = monitor_candles[-1] if monitor_candles else candles[-1]
                 execution_price = float(candles[-1]["close"])
                 mark_price = float(mark_candle["close"])
+                if self._execution_mode == "observed_mark":
+                    execution_price = mark_price
                 prices[sc.symbol] = mark_price
+                plans[-1]["candle_ts"] = candle_ts
                 signal = None
                 if not duplicate:
                     signal = engine.on_candle(candles[-1], StrategyContext(
                         candles=candles, symbol=sc.symbol, timeframe=sc.timeframe,
                         candles_by_timeframe=candles_by_timeframe,
                     ))
-                plans.append({"sc": sc, "execution_price": execution_price,
+                plans[-1] = {"sc": sc, "execution_price": execution_price,
                               "mark_price": mark_price, "atr_risk": _ATR_MULT * _atr(candles),
                               "signal": signal, "candle_ts": candle_ts, "duplicate": duplicate,
                               "monitor_candle": mark_candle if monitor_candles else None,
-                              "monitor_candles": monitor_candles})
+                              "monitor_candles": monitor_candles}
             except Exception as exc:  # noqa: BLE001 - strict per-strategy isolation
                 errors[sc.id] = f"{type(exc).__name__}: {exc}"
 
@@ -657,7 +890,6 @@ class PaperEngine:
                     except (TypeError, ValueError):
                         pending_monitor_candles = monitor_candles[-1:]
                 for monitor_candle in pending_monitor_candles:
-                    position.last_monitor_candle_ts = monitor_candle.get("ts")
                     try:
                         protective = self._protective_exit(position, monitor_candle)
                     except Exception as exc:  # noqa: BLE001 - isolate one tranche
@@ -665,6 +897,7 @@ class PaperEngine:
                             f"{type(exc).__name__}: {exc}"
                         )
                         break
+                    position.last_monitor_candle_ts = monitor_candle.get("ts")
                     if protective is None:
                         continue
                     reason, fill_price = protective
@@ -697,6 +930,8 @@ class PaperEngine:
                     if fill["strategy_id"] == sc.id and fill["action"] == "close"
                 }
                 if desired_side is None or desired_side in closed_sides:
+                    if plan["candle_ts"] is not None:
+                        account.processed_candles[sc.id] = plan["candle_ts"]
                     continue
             if plan["duplicate"]:
                 intents[sc.id] = "duplicate_candle"
@@ -843,71 +1078,7 @@ class PaperEngine:
                 "intents": intents, "fills": fills, "errors": errors,
                 "open_positions": list(account.positions)}
 
-    def _run_auction_cycle(self, *, now: datetime | None = None) -> dict:
-        """Run an explicit merit auction with optional per-strategy topups."""
-        ts = (now or datetime.now(timezone.utc)).isoformat(timespec="seconds")
-        account = self._load_account()
-        self._flush_pending_fills(account)
-        self._migrate_exit_metadata(account)
-
-        plans: list[dict] = []
-        prices: dict[str, float] = {}
-        errors: dict[str, str] = {}
-        for sc in self._strategies:
-            try:
-                engine = self._engines[sc.id]
-                required_timeframes = list(
-                    dict.fromkeys([
-                        sc.timeframe,
-                        *getattr(engine, "required_timeframes", []),
-                        *([sc.monitor_timeframe] if sc.monitor_timeframe else []),
-                    ])
-                )
-                candles_by_timeframe = {
-                    timeframe: self._provider(
-                        sc.symbol, timeframe, self._candles_limit
-                    )
-                    for timeframe in required_timeframes
-                }
-                candles = candles_by_timeframe.get(sc.timeframe, [])
-                if not candles:
-                    errors[sc.id] = "no candles"
-                    continue
-                candle_ts = candles[-1].get("ts")
-                duplicate = account.processed_candles.get(sc.id) == candle_ts
-                monitor_candles = (
-                    candles_by_timeframe.get(sc.monitor_timeframe, [])
-                    if sc.monitor_timeframe else []
-                )
-                mark_candle = monitor_candles[-1] if monitor_candles else candles[-1]
-                execution_price = float(candles[-1]["close"])
-                mark_price = float(mark_candle["close"])
-                prices[sc.symbol] = mark_price
-                signal = None
-                if not duplicate:
-                    signal = engine.on_candle(
-                        candles[-1],
-                        StrategyContext(
-                            candles=candles,
-                            symbol=sc.symbol,
-                            timeframe=sc.timeframe,
-                            candles_by_timeframe=candles_by_timeframe,
-                        ),
-                    )
-                plans.append({
-                    "sc": sc,
-                    "execution_price": execution_price,
-                    "mark_price": mark_price,
-                    "atr_risk": _ATR_MULT * _atr(candles),
-                    "signal": signal,
-                    "candle_ts": candle_ts,
-                    "duplicate": duplicate,
-                    "monitor_candle": mark_candle if monitor_candles else None,
-                    "monitor_candles": monitor_candles,
-                })
-            except Exception as exc:  # noqa: BLE001 - per-strategy isolation
-                errors[sc.id] = f"{type(exc).__name__}: {exc}"
-
+    def _monitor_plans(self, account, plans, ts, errors, *, only_positions=None, historical=False):
         intents: dict[str, str] = {}
         fills: list[dict] = []
         protectively_closed: set[str] = set()
@@ -923,6 +1094,8 @@ class PaperEngine:
                         )
                 continue
             for position_id in self._position_ids(account, sc.id):
+                if only_positions is not None and position_id not in only_positions:
+                    continue
                 position = account.positions.get(position_id)
                 if position is None:
                     continue
@@ -949,9 +1122,11 @@ class PaperEngine:
                             "monitor_history_gap: cursor predates fetched candles"
                         )
                 for monitor_candle in pending_monitor_candles:
+                    prior_cursor = position.last_monitor_candle_ts
+                    prior_dynamic_state = position.dynamic_exit
                     if not dynamic_history_gap:
                         position.last_monitor_candle_ts = monitor_candle.get("ts")
-                    if position.dynamic_exit is not None:
+                    if position.dynamic_exit is not None and not dynamic_history_gap:
                         try:
                             shadow_state = DynamicExitState.from_dict(
                                 position.dynamic_exit
@@ -970,7 +1145,7 @@ class PaperEngine:
                                 and shadow_low <= shadow_stop
                             ):
                                 latest_candle = monitor_candles[-1]
-                                recovered = monitor_candle is not latest_candle
+                                recovered = not historical and monitor_candle is not latest_candle
                                 shadow_price = (
                                     float(latest_candle["close"])
                                     if recovered else min(
@@ -1010,6 +1185,9 @@ class PaperEngine:
                                 })
                                 position.dynamic_exit = next_shadow_state.to_dict()
                         except Exception as exc:  # noqa: BLE001 - shadow audit retries
+                            dynamic_history_gap = True
+                            position.last_monitor_candle_ts = prior_cursor
+                            position.dynamic_exit = prior_dynamic_state
                             errors[f"{sc.id}:{position_id}:dynamic_exit_audit"] = (
                                 f"{type(exc).__name__}: {exc}"
                             )
@@ -1034,6 +1212,9 @@ class PaperEngine:
                                 position, monitor_candle
                             )
                         except Exception as static_exc:  # noqa: BLE001
+                            dynamic_history_gap = True
+                            position.last_monitor_candle_ts = prior_cursor
+                            position.dynamic_exit = prior_dynamic_state
                             errors[f"{sc.id}:{position_id}:protective_exit"] = (
                                 f"{type(static_exc).__name__}: {static_exc}"
                             )
@@ -1102,7 +1283,9 @@ class PaperEngine:
                                     f"{type(exc).__name__}: {exc}"
                                 )
                                 if policy.mode == "observe":
-                                    position.last_monitor_candle_ts = state.last_candle_ts
+                                    position.last_monitor_candle_ts = prior_cursor
+                                    position.dynamic_exit = prior_dynamic_state
+                                    dynamic_history_gap = True
                                     continue
                             position.dynamic_exit = evaluation.next_state.to_dict()
                             if (
@@ -1111,7 +1294,7 @@ class PaperEngine:
                             ):
                                 continue
                             latest_candle = monitor_candles[-1]
-                            recovered = monitor_candle is not latest_candle
+                            recovered = not historical and monitor_candle is not latest_candle
                             fill_price = float(
                                 latest_candle["close"]
                                 if recovered else decision.desired_price
@@ -1139,6 +1322,9 @@ class PaperEngine:
                                 fills.append(fill)
                             break
                         except Exception as exc:  # noqa: BLE001 - isolate one tranche
+                            dynamic_history_gap = True
+                            position.last_monitor_candle_ts = prior_cursor
+                            position.dynamic_exit = prior_dynamic_state
                             errors[f"{sc.id}:{position_id}:dynamic_exit"] = (
                                 f"{type(exc).__name__}: {exc}"
                             )
@@ -1146,16 +1332,13 @@ class PaperEngine:
                     else:
                         reason, fill_price = protective
                         recovered = False
-                        if reason == "dynamic_stop":
+                        if reason in {"dynamic_stop", "stop_loss"}:
                             latest_candle = monitor_candles[-1]
-                            recovered = monitor_candle is not latest_candle
+                            recovered = not historical and monitor_candle is not latest_candle
                             if recovered:
                                 fill_price = float(latest_candle["close"])
                             else:
-                                fill_price = min(
-                                    fill_price,
-                                    float(monitor_candle.get("open", fill_price)),
-                                )
+                                fill_price = self._gap_stop_price(position, fill_price, monitor_candle)
                         fill = self._broker.close(
                             account,
                             strategy_id=sc.id,
@@ -1165,6 +1348,8 @@ class PaperEngine:
                             reason=reason,
                         )
                         if fill:
+                            fill["decision_candle_ts"] = monitor_candle.get("ts")
+                            fill["recovered_after_gap"] = recovered
                             intents[sc.id] = f"close_{reason}"
                             protectively_closed.add(sc.id)
                             fills.append(fill)
@@ -1193,6 +1378,246 @@ class PaperEngine:
                                 )
                         break
 
+        return intents, fills, protectively_closed
+
+    def _prepare_auction_plans(self, account: Account, ts: str, fetch: CandleProvider) -> tuple[list[dict], dict[str, float], dict[str, str]]:
+        """Prepare signals in order, retaining cursor updates and pending exits."""
+        plans: list[dict] = []
+        prices: dict[str, float] = {}
+        errors: dict[str, str] = {}
+        for sc in self._strategies:
+            # Protection data is independent of secondary indicators and observers.
+            monitor_rows = []
+            if sc.monitor_timeframe:
+                try:
+                    monitor_rows = fetch(sc.symbol, sc.monitor_timeframe, self._candles_limit)
+                    if monitor_rows:
+                        prices[sc.symbol] = float(monitor_rows[-1]["close"])
+                except Exception as exc:
+                    errors[f"{sc.id}:monitor"] = f"{type(exc).__name__}: {exc}"
+            fallback = {
+                "sc": sc, "signal": None, "duplicate": True,
+                "candle_ts": account.processed_candles.get(sc.id),
+                "monitor_candles": monitor_rows,
+                "monitor_candle": monitor_rows[-1] if monitor_rows else None,
+            }
+            forced_exit = None
+            try:
+                if self._execution_mode == "observed_mark" and sc.engine == "opening_range":
+                    from orum.market_calendar import NEW_YORK, session_bounds
+                    from datetime import timedelta
+                    from orum.strategies.base import Signal
+                    local = datetime.fromisoformat(ts).astimezone(NEW_YORK)
+                    session = session_bounds(local.date())
+                    positions = [account.positions[key] for key in self._position_ids(account, sc.id)]
+                    for position in positions:
+                        opened = position.opened_ts
+                        try:
+                            opened_dt = (datetime.fromisoformat(opened) if isinstance(opened, str) else datetime.fromtimestamp(float(opened)/1000, timezone.utc)).astimezone(NEW_YORK)
+                            overdue = opened_dt.date() < local.date()
+                        except (ValueError, TypeError):
+                            overdue = False
+                        if overdue or session is None or local >= session[1] - timedelta(minutes=15):
+                            position.pending_session_exit = True
+                    pending_exit = any(position.pending_session_exit for position in positions)
+                    if pending_exit:
+                        mark_time = datetime.fromtimestamp(float(monitor_rows[-1]["ts"]) / 1000, timezone.utc).astimezone(NEW_YORK) if monitor_rows else None
+                        usable = session is not None and session[0] <= local < session[1] and mark_time is not None and session[0] <= mark_time < local and (local - mark_time).total_seconds() <= 600
+                        if usable:
+                            forced_exit = Signal(Side.EXIT, sc.symbol, sc.timeframe, "opening_range_session_close")
+                            fallback.update(signal=forced_exit, duplicate=False, execution_price=float(monitor_rows[-1]["close"]), candle_ts=monitor_rows[-1]["ts"])
+                        else:
+                            errors[f"{sc.id}:session"] = "missed_session_exit: await current-session mark"
+            except Exception as exc:
+                errors[f"{sc.id}:session"] = f"{type(exc).__name__}: {exc}"
+            plans.append(fallback)
+            try:
+                engine = self._engines[sc.id]
+                if self._execution_mode == "observed_mark" and sc.monitor_timeframe and not monitor_rows:
+                    raise ValueError("monitor data required for observed execution")
+                shadow_filter = self._shadow_regime_filters.get(sc.symbol)
+                required_timeframes = list(
+                    dict.fromkeys([
+                        sc.timeframe,
+                        *getattr(engine, "required_timeframes", []),
+                        *([sc.monitor_timeframe] if sc.monitor_timeframe else []),
+                    ])
+                )
+                candles_by_timeframe = {
+                    timeframe: (monitor_rows if timeframe == sc.monitor_timeframe else fetch(
+                        sc.symbol, timeframe, self._candles_limit
+                    ))
+                    for timeframe in required_timeframes
+                }
+                if shadow_filter is not None and shadow_filter["timeframe"] not in candles_by_timeframe:
+                    try:
+                        candles_by_timeframe[shadow_filter["timeframe"]] = fetch(
+                            sc.symbol, shadow_filter["timeframe"], self._candles_limit
+                        )
+                    except Exception as exc:
+                        errors[f"{sc.id}:shadow_regime"] = f"{type(exc).__name__}: {exc}"
+                candles = candles_by_timeframe.get(sc.timeframe, [])
+                if not candles:
+                    errors[sc.id] = "no candles"
+                    continue
+                signal_candles_by_timeframe = candles_by_timeframe
+                signal_candles = candles
+                execution_candle = candles[-1]
+                if self._execution_mode == "next_open":
+                    try:
+                        execution_ts = float(execution_candle["ts"])
+                    except (KeyError, TypeError, ValueError):
+                        errors[sc.id] = "invalid execution candle timestamp"
+                        continue
+                    signal_candles_by_timeframe = {}
+                    for timeframe, rows in candles_by_timeframe.items():
+                        interval = _TIMEFRAME_MS.get(timeframe)
+                        if interval is None:
+                            raise ValueError(
+                                f"unsupported timeframe {timeframe!r}"
+                            )
+                        signal_candles_by_timeframe[timeframe] = [
+                            candle for candle in rows
+                            if float(candle["ts"]) + interval <= execution_ts
+                        ]
+                    signal_candles = signal_candles_by_timeframe.get(
+                        sc.timeframe, []
+                    )
+                    if not signal_candles:
+                        errors[sc.id] = "no prior closed candle for next_open"
+                        continue
+                signal_candle = signal_candles[-1]
+                candle_ts = signal_candle.get("ts")
+                duplicate = account.processed_candles.get(sc.id) == candle_ts
+                monitor_candles = (
+                    candles_by_timeframe.get(sc.monitor_timeframe, [])
+                    if sc.monitor_timeframe else []
+                )
+                mark_candle = monitor_candles[-1] if monitor_candles else candles[-1]
+                execution_price = float(
+                    execution_candle[
+                        "open" if self._execution_mode == "next_open" else "close"
+                    ]
+                )
+                mark_price = float(mark_candle["close"])
+                if self._execution_mode == "next_open":
+                    mark_price = execution_price
+                if self._execution_mode == "observed_mark":
+                    execution_price = mark_price
+                prices[sc.symbol] = mark_price
+                fallback["candle_ts"] = candle_ts
+                signal = None
+                if not duplicate:
+                    signal = engine.on_candle(
+                        signal_candle,
+                        StrategyContext(
+                            candles=signal_candles,
+                            symbol=sc.symbol,
+                            timeframe=sc.timeframe,
+                            candles_by_timeframe=signal_candles_by_timeframe,
+                        ),
+                    )
+                if forced_exit is not None:
+                    signal, duplicate = forced_exit, False
+                if getattr(engine, "data_error", None):
+                    errors[f"{sc.id}:data"] = str(engine.data_error)
+                plans[-1] = {
+                    "sc": sc,
+                    "execution_candle_ts": execution_candle["ts"],
+                    "price_asof_ts": (mark_candle["ts"] + _TIMEFRAME_MS[sc.monitor_timeframe or sc.timeframe]),
+                    "candles_by_timeframe": candles_by_timeframe,
+                    "execution_price": execution_price,
+                    "mark_price": mark_price,
+                    "atr_risk": _ATR_MULT * _atr(signal_candles),
+                    "signal": signal,
+                    "skipped_signal_ts": getattr(engine, "skipped_signal_ts", None),
+                    "candle_ts": candle_ts,
+                    "duplicate": duplicate,
+                    "signal_candles_by_timeframe": signal_candles_by_timeframe,
+                    "monitor_candle": mark_candle if monitor_candles else None,
+                    "monitor_candles": monitor_candles,
+                }
+            except Exception as exc:  # noqa: BLE001 - per-strategy isolation
+                errors[sc.id] = f"{type(exc).__name__}: {exc}"
+        return plans, prices, errors
+
+    def _run_auction_cycle(self, *, now: datetime | None = None) -> dict:
+        """Run an explicit merit auction with optional per-strategy topups."""
+        ts = (now or datetime.now(timezone.utc)).isoformat(timespec="seconds")
+        account = self._load_account()
+        self._flush_pending_fills(account)
+        self._migrate_exit_metadata(account)
+
+        observed_at_ms = int(datetime.fromisoformat(ts).timestamp() * 1000)
+        def fetch(symbol, timeframe, limit):
+            rows = self._provider(symbol, timeframe, limit)
+            if self._execution_mode != "observed_mark":
+                return rows
+            if not rows:
+                raise ValueError("no closed candles")
+            interval = _TIMEFRAME_MS[timeframe]
+            stamps = [float(row["ts"]) for row in rows]
+            if any(right <= left for left, right in zip(stamps, stamps[1:])):
+                raise ValueError("duplicate or reversed candles")
+            for row in rows:
+                opn, high, low, close, vol = [float(row[key]) for key in ("open", "high", "low", "close", "volume")]
+                if not all(isfinite(v) for v in (opn, high, low, close, vol)) or min(opn, high, low, close) <= 0 or vol < 0 or high < max(opn, close) or low > min(opn, close):
+                    raise ValueError("invalid OHLCV")
+            if symbol != "NVDA":
+                if any(right - left != interval for left, right in zip(stamps, stamps[1:])):
+                    raise ValueError("candle history gap")
+                age = observed_at_ms - (stamps[-1] + interval)
+                if age < 0 or age >= interval + 60_000:
+                    raise ValueError("stale or unclosed candles")
+            key = f"{symbol}:{timeframe}"
+            if stamps[-1] < account.market_cursors.get(key, stamps[-1]):
+                raise ValueError("market timestamp moved backwards")
+            account.market_cursors[key] = int(stamps[-1])
+            return rows
+
+        plans, prices, errors = self._prepare_auction_plans(account, ts, fetch)
+
+        if self._valuation_marks is not None:
+            prices = dict(self._valuation_marks)
+        entry_boundaries = {plan["execution_candle_ts"] for plan in plans if "execution_candle_ts" in plan}
+        ambiguous_replay = self._execution_mode == "next_open" and (
+            len(entry_boundaries) > 1 or bool(errors)
+            or (entry_boundaries and account.last_event_ts is not None and min(entry_boundaries) < account.last_event_ts)
+        )
+        if ambiguous_replay:
+            errors["execution_timeline"] = "next_open requires complete aligned data and no account events after the entry boundary"
+        pre_entry_plans = plans
+        if self._execution_mode == "next_open" and not ambiguous_replay:
+            pre_entry_plans = [{**plan, "monitor_candles": [row for row in plan.get("monitor_candles", []) if row["ts"] < plan.get("execution_candle_ts", float("inf"))]} for plan in plans]
+        intents, fills, protectively_closed = self._monitor_plans(account, pre_entry_plans, ts, errors, historical=self._execution_mode == "next_open")
+        if self._execution_mode == "next_open" and not ambiguous_replay:
+            # An existing bracket crossed at T is executable before new risk
+            # is allocated at T. Do not advance the intrabar monitor cursor.
+            for plan in plans:
+                boundary = plan.get("execution_candle_ts")
+                opening = next((row for row in plan.get("monitor_candles", []) if row["ts"] == boundary), None)
+                if opening is None:
+                    continue
+                for position_id in self._position_ids(account, plan["sc"].id):
+                    position = account.positions[position_id]
+                    opn = float(opening["open"])
+                    try:
+                        protective = self._protective_exit(position, {"open": opn, "high": opn, "low": opn, "close": opn})
+                    except Exception as exc:
+                        errors[f"{position_id}:gap"] = f"{type(exc).__name__}: {exc}"
+                        ambiguous_replay = True
+                        continue
+                    if protective is not None:
+                        reason, price = protective
+                        fill = self._broker.close(account, strategy_id=position.strategy_id, position_id=position_id, price=price, ts=ts, reason=reason)
+                        if fill:
+                            fill.update(decision_candle_ts=boundary, gap_at_open=True, recovered_after_gap=False)
+                            fills.append(fill)
+        if fills:
+            self._commit_fills(account, fills)
+        else:
+            self._save_account(account)
+
         equity_for_sizing = account.equity(prices)
         requests: list[dict] = []
         auction: list[dict] = []
@@ -1210,6 +1635,8 @@ class PaperEngine:
                     if fill["strategy_id"] == sc.id and fill["action"] == "close"
                 }
                 if desired_side is None or desired_side in closed_sides:
+                    if plan["candle_ts"] is not None:
+                        account.processed_candles[sc.id] = plan["candle_ts"]
                     continue
             if plan["duplicate"]:
                 intents[sc.id] = "duplicate_candle"
@@ -1217,7 +1644,27 @@ class PaperEngine:
             signal = plan["signal"]
             side = signal.side if signal else None
             if side in (Side.LONG, Side.SHORT):
+                if ambiguous_replay:
+                    intents[sc.id] = "ambiguous_replay_timeline"
+                    continue
+                if self._execution_mode == "observed_mark":
+                    available = float(plan["candle_ts"]) + _TIMEFRAME_MS[sc.timeframe]
+                    age = observed_at_ms - available
+                    late = age < 0 or age >= _TIMEFRAME_MS[sc.timeframe]
+                    if sc.symbol == "NVDA":
+                        from orum.market_calendar import NEW_YORK, session_bounds
+                        local = datetime.fromisoformat(ts).astimezone(NEW_YORK)
+                        session = session_bounds(local.date())
+                        late = late or session is None or not session[0] <= local < session[1]
+                    if late:
+                        account.processed_candles[sc.id] = plan["candle_ts"]
+                        intents[sc.id] = "expired_signal"
+                        continue
                 direction = "long" if side == Side.LONG else "short"
+                if direction not in self._allowed_entry_sides:
+                    account.processed_candles[sc.id] = plan["candle_ts"]
+                    intents[sc.id] = f"{direction}_disabled"
+                    continue
                 risk_distance = _entry_risk_distance(
                     plan["execution_price"],
                     signal.suggested_stop,
@@ -1237,15 +1684,46 @@ class PaperEngine:
                         "invalid_bracket" if invalid_short_bracket else "invalid_stop"
                     )
                     continue
+                shadow_regime = None
+                try:
+                    shadow_regime = self._shadow_regime(plan, direction)
+                    if shadow_regime is not None:
+                        self._append(self._shadow_regime_path, {
+                            "ts": ts,
+                            "strategy_id": sc.id,
+                            "symbol": sc.symbol,
+                            "direction": direction,
+                            "signal_candle_ts": plan["candle_ts"],
+                            **shadow_regime,
+                        })
+                except Exception as exc:
+                    errors[f"{sc.id}:shadow_regime"] = f"{type(exc).__name__}: {exc}"
                 account.processed_candles[sc.id] = plan["candle_ts"]
                 requests.append({
                     "plan": plan,
                     "direction": direction,
                     "risk_distance": risk_distance,
-                    "effective_risk_pct": sc.risk_pct,
+                    "base_risk_pct": sc.risk_pct,
                     "entry_enabled": sc.entry_enabled,
+                    "shadow_regime": shadow_regime,
                 })
             elif side == Side.EXIT:
+                if not self._position_ids(account, sc.id):
+                    account.processed_candles[sc.id] = plan["candle_ts"]
+                    intents[sc.id] = "no_trade"
+                    continue
+                if ambiguous_replay:
+                    intents[sc.id] = "ambiguous_replay_timeline"
+                    continue
+                if self._execution_mode == "observed_mark" and sc.symbol == "NVDA":
+                    from orum.market_calendar import NEW_YORK, session_bounds
+                    local = datetime.fromisoformat(ts).astimezone(NEW_YORK)
+                    session = session_bounds(local.date())
+                    mark_time = datetime.fromtimestamp(float(plan["monitor_candle"]["ts"]) / 1000, timezone.utc).astimezone(NEW_YORK)
+                    if session is None or not session[0] <= local < session[1] or mark_time < session[0]:
+                        errors[f"{sc.id}:session"] = "missed_session_exit: await next available session price"
+                        intents[sc.id] = "missed_session_exit"
+                        continue
                 account.processed_candles[sc.id] = plan["candle_ts"]
                 closed_any = False
                 for position_id in self._position_ids(account, sc.id):
@@ -1267,10 +1745,41 @@ class PaperEngine:
                             )
                 intents[sc.id] = "close" if closed_any else "no_trade"
             else:
+                skipped_ts = plan.get("skipped_signal_ts")
+                previous_ts = account.processed_candles.get(sc.id)
+                if skipped_ts is not None and (previous_ts is None or skipped_ts > previous_ts):
+                    auction.append({"ts": ts, "strategy_id": sc.id, "symbol": sc.symbol,
+                                    "signal_candle_ts": skipped_ts, "outcome": "missed_m5_signal",
+                                    "execution_method": self._execution_mode + "_v2"})
+                    intents[sc.id] = "missed_m5_signal"
                 account.processed_candles[sc.id] = plan["candle_ts"]
-                intents[sc.id] = "no_trade"
+                intents.setdefault(sc.id, "no_trade")
 
+        # Persisted positions may outlive a removed strategy; they still need marks.
+        for position in account.positions.values():
+            if position.symbol in prices:
+                continue
+            try:
+                rows = fetch(position.symbol, position.monitor_timeframe or "15m", self._candles_limit)
+                if self._execution_mode == "next_open" and len(entry_boundaries) == 1:
+                    boundary = next(iter(entry_boundaries))
+                    aligned = [row for row in rows if row["ts"] == boundary]
+                    closed = [row for row in rows if row["ts"] + _TIMEFRAME_MS[position.monitor_timeframe or "15m"] <= boundary]
+                    mark = float(aligned[-1]["open"] if aligned else closed[-1]["close"])
+                else:
+                    mark = float(rows[-1]["close"])
+                if not isfinite(mark) or mark <= 0:
+                    raise ValueError("invalid mark")
+                prices[position.symbol] = mark
+            except Exception as exc:
+                errors[f"{position.symbol}:valuation"] = f"{type(exc).__name__}: {exc}"
         equity_for_sizing = account.equity(prices)
+        entry_drawdown = self._entry_drawdown(equity_for_sizing)
+        entry_drawdown_multiplier = self._entry_drawdown_multiplier(entry_drawdown)
+        drawdown_halt = entry_drawdown_multiplier <= 0
+        unpriced_symbols = {position.symbol for position in account.positions.values()} - prices.keys()
+        if unpriced_symbols:
+            errors["valuation"] = "missing marks: " + ", ".join(sorted(unpriced_symbols))
         requests.sort(key=lambda request: self._merit_key[request["plan"]["sc"].id])
         for request in requests:
             plan = request["plan"]
@@ -1309,8 +1818,85 @@ class PaperEngine:
                     intents[sc.id] = "reverse_close_failed"
                     continue
                 equity_for_sizing = account.equity(prices)
+            if unpriced_symbols:
+                intents[sc.id] = "valuation_unavailable"
+                continue
             if not request["entry_enabled"]:
                 intents[sc.id] = "reverse_close" if reversing else "entry_disabled"
+                continue
+            entry_drawdown = self._entry_drawdown(equity_for_sizing)
+            entry_drawdown_multiplier = self._entry_drawdown_multiplier(entry_drawdown)
+            drawdown_halt = entry_drawdown_multiplier <= 0
+            request["effective_risk_pct"] = (
+                request["base_risk_pct"] * entry_drawdown_multiplier
+            )
+            if self._dynamic_risk_shadow is not None:
+                try:
+                    proposal = self._dynamic_risk_shadow.propose(
+                        strategy_id=sc.id,
+                        base_risk_pct=request["base_risk_pct"],
+                        drawdown_multiplier=entry_drawdown_multiplier,
+                        risk_distance=request["risk_distance"],
+                        atr_risk=plan["atr_risk"],
+                    )
+                    request["dynamic_risk_shadow"] = proposal
+                    self._append(self._dynamic_risk_shadow_path, {
+                        "ts": ts,
+                        "strategy_id": sc.id,
+                        "symbol": sc.symbol,
+                        "direction": direction,
+                        "signal_candle_ts": plan["candle_ts"],
+                        "execution_price": plan["execution_price"],
+                        "risk_distance": request["risk_distance"],
+                        "atr_risk": plan["atr_risk"],
+                        "entry_drawdown": entry_drawdown,
+                        **proposal,
+                    })
+                except Exception as exc:
+                    errors[f"{sc.id}:dynamic_risk_shadow"] = f"{type(exc).__name__}: {exc}"
+            if drawdown_halt:
+                intents[sc.id] = "drawdown_kill_switch"
+                auction.append({
+                    "ts": ts,
+                    "strategy_id": sc.id,
+                    "symbol": sc.symbol,
+                    "direction": direction,
+                    "requested_risk_usd": round(
+                        request["base_risk_pct"] * equity_for_sizing, 6
+                    ),
+                    "effective_risk_usd": 0.0,
+                    "granted_risk_usd": 0.0,
+                    "equity_for_sizing": round(equity_for_sizing, 6),
+                    "entry_drawdown": round(entry_drawdown, 8),
+                    "entry_drawdown_multiplier": entry_drawdown_multiplier,
+                    "outcome": "drawdown_kill_switch",
+                })
+                continue
+            symbol_position_limit = self._max_open_positions_by_symbol.get(
+                sc.symbol
+            )
+            open_symbol_positions = sum(
+                position.symbol == sc.symbol
+                for position in account.positions.values()
+            )
+            if (
+                symbol_position_limit is not None
+                and open_symbol_positions >= symbol_position_limit
+            ):
+                intents[sc.id] = "position_cap_symbol"
+                auction.append({
+                    "ts": ts,
+                    "strategy_id": sc.id,
+                    "symbol": sc.symbol,
+                    "direction": direction,
+                    "requested_risk_usd": round(
+                        request["effective_risk_pct"] * equity_for_sizing, 6
+                    ),
+                    "granted_risk_usd": 0.0,
+                    "equity_for_sizing": round(equity_for_sizing, 6),
+                    "open_symbol_positions": open_symbol_positions,
+                    "outcome": "position_cap_symbol",
+                })
                 continue
             requested_usd = request["effective_risk_pct"] * equity_for_sizing
             open_total_risk_usd = sum(
@@ -1330,16 +1916,35 @@ class PaperEngine:
                 self._max_symbol_stop_risk_pct * equity_for_sizing
                 - open_symbol_risk_usd
             )
+            symbol_notional_limit_pct = self._max_symbol_notional_pct.get(
+                sc.symbol
+            )
+            open_symbol_notional = sum(
+                position.notional_usd
+                for position in account.positions.values()
+                if position.symbol == sc.symbol
+            )
+            remaining_symbol_notional = (
+                symbol_notional_limit_pct * equity_for_sizing
+                - open_symbol_notional
+                if symbol_notional_limit_pct is not None else None
+            )
             record = {
                 "ts": ts,
                 "strategy_id": sc.id,
                 "symbol": sc.symbol,
                 "direction": direction,
                 "requested_risk_usd": round(requested_usd, 6),
+                "base_risk_pct": request["base_risk_pct"],
+                "effective_risk_pct": request["effective_risk_pct"],
+                "entry_drawdown": round(entry_drawdown, 8),
+                "entry_drawdown_multiplier": entry_drawdown_multiplier,
                 "remaining_thesis_usd": round(remaining_thesis, 6),
                 "remaining_total_usd": round(remaining_total, 6),
                 "equity_for_sizing": round(equity_for_sizing, 6),
                 "held_tranches": len(same_direction),
+                "shadow_regime": request["shadow_regime"],
+                "dynamic_risk_shadow": request.get("dynamic_risk_shadow"),
             }
             if same_direction and self._reentry_policy == "hold":
                 intents[sc.id] = "reentry_hold"
@@ -1361,6 +1966,17 @@ class PaperEngine:
                     **record,
                     "granted_risk_usd": 0.0,
                     "outcome": intents[sc.id],
+                })
+                continue
+            if (
+                remaining_symbol_notional is not None
+                and remaining_symbol_notional <= 0
+            ):
+                intents[sc.id] = "notional_cap_symbol"
+                auction.append({
+                    **record,
+                    "granted_risk_usd": 0.0,
+                    "outcome": "notional_cap_symbol",
                 })
                 continue
             position_id = self._next_position_id(account, sc.id)
@@ -1400,6 +2016,8 @@ class PaperEngine:
                 ),
                 reward_risk_ratio=sc.reward_risk_ratio,
                 max_leverage=self._max_leverage,
+                max_notional_usd=remaining_symbol_notional,
+                risk_sizing_basis=self._risk_sizing_basis,
                 dynamic_exit=dynamic_exit,
             )
             if (
@@ -1417,9 +2035,18 @@ class PaperEngine:
                         "fill", fill["action"], fill["position_id"],
                         plan["candle_ts"], "open",
                     )
-                outcome = (
-                    "granted_full" if granted >= requested_usd else "granted_topup"
-                )
+                account.positions[position_id].execution_method = self._execution_mode + "_v2"
+                executed_risk = account.positions[position_id].budget_risk_usd
+                fill.update({
+                    "execution_method": self._execution_mode + "_v2",
+                    "signal_candle_ts": plan["candle_ts"],
+                    "signal_available_ts": plan["candle_ts"] + _TIMEFRAME_MS[sc.timeframe],
+                    "price_asof_ts": (plan["execution_candle_ts"] if self._execution_mode == "next_open" else plan["price_asof_ts"]),
+                    "decision_observed_at": ts,
+                    "authorized_risk_usd": granted,
+                    "executed_risk_usd": executed_risk,
+                })
+                outcome = "granted_full" if executed_risk >= requested_usd - 1e-8 else "granted_topup"
                 intents[sc.id] = (
                     "reverse_open" if reversing
                     else "open" if not same_direction else "open_topup"
@@ -1427,17 +2054,34 @@ class PaperEngine:
             else:
                 outcome = "broker_noop"
                 intents[sc.id] = "hold"
+            if fill and self._execution_mode == "next_open":
+                entry_cursor = plan["execution_candle_ts"] - _TIMEFRAME_MS[sc.monitor_timeframe or sc.timeframe]
+                position = account.positions[position_id]
+                position.last_monitor_candle_ts = entry_cursor
+                if position.dynamic_exit is not None:
+                    position.dynamic_exit["last_candle_ts"] = entry_cursor
             auction.append({
                 **record,
-                "granted_risk_usd": round(granted if fill else 0.0, 6),
+                "authorized_risk_usd": round(granted, 6),
+                "executed_risk_usd": round(executed_risk if fill else 0.0, 6),
+                "granted_risk_usd": round(executed_risk if fill else 0.0, 6),
                 "grant_fraction": (
-                    round(granted / requested_usd, 6) if requested_usd else None
+                    round((executed_risk if fill else 0.0) / requested_usd, 6) if requested_usd else None
                 ),
                 "position_id": position_id,
                 "tranche_key": position_id,
                 "outcome": outcome,
             })
 
+        if self._execution_mode == "next_open" and not ambiguous_replay:
+            post_intents, post_fills, _ = self._monitor_plans(account, plans, ts, errors, historical=True)
+            fills.extend(post_fills)
+            intents.update(post_intents)
+            for plan in plans:
+                if plan.get("monitor_candles"):
+                    prices[plan["sc"].symbol] = float(plan["monitor_candles"][-1]["close"])
+
+        account.last_event_ts = max(account.last_event_ts or 0, observed_at_ms)
         equity_after = account.equity(prices)
         if fills:
             self._commit_fills(account, fills)
@@ -1452,13 +2096,14 @@ class PaperEngine:
                 + position.unrealized_usd(prices[position.symbol]),
                 4,
             )
-        self._append(self._equity_path, {
-            "ts": ts,
-            "equity_usd": round(equity_after, 4),
-            "balance_usd": round(account.balance_usd, 4),
-            "open_positions": len(account.positions),
-            "unrealized_by_strategy": per_strategy,
-        })
+        if not unpriced_symbols:
+            self._append(self._equity_path, {
+                "ts": ts,
+                "equity_usd": round(equity_after, 4),
+                "balance_usd": round(account.balance_usd, 4),
+                "open_positions": len(account.positions),
+                "unrealized_by_strategy": per_strategy,
+            })
         return {
             "ts": ts,
             "equity_usd": equity_after,
@@ -1468,4 +2113,14 @@ class PaperEngine:
             "errors": errors,
             "open_positions": list(account.positions),
             "auction": auction,
+            "execution_method": self._execution_mode + "_v2",
+            "valuation_complete": not unpriced_symbols,
+            "marks": prices,
+            "strategies": {plan["sc"].id: {"signal_candle_ts": plan.get("candle_ts"), "monitor_candle_ts": (plan.get("monitor_candles") or [{}])[-1].get("ts"), "intent": intents.get(plan["sc"].id), "errors": {key: value for key, value in errors.items() if key.startswith(plan["sc"].id)}} for plan in plans},
+            "gross_notional_usd": sum(position.qty * prices.get(position.symbol, position.entry_px) for position in account.positions.values()),
+            "leverage_cap_scope": "per_tranche",
+            "max_leverage_per_tranche": self._max_leverage,
+            "entry_drawdown": entry_drawdown,
+            "entry_drawdown_halt": drawdown_halt,
+            "entry_drawdown_multiplier": entry_drawdown_multiplier,
         }

@@ -1,0 +1,1 @@
+{"ts": "2026-09-05T16:46:43+00:00", "strategy_id": "btc_utbot_m15_h1", "symbol": "BTC/USDT", "direction": "long", "signal_candle_ts": 1788625800000, "timeframe": "4h", "ema_period": 200, "close": 79806.01, "ema": 73175.05608110814, "passed": true, "reason": "above_ema", "enforced": false}

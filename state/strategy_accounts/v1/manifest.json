@@ -1,0 +1,750 @@
+{
+  "comparison": "Separate 10k budgets versus one shared 10k budget; not additive performance.",
+  "config_sha256": "ad7c07399105a757f31375bb9b9f4b0f059987443c1fb68cc662a5e90285395b",
+  "configs": {
+    "btc_ak_macd_4h": {
+      "allowed_entry_sides": [
+        "long"
+      ],
+      "candles_limit": 300,
+      "dynamic_risk_shadow": {
+        "artifact_path": "/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/state/strategy_accounts/v1/dynamic_risk_artifact.json",
+        "enabled": true
+      },
+      "execution_mode": "observed_mark",
+      "forecast_gate": {
+        "enabled": false,
+        "history_limit": 900,
+        "min_evaluations": 250,
+        "neighbour_count": 80
+      },
+      "max_leverage": 3.0,
+      "max_open_positions_by_symbol": {
+        "BTC/USDT": 1
+      },
+      "max_symbol_notional_pct": {
+        "BTC/USDT": 1.0
+      },
+      "max_symbol_stop_risk_pct": 0.03,
+      "max_total_stop_risk_pct": 0.05,
+      "merit_order": [
+        "btc_ak_macd_4h"
+      ],
+      "min_topup_fraction": 0.0,
+      "reentry_policy": "topup",
+      "research_fee_roundtrip": 0.001,
+      "risk_sizing_basis": "actual_stop",
+      "shadow_regime_filters": {
+        "BTC/USDT": {
+          "ema_period": 200,
+          "enforce": false,
+          "timeframe": "4h"
+        }
+      },
+      "starting_balance_usd": 10000.0,
+      "strategies": [
+        {
+          "dynamic_exit": {
+            "activation_r": 1.5,
+            "adaptive_target": true,
+            "atr_len": 14,
+            "close_on_ssl_invalidation": true,
+            "ema_len": 30,
+            "floor_r": 0.25,
+            "giveback_r": 1.0,
+            "mode": "execute",
+            "ssl_atr_mult": 1.0,
+            "target_review_buffer_r": 0.5,
+            "target_step_r": 1.0,
+            "target_strength_min": 3,
+            "version": "ak_mfe_ssl_v1"
+          },
+          "engine": "ak_macd",
+          "entry_enabled": true,
+          "exit_policy": "structural_bracket",
+          "id": "btc_ak_macd_4h",
+          "monitor_timeframe": "15m",
+          "params": {
+            "allow_short": false
+          },
+          "reward_risk_ratio": 2.0,
+          "risk_pct": 0.02,
+          "symbol": "BTC/USDT",
+          "timeframe": "4h"
+        }
+      ]
+    },
+    "btc_ema_cross": {
+      "allowed_entry_sides": [
+        "long"
+      ],
+      "candles_limit": 300,
+      "dynamic_risk_shadow": {
+        "artifact_path": "/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/state/strategy_accounts/v1/dynamic_risk_artifact.json",
+        "enabled": true
+      },
+      "execution_mode": "observed_mark",
+      "forecast_gate": {
+        "enabled": false,
+        "history_limit": 900,
+        "min_evaluations": 250,
+        "neighbour_count": 80
+      },
+      "max_leverage": 3.0,
+      "max_open_positions_by_symbol": {
+        "BTC/USDT": 1
+      },
+      "max_symbol_notional_pct": {
+        "BTC/USDT": 1.0
+      },
+      "max_symbol_stop_risk_pct": 0.03,
+      "max_total_stop_risk_pct": 0.05,
+      "merit_order": [],
+      "min_topup_fraction": 0.0,
+      "reentry_policy": "topup",
+      "research_fee_roundtrip": 0.001,
+      "risk_sizing_basis": "actual_stop",
+      "shadow_regime_filters": {
+        "BTC/USDT": {
+          "ema_period": 200,
+          "enforce": false,
+          "timeframe": "4h"
+        }
+      },
+      "starting_balance_usd": 10000.0,
+      "strategies": [
+        {
+          "dynamic_exit": {
+            "activation_r": 1.0,
+            "adaptive_target": false,
+            "close_on_ssl_invalidation": false,
+            "floor_r": 0.0,
+            "giveback_r": 1.5,
+            "mode": "execute",
+            "version": "mfe_ratchet_v1"
+          },
+          "engine": "ema_cross",
+          "entry_enabled": true,
+          "exit_policy": "signal_or_stop",
+          "id": "btc_ema_cross",
+          "monitor_timeframe": "15m",
+          "params": {
+            "adx_period": 14,
+            "adx_threshold": 20.0,
+            "allow_short": false,
+            "confirm_bars": 3,
+            "fast_period": 9,
+            "min_ema_gap_atr": 0.2,
+            "min_slow_slope_atr": 0.05,
+            "require_adx_rising": true,
+            "short_reward_risk": 2.0,
+            "slope_lookback": 3,
+            "slow_period": 21,
+            "swing_lookback": 8
+          },
+          "risk_pct": 0.005,
+          "symbol": "BTC/USDT",
+          "timeframe": "1h"
+        }
+      ]
+    },
+    "btc_ha_trend_4h": {
+      "allowed_entry_sides": [
+        "long"
+      ],
+      "candles_limit": 300,
+      "dynamic_risk_shadow": {
+        "artifact_path": "/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/state/strategy_accounts/v1/dynamic_risk_artifact.json",
+        "enabled": true
+      },
+      "execution_mode": "observed_mark",
+      "forecast_gate": {
+        "enabled": false,
+        "history_limit": 900,
+        "min_evaluations": 250,
+        "neighbour_count": 80
+      },
+      "max_leverage": 3.0,
+      "max_open_positions_by_symbol": {
+        "BTC/USDT": 1
+      },
+      "max_symbol_notional_pct": {
+        "BTC/USDT": 1.0
+      },
+      "max_symbol_stop_risk_pct": 0.03,
+      "max_total_stop_risk_pct": 0.05,
+      "merit_order": [],
+      "min_topup_fraction": 0.0,
+      "reentry_policy": "topup",
+      "research_fee_roundtrip": 0.001,
+      "risk_sizing_basis": "actual_stop",
+      "shadow_regime_filters": {
+        "BTC/USDT": {
+          "ema_period": 200,
+          "enforce": false,
+          "timeframe": "4h"
+        }
+      },
+      "starting_balance_usd": 10000.0,
+      "strategies": [
+        {
+          "dynamic_exit": {
+            "activation_r": 1.0,
+            "adaptive_target": true,
+            "ema_len": 20,
+            "floor_r": 0.1,
+            "giveback_r": 0.5,
+            "mode": "execute",
+            "target_review_buffer_r": 0.5,
+            "target_step_r": 1.0,
+            "target_strength_min": 3,
+            "version": "mfe_ratchet_v1"
+          },
+          "engine": "ha_trend",
+          "entry_enabled": true,
+          "exit_policy": "structural_bracket",
+          "id": "btc_ha_trend_4h",
+          "monitor_timeframe": "15m",
+          "params": {
+            "ema_len": 20,
+            "rr": 3.0,
+            "rsi_len": 14,
+            "slope_len": 5,
+            "swing_len": 10,
+            "touch_window": 5
+          },
+          "risk_pct": 0.01,
+          "symbol": "BTC/USDT",
+          "timeframe": "4h"
+        }
+      ]
+    },
+    "btc_utbot_m15_h1": {
+      "allowed_entry_sides": [
+        "long"
+      ],
+      "candles_limit": 300,
+      "dynamic_risk_shadow": {
+        "artifact_path": "/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/state/strategy_accounts/v1/dynamic_risk_artifact.json",
+        "enabled": true
+      },
+      "execution_mode": "observed_mark",
+      "forecast_gate": {
+        "enabled": false,
+        "history_limit": 900,
+        "min_evaluations": 250,
+        "neighbour_count": 80
+      },
+      "max_leverage": 3.0,
+      "max_open_positions_by_symbol": {
+        "BTC/USDT": 1
+      },
+      "max_symbol_notional_pct": {
+        "BTC/USDT": 1.0
+      },
+      "max_symbol_stop_risk_pct": 0.03,
+      "max_total_stop_risk_pct": 0.05,
+      "merit_order": [
+        "btc_utbot_m15_h1"
+      ],
+      "min_topup_fraction": 0.0,
+      "reentry_policy": "topup",
+      "research_fee_roundtrip": 0.001,
+      "risk_sizing_basis": "actual_stop",
+      "shadow_regime_filters": {
+        "BTC/USDT": {
+          "ema_period": 200,
+          "enforce": false,
+          "timeframe": "4h"
+        }
+      },
+      "starting_balance_usd": 10000.0,
+      "strategies": [
+        {
+          "engine": "utbot_mtf",
+          "entry_enabled": true,
+          "exit_policy": "signal_or_stop",
+          "id": "btc_utbot_m15_h1",
+          "monitor_timeframe": "15m",
+          "params": {
+            "buy_atr_period": 10,
+            "buy_key": 6.0,
+            "sell_atr_period": 20,
+            "sell_key": 7.0,
+            "trend_ema_period": 200
+          },
+          "risk_pct": 0.01,
+          "symbol": "BTC/USDT",
+          "timeframe": "15m"
+        }
+      ]
+    },
+    "eth_donchian": {
+      "allowed_entry_sides": [
+        "long"
+      ],
+      "candles_limit": 300,
+      "dynamic_risk_shadow": {
+        "artifact_path": "/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/state/strategy_accounts/v1/dynamic_risk_artifact.json",
+        "enabled": true
+      },
+      "execution_mode": "observed_mark",
+      "forecast_gate": {
+        "enabled": false,
+        "history_limit": 900,
+        "min_evaluations": 250,
+        "neighbour_count": 80
+      },
+      "max_leverage": 3.0,
+      "max_open_positions_by_symbol": {
+        "BTC/USDT": 1
+      },
+      "max_symbol_notional_pct": {
+        "BTC/USDT": 1.0
+      },
+      "max_symbol_stop_risk_pct": 0.03,
+      "max_total_stop_risk_pct": 0.05,
+      "merit_order": [],
+      "min_topup_fraction": 0.0,
+      "reentry_policy": "topup",
+      "research_fee_roundtrip": 0.001,
+      "risk_sizing_basis": "actual_stop",
+      "shadow_regime_filters": {
+        "BTC/USDT": {
+          "ema_period": 200,
+          "enforce": false,
+          "timeframe": "4h"
+        }
+      },
+      "starting_balance_usd": 10000.0,
+      "strategies": [
+        {
+          "engine": "donchian",
+          "entry_enabled": true,
+          "exit_policy": "donchian_signal",
+          "id": "eth_donchian",
+          "monitor_timeframe": "1h",
+          "params": {
+            "entry_n": 20,
+            "exit_n": 10
+          },
+          "risk_pct": 0.02,
+          "symbol": "ETH/USDT",
+          "timeframe": "1d"
+        }
+      ]
+    },
+    "eth_ema_cross": {
+      "allowed_entry_sides": [
+        "long"
+      ],
+      "candles_limit": 300,
+      "dynamic_risk_shadow": {
+        "artifact_path": "/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/state/strategy_accounts/v1/dynamic_risk_artifact.json",
+        "enabled": true
+      },
+      "execution_mode": "observed_mark",
+      "forecast_gate": {
+        "enabled": false,
+        "history_limit": 900,
+        "min_evaluations": 250,
+        "neighbour_count": 80
+      },
+      "max_leverage": 3.0,
+      "max_open_positions_by_symbol": {
+        "BTC/USDT": 1
+      },
+      "max_symbol_notional_pct": {
+        "BTC/USDT": 1.0
+      },
+      "max_symbol_stop_risk_pct": 0.03,
+      "max_total_stop_risk_pct": 0.05,
+      "merit_order": [],
+      "min_topup_fraction": 0.0,
+      "reentry_policy": "topup",
+      "research_fee_roundtrip": 0.001,
+      "risk_sizing_basis": "actual_stop",
+      "shadow_regime_filters": {
+        "BTC/USDT": {
+          "ema_period": 200,
+          "enforce": false,
+          "timeframe": "4h"
+        }
+      },
+      "starting_balance_usd": 10000.0,
+      "strategies": [
+        {
+          "dynamic_exit": {
+            "activation_r": 1.0,
+            "adaptive_target": false,
+            "close_on_ssl_invalidation": false,
+            "floor_r": 0.0,
+            "giveback_r": 1.5,
+            "mode": "execute",
+            "version": "mfe_ratchet_v1"
+          },
+          "engine": "ema_cross",
+          "entry_enabled": true,
+          "exit_policy": "signal_or_stop",
+          "id": "eth_ema_cross",
+          "monitor_timeframe": "15m",
+          "params": {
+            "adx_period": 14,
+            "adx_threshold": 20.0,
+            "allow_short": false,
+            "confirm_bars": 3,
+            "fast_period": 9,
+            "min_ema_gap_atr": 0.2,
+            "min_slow_slope_atr": 0.05,
+            "require_adx_rising": true,
+            "short_reward_risk": 2.0,
+            "slope_lookback": 3,
+            "slow_period": 21,
+            "swing_lookback": 8
+          },
+          "risk_pct": 0.005,
+          "symbol": "ETH/USDT",
+          "timeframe": "1h"
+        }
+      ]
+    },
+    "gold_cot": {
+      "allowed_entry_sides": [
+        "long"
+      ],
+      "candles_limit": 300,
+      "dynamic_risk_shadow": {
+        "artifact_path": "/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/state/strategy_accounts/v1/dynamic_risk_artifact.json",
+        "enabled": true
+      },
+      "execution_mode": "observed_mark",
+      "forecast_gate": {
+        "enabled": false,
+        "history_limit": 900,
+        "min_evaluations": 250,
+        "neighbour_count": 80
+      },
+      "max_leverage": 3.0,
+      "max_open_positions_by_symbol": {
+        "BTC/USDT": 1
+      },
+      "max_symbol_notional_pct": {
+        "BTC/USDT": 1.0
+      },
+      "max_symbol_stop_risk_pct": 0.03,
+      "max_total_stop_risk_pct": 0.05,
+      "merit_order": [],
+      "min_topup_fraction": 0.0,
+      "reentry_policy": "topup",
+      "research_fee_roundtrip": 0.001,
+      "risk_sizing_basis": "actual_stop",
+      "shadow_regime_filters": {
+        "BTC/USDT": {
+          "ema_period": 200,
+          "enforce": false,
+          "timeframe": "4h"
+        }
+      },
+      "starting_balance_usd": 10000.0,
+      "strategies": [
+        {
+          "engine": "gold_cot",
+          "entry_enabled": true,
+          "exit_policy": "cot_signal",
+          "id": "gold_cot",
+          "monitor_timeframe": "1h",
+          "params": {},
+          "risk_pct": 0.02,
+          "symbol": "PAXG/USDT",
+          "timeframe": "1d"
+        }
+      ]
+    },
+    "nvda_opening_range": {
+      "allowed_entry_sides": [
+        "long"
+      ],
+      "candles_limit": 300,
+      "dynamic_risk_shadow": {
+        "artifact_path": "/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/state/strategy_accounts/v1/dynamic_risk_artifact.json",
+        "enabled": true
+      },
+      "execution_mode": "observed_mark",
+      "forecast_gate": {
+        "enabled": false,
+        "history_limit": 900,
+        "min_evaluations": 250,
+        "neighbour_count": 80
+      },
+      "max_leverage": 3.0,
+      "max_open_positions_by_symbol": {
+        "BTC/USDT": 1
+      },
+      "max_symbol_notional_pct": {
+        "BTC/USDT": 1.0
+      },
+      "max_symbol_stop_risk_pct": 0.03,
+      "max_total_stop_risk_pct": 0.05,
+      "merit_order": [],
+      "min_topup_fraction": 0.0,
+      "reentry_policy": "topup",
+      "research_fee_roundtrip": 0.001,
+      "risk_sizing_basis": "actual_stop",
+      "shadow_regime_filters": {
+        "BTC/USDT": {
+          "ema_period": 200,
+          "enforce": false,
+          "timeframe": "4h"
+        }
+      },
+      "starting_balance_usd": 10000.0,
+      "strategies": [
+        {
+          "engine": "opening_range",
+          "entry_enabled": true,
+          "exit_policy": "structural_bracket",
+          "id": "nvda_opening_range",
+          "monitor_timeframe": "5m",
+          "params": {
+            "min_range_atr_ratio": 0.25
+          },
+          "risk_pct": 0.0025,
+          "symbol": "NVDA",
+          "timeframe": "5m"
+        }
+      ]
+    },
+    "shared_reference": {
+      "allowed_entry_sides": [
+        "long"
+      ],
+      "candles_limit": 300,
+      "dynamic_risk_shadow": {
+        "artifact_path": "/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading/state/strategy_accounts/v1/dynamic_risk_artifact.json",
+        "enabled": true
+      },
+      "execution_mode": "observed_mark",
+      "forecast_gate": {
+        "enabled": false,
+        "history_limit": 900,
+        "min_evaluations": 250,
+        "neighbour_count": 80
+      },
+      "max_leverage": 3.0,
+      "max_open_positions_by_symbol": {
+        "BTC/USDT": 1
+      },
+      "max_symbol_notional_pct": {
+        "BTC/USDT": 1.0
+      },
+      "max_symbol_stop_risk_pct": 0.03,
+      "max_total_stop_risk_pct": 0.05,
+      "merit_order": [
+        "btc_utbot_m15_h1",
+        "btc_ak_macd_4h"
+      ],
+      "min_topup_fraction": 0.0,
+      "reentry_policy": "topup",
+      "research_fee_roundtrip": 0.001,
+      "risk_sizing_basis": "actual_stop",
+      "shadow_regime_filters": {
+        "BTC/USDT": {
+          "ema_period": 200,
+          "enforce": false,
+          "timeframe": "4h"
+        }
+      },
+      "starting_balance_usd": 10000.0,
+      "strategies": [
+        {
+          "dynamic_exit": {
+            "activation_r": 1.5,
+            "adaptive_target": true,
+            "atr_len": 14,
+            "close_on_ssl_invalidation": true,
+            "ema_len": 30,
+            "floor_r": 0.25,
+            "giveback_r": 1.0,
+            "mode": "execute",
+            "ssl_atr_mult": 1.0,
+            "target_review_buffer_r": 0.5,
+            "target_step_r": 1.0,
+            "target_strength_min": 3,
+            "version": "ak_mfe_ssl_v1"
+          },
+          "engine": "ak_macd",
+          "entry_enabled": true,
+          "exit_policy": "structural_bracket",
+          "id": "btc_ak_macd_4h",
+          "monitor_timeframe": "15m",
+          "params": {
+            "allow_short": false
+          },
+          "reward_risk_ratio": 2.0,
+          "risk_pct": 0.02,
+          "symbol": "BTC/USDT",
+          "timeframe": "4h"
+        },
+        {
+          "engine": "utbot_mtf",
+          "entry_enabled": true,
+          "exit_policy": "signal_or_stop",
+          "id": "btc_utbot_m15_h1",
+          "monitor_timeframe": "15m",
+          "params": {
+            "buy_atr_period": 10,
+            "buy_key": 6.0,
+            "sell_atr_period": 20,
+            "sell_key": 7.0,
+            "trend_ema_period": 200
+          },
+          "risk_pct": 0.01,
+          "symbol": "BTC/USDT",
+          "timeframe": "15m"
+        },
+        {
+          "dynamic_exit": {
+            "activation_r": 1.0,
+            "adaptive_target": false,
+            "close_on_ssl_invalidation": false,
+            "floor_r": 0.0,
+            "giveback_r": 1.5,
+            "mode": "execute",
+            "version": "mfe_ratchet_v1"
+          },
+          "engine": "ema_cross",
+          "entry_enabled": true,
+          "exit_policy": "signal_or_stop",
+          "id": "btc_ema_cross",
+          "monitor_timeframe": "15m",
+          "params": {
+            "adx_period": 14,
+            "adx_threshold": 20.0,
+            "allow_short": false,
+            "confirm_bars": 3,
+            "fast_period": 9,
+            "min_ema_gap_atr": 0.2,
+            "min_slow_slope_atr": 0.05,
+            "require_adx_rising": true,
+            "short_reward_risk": 2.0,
+            "slope_lookback": 3,
+            "slow_period": 21,
+            "swing_lookback": 8
+          },
+          "risk_pct": 0.005,
+          "symbol": "BTC/USDT",
+          "timeframe": "1h"
+        },
+        {
+          "dynamic_exit": {
+            "activation_r": 1.0,
+            "adaptive_target": false,
+            "close_on_ssl_invalidation": false,
+            "floor_r": 0.0,
+            "giveback_r": 1.5,
+            "mode": "execute",
+            "version": "mfe_ratchet_v1"
+          },
+          "engine": "ema_cross",
+          "entry_enabled": true,
+          "exit_policy": "signal_or_stop",
+          "id": "eth_ema_cross",
+          "monitor_timeframe": "15m",
+          "params": {
+            "adx_period": 14,
+            "adx_threshold": 20.0,
+            "allow_short": false,
+            "confirm_bars": 3,
+            "fast_period": 9,
+            "min_ema_gap_atr": 0.2,
+            "min_slow_slope_atr": 0.05,
+            "require_adx_rising": true,
+            "short_reward_risk": 2.0,
+            "slope_lookback": 3,
+            "slow_period": 21,
+            "swing_lookback": 8
+          },
+          "risk_pct": 0.005,
+          "symbol": "ETH/USDT",
+          "timeframe": "1h"
+        },
+        {
+          "dynamic_exit": {
+            "activation_r": 1.0,
+            "adaptive_target": true,
+            "ema_len": 20,
+            "floor_r": 0.1,
+            "giveback_r": 0.5,
+            "mode": "execute",
+            "target_review_buffer_r": 0.5,
+            "target_step_r": 1.0,
+            "target_strength_min": 3,
+            "version": "mfe_ratchet_v1"
+          },
+          "engine": "ha_trend",
+          "entry_enabled": true,
+          "exit_policy": "structural_bracket",
+          "id": "btc_ha_trend_4h",
+          "monitor_timeframe": "15m",
+          "params": {
+            "ema_len": 20,
+            "rr": 3.0,
+            "rsi_len": 14,
+            "slope_len": 5,
+            "swing_len": 10,
+            "touch_window": 5
+          },
+          "risk_pct": 0.01,
+          "symbol": "BTC/USDT",
+          "timeframe": "4h"
+        },
+        {
+          "engine": "donchian",
+          "entry_enabled": true,
+          "exit_policy": "donchian_signal",
+          "id": "eth_donchian",
+          "monitor_timeframe": "1h",
+          "params": {
+            "entry_n": 20,
+            "exit_n": 10
+          },
+          "risk_pct": 0.02,
+          "symbol": "ETH/USDT",
+          "timeframe": "1d"
+        },
+        {
+          "engine": "gold_cot",
+          "entry_enabled": true,
+          "exit_policy": "cot_signal",
+          "id": "gold_cot",
+          "monitor_timeframe": "1h",
+          "params": {},
+          "risk_pct": 0.02,
+          "symbol": "PAXG/USDT",
+          "timeframe": "1d"
+        },
+        {
+          "engine": "opening_range",
+          "entry_enabled": true,
+          "exit_policy": "structural_bracket",
+          "id": "nvda_opening_range",
+          "monitor_timeframe": "5m",
+          "params": {
+            "min_range_atr_ratio": 0.25
+          },
+          "risk_pct": 0.0025,
+          "symbol": "NVDA",
+          "timeframe": "5m"
+        }
+      ]
+    }
+  },
+  "fee_roundtrip": 0.001,
+  "policy": "nominal_without_drawdown_scaling",
+  "promotion_eligible": false,
+  "research_only": true,
+  "source_sha256": "923376a4c90be5edd1f6bc8b5738a1bd1500f37bf086a57f316a9bb2eea17553",
+  "started_at": "2026-09-05T13:42:14.166809+00:00",
+  "starting_balance_usd": 10000.0,
+  "version": 1
+}

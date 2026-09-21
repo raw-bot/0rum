@@ -2,6 +2,8 @@ import json
 import tempfile
 import unittest
 from datetime import datetime, timezone
+from unittest.mock import patch
+from orum.strategies.cot_gate import read_gate as actual_read_gate
 from pathlib import Path
 
 from orum.strategies import load_engine
@@ -11,7 +13,7 @@ from orum.strategies.gold_cot import GoldCotEngine
 
 
 def _candle() -> tuple[dict, StrategyContext]:
-    candles = [{"ts": i, "open": 4000.0, "high": 4000.0, "low": 4000.0, "close": 4000.0, "volume": 0.0} for i in range(3)]
+    candles = [{"ts": 1783382400000 + i * 1000, "open": 4000.0, "high": 4000.0, "low": 4000.0, "close": 4000.0, "volume": 0.0} for i in range(3)]
     return candles[-1], StrategyContext(candles=candles, symbol="PAXG/USDT", timeframe="1d")
 
 
@@ -22,12 +24,15 @@ def _fresh_gate(gate_on: bool, cot_index: float | None) -> dict:
         "cot_index": cot_index,
         "gate_on": gate_on,
         "threshold": 20.0,
-        "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "updated_at": "2026-07-08T00:00:00+00:00",
     }
 
 
 class GoldCotEngineTests(unittest.TestCase):
     def setUp(self) -> None:
+        gate_clock = patch("orum.strategies.gold_cot.read_gate", side_effect=lambda *a, **kw: actual_read_gate(*a, now=datetime(2026, 7, 8, tzinfo=timezone.utc), **kw))
+        gate_clock.start()
+        self.addCleanup(gate_clock.stop)
         self._dir = tempfile.TemporaryDirectory()
         self.gate_path = Path(self._dir.name) / "cot_gate.json"
         self.engine = GoldCotEngine()

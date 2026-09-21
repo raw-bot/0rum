@@ -101,3 +101,28 @@ def test_unknown_asset_remains_a_json_404():
     assert status == 404
     assert content_type == "application/json"
     assert json.loads(body) == {"error": "not found"}
+
+
+def test_strategy_accounts_have_a_dedicated_page_and_leave_the_main_dashboard():
+    status, page, _ = _request('/strategy-accounts')
+    script_status, script, _ = _request('/assets/strategy-accounts.js?v=1')
+    _, main, _ = _request('/')
+    _, main_script, _ = _request('/assets/dashboard.js')
+    assert status == script_status == 200
+    assert 'id="strategy-accounts-card"' in page.decode()
+    assert 'href="/"' in page.decode()
+    assert 'href="/strategy-accounts"' in main.decode()
+    assert 'id="strategy-accounts-card"' not in main.decode()
+    assert 'renderStrategyAccounts' not in main_script.decode()
+    assert 'fetch("/api/strategy-accounts"' in script.decode()
+    assert 'finally' in script.decode()  # keep polling after a failed read
+
+
+def test_strategy_accounts_api_reads_only_the_existing_summary(monkeypatch):
+    expected = {'status': 'ok', 'accounts': [{'id': 'btc_ema_cross'}]}
+    monkeypatch.setattr(dashboard, '_strategy_accounts_state', lambda: expected)
+    monkeypatch.setattr(dashboard, 'build_snapshot', lambda: (_ for _ in ()).throw(AssertionError('full dashboard must not be collected')))
+    status, body, content_type = _request('/api/strategy-accounts')
+    assert status == 200
+    assert content_type == 'application/json'
+    assert json.loads(body) == expected

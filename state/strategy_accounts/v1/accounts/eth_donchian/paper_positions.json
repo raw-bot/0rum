@@ -1,0 +1,62 @@
+{
+  "balance_usd": 9998.075800739201,
+  "last_event_ts": 1789502046000,
+  "market_cursors": {
+    "ETH/USDT:1d": 1789344000000,
+    "ETH/USDT:1h": 1789495200000
+  },
+  "positions": {
+    "eth_donchian": {
+      "atr_risk": 199.65453583712022,
+      "entry_px": 2516.43,
+      "entry_reason": "close 2516 > 20-bar channel high 2514",
+      "execution_method": "observed_mark_v2",
+      "exit_policy": "donchian_signal",
+      "last_monitor_candle_ts": 1789495200000,
+      "monitor_timeframe": "1h",
+      "notional_usd": 2520.784203022489,
+      "opened_ts": "2026-09-12T00:04:41+00:00",
+      "pending_session_exit": false,
+      "position_id": "eth_donchian",
+      "qty": 1.001730309614211,
+      "reward_risk_ratio": null,
+      "risk_distance": 199.65453583712022,
+      "risk_pct": 0.02,
+      "risk_sizing_basis": "actual_stop",
+      "side": "long",
+      "sl_basis": "",
+      "stop_loss_price": null,
+      "strategy_id": "eth_donchian",
+      "symbol": "ETH/USDT",
+      "take_profit_price": null
+    },
+    "eth_donchian::t2": {
+      "atr_risk": 190.73206899997822,
+      "entry_px": 2525.93,
+      "entry_reason": "close 2526 > 20-bar channel high 2516",
+      "execution_method": "observed_mark_v2",
+      "exit_policy": "donchian_signal",
+      "last_monitor_candle_ts": 1789495200000,
+      "monitor_timeframe": "1h",
+      "notional_usd": 1327.614318576256,
+      "opened_ts": "2026-09-13T00:00:25+00:00",
+      "pending_session_exit": false,
+      "position_id": "eth_donchian::t2",
+      "qty": 0.5255942637271247,
+      "reward_risk_ratio": null,
+      "risk_distance": 190.73206899997822,
+      "risk_pct": 0.0100164984704668,
+      "risk_sizing_basis": "actual_stop",
+      "side": "long",
+      "sl_basis": "",
+      "stop_loss_price": null,
+      "strategy_id": "eth_donchian",
+      "symbol": "ETH/USDT",
+      "take_profit_price": null
+    }
+  },
+  "processed_candles": {
+    "eth_donchian": 1789344000000
+  },
+  "updated_at": "2026-09-15T19:54:15+00:00"
+}

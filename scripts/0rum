@@ -1,62 +1,27 @@
 #!/usr/bin/env bash
-# 0rum — one-switch control for the 0rum trading bot.
-#
-#   0rum start      start the trading engine (worker + watcher + bridge)
-#   0rum stop       stop the trading engine (dashboard keeps running)
-#   0rum restart    stop then start the engine
-#   0rum status     show dashboard + engine + TradingView state
-#   0rum logs       follow the engine log (Ctrl-C to quit)
-#   0rum dash       open the dashboard in the browser
-#   0rum dash-up    install + start the always-on dashboard (launchd)
-#   0rum dash-down  stop the always-on dashboard (launchd)
-#
-# The dashboard is meant to run always-on under launchd (0rum dash-up once).
-# The engine runs only while you want to trade — toggled here or from the
-# dashboard's Start/Stop button. Both share state/worker.pid, so they agree.
+# 0rum — dashboard controls and operational paper status.
+# start/stop/restart belonged to the retired mono-asset worker and are refused.
+# Current service ownership and explicit commands: docs/OPERATING-MODES.md.
 
 set -u
 
+case "${1:-status}" in
+  start|stop|restart)
+    printf '%s\n' 'Legacy mono-asset controls retired. Use the documented com.0rum.paper service controls; no service was changed.' >&2
+    exit 64
+    ;;
+esac
+
+
 PROJECT="/Applications/0rum/.sandbox/0rum-one-shot-home/0rum-trading"
 PY="$PROJECT/.venv/bin/python3"
-PIDFILE="$PROJECT/state/worker.pid"
-ENGINE_LOG="$PROJECT/state/run_engine.out"
+ENGINE_LOG="$PROJECT/state/paper.out"
 DASH_URL="http://127.0.0.1:8787"
 LABEL="com.0rum.dashboard"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 DOMAIN="gui/$(id -u)"
 
 c_g=$'\033[32m'; c_r=$'\033[31m'; c_y=$'\033[33m'; c_d=$'\033[2m'; c_0=$'\033[0m'
-
-engine_pid() { [ -f "$PIDFILE" ] && cat "$PIDFILE" 2>/dev/null; }
-engine_alive() { local p; p=$(engine_pid); [ -n "$p" ] && kill -0 "$p" 2>/dev/null; }
-
-engine_start() {
-  if engine_alive; then echo "${c_y}engine already running${c_0} (pid $(engine_pid))"; return 0; fi
-  "$PY" - "$PROJECT" <<'PY'
-import os, sys, subprocess, pathlib
-root = pathlib.Path(sys.argv[1])
-log = open(root/"state"/"run_engine.out", "a")
-env = {**os.environ, "AK_MACD_LIVE": "1"}
-env["PATH"] = os.path.expanduser("~/.local/bin")+":/opt/homebrew/bin:/usr/local/bin:"+env.get("PATH","/usr/bin:/bin")
-p = subprocess.Popen(["/bin/bash", str(root/"scripts"/"run_engine.sh")],
-                     cwd=root, stdout=log, stderr=log, env=env, start_new_session=True)
-(root/"state"/"worker.pid").write_text(str(p.pid))
-print(p.pid)
-PY
-  sleep 2
-  if engine_alive; then echo "${c_g}● engine started${c_0} (pid $(engine_pid)) — live paper"; else
-    echo "${c_r}✗ engine failed to start${c_0} — see: 0rum logs"; return 1; fi
-}
-
-engine_stop() {
-  local p; p=$(engine_pid)
-  if [ -z "$p" ] || ! kill -0 "$p" 2>/dev/null; then rm -f "$PIDFILE"; echo "engine was not running"; return 0; fi
-  # kill the whole engine session (worker + watcher + bridge), never the dashboard
-  kill -TERM -- "-$(ps -o pgid= -p "$p" | tr -d ' ')" 2>/dev/null || kill -TERM "$p" 2>/dev/null
-  sleep 1; pkill -f "scripts/run_engine.sh" 2>/dev/null
-  rm -f "$PIDFILE"
-  echo "${c_r}○ engine stopped${c_0}"
-}
 
 dash_running() { curl -fsS -m 2 "$DASH_URL/api/state" >/dev/null 2>&1; }
 
@@ -78,23 +43,26 @@ status() {
     else echo "dashboard   ${c_y}● loaded, starting…${c_0} → $DASH_URL"; fi
   else echo "dashboard   ${c_r}○ off${c_0}  (0rum dash-up)"; fi
 
-  if engine_alive; then echo "engine      ${c_g}● running${c_0} (pid $(engine_pid)) — live paper"
-  else echo "engine      ${c_r}○ stopped${c_0}  (0rum start)"; fi
-
-  local n; n=$(pgrep -f "external.bridge" 2>/dev/null | wc -l | tr -d ' ')
-  echo "  bridge    $([ "$n" -gt 0 ] && echo "${c_g}● $n${c_0}" || echo "${c_r}○ 0${c_0}")  worker $(pgrep -f orum.run >/dev/null && echo "${c_g}●${c_0}" || echo "${c_r}○${c_0}")  watcher $(pgrep -f orum_watch >/dev/null && echo "${c_g}●${c_0}" || echo "${c_r}○${c_0}")"
-  if pgrep -f "TradingView.app/Contents/MacOS" >/dev/null 2>&1; then echo "tradingview ${c_g}● open${c_0} (bridge can read AK MACD 15m)"
-  else echo "tradingview ${c_r}○ closed${c_0} — engine will get NO signals"; fi
+  "$PY" - "$PROJECT/state/paper_runtime_status.json" <<'PY_STATUS'
+import json, sys
+from pathlib import Path
+path = Path(sys.argv[1])
+try:
+    state = json.loads(path.read_text())
+except (OSError, ValueError) as exc:
+    print(f"paper       status unavailable: {exc}")
+else:
+    print(f"paper       {state.get('status', 'unknown')} — {state.get('execution_method', 'unknown')}")
+    print(f"last cycle  {state.get('ts', 'unknown')} (inspect freshness before claiming it is running)")
+print("service     com.0rum.paper; legacy mono-asset engine retired")
+PY_STATUS
 }
 
 case "${1:-status}" in
-  start)      dash_running || dash_up >/dev/null 2>&1; engine_start ;;
-  stop)       engine_stop ;;
-  restart)    engine_stop; sleep 1; engine_start ;;
   status|st)  status ;;
-  logs|log)   echo "${c_d}tail -f $ENGINE_LOG (Ctrl-C to quit)${c_0}"; touch "$ENGINE_LOG"; tail -n 30 -f "$ENGINE_LOG" ;;
+  logs|log)   echo "${c_d}tail -f $ENGINE_LOG (Ctrl-C to quit)${c_0}"; tail -n 30 -f "$ENGINE_LOG" ;;
   dash|open)  open "$DASH_URL" ;;
   dash-up|up) dash_up ;;
   dash-down|down) dash_down ;;
-  *) echo "usage: 0rum {start|stop|restart|status|logs|dash|dash-up|dash-down}"; exit 1 ;;
+  *) echo "usage: 0rum {status|logs|dash|dash-up|dash-down}"; exit 1 ;;
 esac

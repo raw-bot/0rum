@@ -88,10 +88,10 @@ class PortfolioRiskCardTests(unittest.TestCase):
         self.assertEqual(by_id["btc_utbot_m15_h1"]["risk_pct"], 0.005)  # intact
         self.assertEqual(by_id["btc_ak_macd_4h"]["reward_risk_ratio"], 1.5)  # intact
 
-    def test_set_strategy_risk_clamps_and_snaps(self):
-        self.assertEqual(dashboard.set_strategy_risk("btc_ak_macd_4h", 0.5)["risk_pct"], 0.02)
-        self.assertEqual(dashboard.set_strategy_risk("btc_ak_macd_4h", 0.0001)["risk_pct"], 0.005)
-        self.assertEqual(dashboard.set_strategy_risk("btc_ak_macd_4h", 0.0117)["risk_pct"], 0.0125)
+    def test_set_strategy_risk_rejects_out_of_bounds_and_off_step(self):
+        for risk in (.5, .0001, .0117):
+            with self.assertRaises(ValueError):
+                dashboard.set_strategy_risk("btc_ak_macd_4h", risk)
 
     def test_set_strategy_reward_edits_bracket_strategy_only(self):
         result = dashboard.set_strategy_reward("btc_ak_macd_4h", 2.0)
